@@ -20,7 +20,7 @@ keep building with Claude Code.
 | Upstream API verified against `microduck@344925c` (0.14.1) → `docs/upstream-notes.md` | done |
 | `sim` backend: JSON-RPC/NDJSON over duck-sim's Unix sockets, `robot.subscribe` state stream, `tof.stream`, `robot.do`/`robot.sound`, contract tests green against the real daemons and against a protocol double in CI | done |
 | `sim/up.sh` wraps upstream `scripts/duck-sim` (no compose upstream, ADR-0002); `sim` is the default backend, the runtime reconnects on its own | done |
-| Live panel shows the simulated duck's state (steht / läuft / umgefallen, position, battery); camera needs `gstreamer` + `mediad` and is pending | partial |
+| Live panel shows the simulated duck's state (steht / läuft / umgefallen, position, battery) and its camera at 2 fps (`mediad` `GET /frame`, PNG) | done |
 | Executor + follow-me in sim (M2), editing in the Studio (M3), real duck (M4) | next |
 
 Roadmap and rules live in [`CLAUDE.md`](CLAUDE.md); decisions in [`docs/adr/`](docs/adr/).
@@ -30,7 +30,8 @@ Roadmap and rules live in [`CLAUDE.md`](CLAUDE.md); decisions in [`docs/adr/`](d
 ```bash
 # simulation: pinned upstream checkouts, MuJoCo body, the real daemons (needs cargo + uv)
 ./sim/fetch-upstream.sh
-DUCK_SIM_CAMERAS= ./sim/up.sh          # headless, no camera; drop DUCK_SIM_CAMERAS= once gstreamer is installed
+brew install gstreamer libnice-gstreamer   # macOS only, for the simulated camera (mediad)
+./sim/up.sh                                # headless, camera on duck-a; DUCK_SIM_CAMERAS= for a blind duck
 ```
 
 ```bash

@@ -105,8 +105,10 @@ body { margin: 0; }
 }
 .behavior-tabs button.active { border-color: var(--accent); background: #fdf6e7; color: var(--accent-ink); }
 
+/* The head camera is mounted a quarter turn off: frames arrive portrait (360x640). Show the
+   whole frame letterboxed rather than cropping the floor away. */
 .live .camera { width: 100%; aspect-ratio: 4 / 3; background: #222; border-radius: 8px; overflow: hidden; display: grid; place-items: center; color: #aaa; font-size: 13px; }
-.live .camera img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.live .camera img { width: 100%; height: 100%; object-fit: contain; }
 .live .meta { display: flex; gap: 12px; margin: 10px 0; font-size: 13px; color: var(--muted); }
 .stop {
   width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border: 0; border-radius: var(--radius);

@@ -190,6 +190,17 @@ Not present as methods: `robot.walk`, `robot.velocity`, `robot.sit`, `robot.stan
   0.1 m/s walk through our backend **and** under upstream's own `duck-sim drive 0.1 0` for
   8 s (bare-floor scene, 1.01× realtime). Whether alpha_walking walks in place at 0.1 m/s or
   odometry lags is unverified and belongs to M2 (follow-me needs real progress).
+- **Simulated camera observed live** (macOS, gstreamer 1.28.7 via Homebrew, duck-sim
+  0.14.1 with `DUCK_SIM_CAMERAS=a`): `mediad --sim-camera 127.0.0.1:7901` comes up, logs
+  "capture rate fps=32 target=30", registers itself as WebRTC producer on `:8443` with
+  `simulated: true`; `GET :8080/frame` returns `image/png`, **360×640 portrait** (~64 KB),
+  `Cache-Control: no-store`. Our backend's `frame()` returns exactly those bytes; the API
+  sniffs the PNG signature for the content type. 2 fps polling from the Studio is fine.
+- **`sit_toggle` is not instant.** Running our contract suite against duck-sim left the duck
+  sitting: `sit` then `stand` within a second — `robot.policies.sitting` was still `false`
+  while the scripted sit was in progress (`policy == "sitstand"`), so our "already standing"
+  guard skipped the second toggle. For M2 the executor must treat `sitstand` as "in
+  transition" and wait before deciding; the backend guard alone is not enough.
 - Python 3.12's `asyncio.Server.wait_closed()` waits for accepted connections; anything
   faking a daemon must close them first (bit us in tests, not upstream).
 

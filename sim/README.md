@@ -13,9 +13,16 @@ against a MuJoCo body from `microduck_rl`. Nothing here is ours except two shell
 ```
 
 Requirements: `cargo` (Rust ≥ 1.89, e.g. `brew install rust`), `uv`, Python 3.12 (uv fetches
-it), and for the camera off Linux `brew install gstreamer libnice-gstreamer`. Without the
-camera set `DUCK_SIM_CAMERAS=` (empty) and the duck runs blind: `frame()` then raises
-`NoCamera` and the Live panel shows "Kein Bild".
+it), and for the camera off Linux `brew install gstreamer libnice-gstreamer` (duck-sim checks
+for the elements `nice`, `webrtcsink`, `x264enc` and builds `mediad --features gstreamer`
+itself; that build takes a few minutes once). Without the camera set `DUCK_SIM_CAMERAS=`
+(empty) and the duck runs blind: `frame()` then raises `NoCamera` and the Live panel shows
+"Diese Ente hat gerade keine Kamera".
+
+Verified on macOS with duck-sim 0.14.1: `GET http://127.0.0.1:8080/frame` answers a 360×640
+PNG (portrait: the head camera is mounted a quarter turn off, like the real one), `mediad`
+captures the rendered 640×360 UYVY at ~30 fps. First build of the daemons ≈ 5 min, `mediad`
+with gstreamer another few.
 
 Where things land (`DUCK_SIM_STATE`, default `~/.cache/duck-sim`):
 
