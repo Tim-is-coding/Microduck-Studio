@@ -1,0 +1,11 @@
+schema: duckstudio.skill/v0
+id: stand
+name: { de: Stehen, en: Stand }
+summary: { de: "Steht ruhig auf beiden Füßen.", en: "Stands still on both feet." }
+# Upstream: `robot.do {skill: sit_toggle}` when sitting (docs/upstream-notes.md). No standing
+# policy is loaded by default since set v5; velstand stands still at zero velocity.
+source: { kind: builtin, policy: sitstand, version: 5 }
+behavior: stand
+preconditions: [battery > 0.10]
+terminates_on: [fallen]
+rate_hz: 2

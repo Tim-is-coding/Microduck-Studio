@@ -1,0 +1,27 @@
+# Omnidirectional walking. Upstream verified 2026-09-19 (docs/upstream-notes.md,
+# microduck@344925c): intent `robot.move` {vx, vy, vyaw}, sent as a notification at 10 Hz
+# (deadman 500 ms). Upstream clamps NOTHING — the `params` bounds below are the only limits.
+# Default walk policy since policy set v5 is velstand.onnx (walking + fall recovery).
+schema: duckstudio.skill/v0
+id: walk
+name: { de: Gehen, en: Walk }
+summary:
+  de: "Läuft in eine Richtung, bis du sagst, wann Schluss ist."
+  en: "Walks in a direction until you say when to stop."
+source:
+  kind: builtin
+  policy: velstand
+  version: 5
+intent: robot.move
+params:
+  vx:   { type: float, min: -0.15, max: 0.15, unit: m/s }
+  vy:   { type: float, min: -0.10, max: 0.10, unit: m/s }
+  vyaw: { type: float, min: -1.0,  max: 1.0,  unit: rad/s }
+ui:
+  tempo:     { control: choice, options: [slow, easy, brisk], maps_to: vx, values: [0.05, 0.08, 0.12], default: easy }
+  direction: { control: select, options: [toward_person, straight, toward_target], default: straight }
+  distance:  { control: range, min: 30, max: 150, default: 60, step: 10, unit: cm }
+preconditions:  [standing, battery > 0.15]
+terminates_on:  [target_reached, tof_distance < 0.25, fallen, motor_hot, timeout]
+interrupts:     [fallen -> getup -> resume]
+rate_hz: 10

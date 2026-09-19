@@ -1,0 +1,474 @@
+{
+  "$defs": {
+    "AlwaysRule": {
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_-]*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Do",
+          "type": "array"
+        },
+        "on": {
+          "description": "A signal name, optionally compared to a number: 'battery > 0.15'.",
+          "pattern": "^[a-z][a-z0-9_.]*(\\s*(<=|>=|==|!=|<|>)\\s*-?\\d+(\\.\\d+)?)?$",
+          "title": "On",
+          "type": "string"
+        }
+      },
+      "required": [
+        "on",
+        "do"
+      ],
+      "title": "AlwaysRule",
+      "type": "object"
+    },
+    "ElapsedCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "elapsed": {
+          "description": "Duration such as '5s' or '10m'.",
+          "pattern": "^\\d+(\\.\\d+)?(ms|s|m|h)$",
+          "title": "Elapsed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "elapsed"
+      ],
+      "title": "ElapsedCondition",
+      "type": "object"
+    },
+    "ManualTrigger": {
+      "additionalProperties": false,
+      "description": "Started from the Studio (\"Start\" button). Also what the speech button simulates in v1.",
+      "properties": {
+        "kind": {
+          "const": "manual",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "ManualTrigger",
+      "type": "object"
+    },
+    "OnNone": {
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Do",
+          "type": "string"
+        },
+        "seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 600,
+          "title": "Seconds",
+          "type": "number"
+        },
+        "then": {
+          "default": "retry",
+          "enum": [
+            "retry",
+            "abort",
+            "continue"
+          ],
+          "title": "Then",
+          "type": "string"
+        }
+      },
+      "required": [
+        "do",
+        "seconds"
+      ],
+      "title": "OnNone",
+      "type": "object"
+    },
+    "PerceiveStep": {
+      "additionalProperties": false,
+      "properties": {
+        "on_none": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OnNone"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "perceive": {
+          "description": "Perception query, e.g. person.nearest",
+          "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+          "title": "Perceive",
+          "type": "string"
+        }
+      },
+      "required": [
+        "perceive"
+      ],
+      "title": "PerceiveStep",
+      "type": "object"
+    },
+    "Phrases": {
+      "additionalProperties": false,
+      "description": "Localized list of phrases, e.g. trigger words.",
+      "properties": {
+        "de": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "De",
+          "type": "array"
+        },
+        "en": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "En"
+        }
+      },
+      "required": [
+        "de"
+      ],
+      "title": "Phrases",
+      "type": "object"
+    },
+    "SignalCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "signal": {
+          "description": "A signal name, optionally compared to a number: 'battery > 0.15'.",
+          "pattern": "^[a-z][a-z0-9_.]*(\\s*(<=|>=|==|!=|<|>)\\s*-?\\d+(\\.\\d+)?)?$",
+          "title": "Signal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "signal"
+      ],
+      "title": "SignalCondition",
+      "type": "object"
+    },
+    "SkillStep": {
+      "additionalProperties": false,
+      "properties": {
+        "skill": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Skill",
+          "type": "string"
+        },
+        "until": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Until"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "with": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "title": "With",
+          "type": "object"
+        }
+      },
+      "required": [
+        "skill"
+      ],
+      "title": "SkillStep",
+      "type": "object"
+    },
+    "SpeechCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "speech": {
+          "$ref": "#/$defs/Phrases"
+        }
+      },
+      "required": [
+        "speech"
+      ],
+      "title": "SpeechCondition",
+      "type": "object"
+    },
+    "SpeechTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "speech",
+          "title": "Kind",
+          "type": "string"
+        },
+        "phrases": {
+          "$ref": "#/$defs/Phrases"
+        }
+      },
+      "required": [
+        "kind",
+        "phrases"
+      ],
+      "title": "SpeechTrigger",
+      "type": "object"
+    },
+    "Text": {
+      "additionalProperties": false,
+      "description": "Human-readable text. German first (CLAUDE.md §3.7); `en` optional until it lands.",
+      "properties": {
+        "de": {
+          "minLength": 1,
+          "title": "De",
+          "type": "string"
+        },
+        "en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "En"
+        }
+      },
+      "required": [
+        "de"
+      ],
+      "title": "Text",
+      "type": "object"
+    },
+    "Until": {
+      "additionalProperties": false,
+      "properties": {
+        "all": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SpeechCondition"
+                  },
+                  {
+                    "$ref": "#/$defs/ElapsedCondition"
+                  },
+                  {
+                    "$ref": "#/$defs/SignalCondition"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "All"
+        },
+        "any": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SpeechCondition"
+                  },
+                  {
+                    "$ref": "#/$defs/ElapsedCondition"
+                  },
+                  {
+                    "$ref": "#/$defs/SignalCondition"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Any"
+        }
+      },
+      "title": "Until",
+      "type": "object"
+    },
+    "VlmOptIn": {
+      "additionalProperties": false,
+      "description": "Opt-in per behavior (§7). The Studio shows \"Bild wird an <provider> gesendet\".",
+      "properties": {
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "purpose": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Text"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "provider"
+      ],
+      "title": "VlmOptIn",
+      "type": "object"
+    },
+    "WaitStep": {
+      "additionalProperties": false,
+      "properties": {
+        "wait": {
+          "description": "Duration such as '5s' or '10m'.",
+          "pattern": "^\\d+(\\.\\d+)?(ms|s|m|h)$",
+          "title": "Wait",
+          "type": "string"
+        }
+      },
+      "required": [
+        "wait"
+      ],
+      "title": "WaitStep",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "always": {
+      "items": {
+        "$ref": "#/$defs/AlwaysRule"
+      },
+      "title": "Always",
+      "type": "array"
+    },
+    "id": {
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "$ref": "#/$defs/Text"
+    },
+    "schema": {
+      "const": "duckstudio.behavior/v0",
+      "title": "Schema",
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/PerceiveStep"
+          },
+          {
+            "$ref": "#/$defs/SkillStep"
+          },
+          {
+            "$ref": "#/$defs/WaitStep"
+          }
+        ]
+      },
+      "minItems": 1,
+      "title": "Steps",
+      "type": "array"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Text"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "trigger": {
+      "discriminator": {
+        "mapping": {
+          "manual": "#/$defs/ManualTrigger",
+          "speech": "#/$defs/SpeechTrigger"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/SpeechTrigger"
+        },
+        {
+          "$ref": "#/$defs/ManualTrigger"
+        }
+      ],
+      "title": "Trigger"
+    },
+    "vlm": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VlmOptIn"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "schema",
+    "id",
+    "name",
+    "trigger",
+    "steps"
+  ],
+  "title": "BehaviorPack",
+  "type": "object"
+}

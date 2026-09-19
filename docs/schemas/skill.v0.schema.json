@@ -1,0 +1,521 @@
+{
+  "$defs": {
+    "ChoiceControl": {
+      "additionalProperties": false,
+      "description": "A few named options (slow/easy/brisk) that map onto numeric param values.",
+      "properties": {
+        "control": {
+          "const": "choice",
+          "title": "Control",
+          "type": "string"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default"
+        },
+        "maps_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maps To"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Options",
+          "type": "array"
+        },
+        "values": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Values"
+        }
+      },
+      "required": [
+        "control",
+        "options"
+      ],
+      "title": "ChoiceControl",
+      "type": "object"
+    },
+    "ParamSpec": {
+      "additionalProperties": false,
+      "description": "A runtime parameter of the underlying intent; `min`/`max` are the clamp bounds.",
+      "properties": {
+        "default": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default"
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max"
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min"
+        },
+        "type": {
+          "default": "float",
+          "enum": [
+            "float",
+            "int",
+            "bool",
+            "string"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "title": "ParamSpec",
+      "type": "object"
+    },
+    "RangeControl": {
+      "additionalProperties": false,
+      "properties": {
+        "control": {
+          "const": "range",
+          "title": "Control",
+          "type": "string"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default"
+        },
+        "maps_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maps To"
+        },
+        "max": {
+          "title": "Max",
+          "type": "number"
+        },
+        "min": {
+          "title": "Min",
+          "type": "number"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Step"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "control",
+        "min",
+        "max"
+      ],
+      "title": "RangeControl",
+      "type": "object"
+    },
+    "SelectControl": {
+      "additionalProperties": false,
+      "description": "Symbolic options interpreted by the executor (toward_person, straight, ...).",
+      "properties": {
+        "control": {
+          "const": "select",
+          "title": "Control",
+          "type": "string"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Options",
+          "type": "array"
+        }
+      },
+      "required": [
+        "control",
+        "options"
+      ],
+      "title": "SelectControl",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "File"
+        },
+        "kind": {
+          "enum": [
+            "builtin",
+            "hub"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "policy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Policy"
+        },
+        "repo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repo"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Source",
+      "type": "object"
+    },
+    "Text": {
+      "additionalProperties": false,
+      "description": "Human-readable text. German first (CLAUDE.md §3.7); `en` optional until it lands.",
+      "properties": {
+        "de": {
+          "minLength": 1,
+          "title": "De",
+          "type": "string"
+        },
+        "en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "En"
+        }
+      },
+      "required": [
+        "de"
+      ],
+      "title": "Text",
+      "type": "object"
+    },
+    "ToggleControl": {
+      "additionalProperties": false,
+      "properties": {
+        "control": {
+          "const": "toggle",
+          "title": "Control",
+          "type": "string"
+        },
+        "default": {
+          "default": false,
+          "title": "Default",
+          "type": "boolean"
+        },
+        "maps_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maps To"
+        }
+      },
+      "required": [
+        "control"
+      ],
+      "title": "ToggleControl",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "behavior": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Named upstream behavior (sit, stand, getup, ...). Exclusive with `intent`.",
+      "title": "Behavior"
+    },
+    "id": {
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "intent": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "JSON-RPC intent on robotd, e.g. robot.move. Exclusive with `behavior`.",
+      "title": "Intent"
+    },
+    "interrupts": {
+      "items": {
+        "description": "Signal followed by actions: 'fallen -> getup -> resume'.",
+        "pattern": "^[a-z][a-z0-9_.]*(\\s*->\\s*[a-z][a-z0-9_-]*)+$",
+        "type": "string"
+      },
+      "title": "Interrupts",
+      "type": "array"
+    },
+    "name": {
+      "$ref": "#/$defs/Text"
+    },
+    "params": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ParamSpec"
+      },
+      "title": "Params",
+      "type": "object"
+    },
+    "preconditions": {
+      "items": {
+        "description": "A signal name, optionally compared to a number: 'battery > 0.15'.",
+        "pattern": "^[a-z][a-z0-9_.]*(\\s*(<=|>=|==|!=|<|>)\\s*-?\\d+(\\.\\d+)?)?$",
+        "type": "string"
+      },
+      "title": "Preconditions",
+      "type": "array"
+    },
+    "rate_hz": {
+      "default": 10,
+      "maximum": 50,
+      "minimum": 1,
+      "title": "Rate Hz",
+      "type": "integer"
+    },
+    "schema": {
+      "const": "duckstudio.skill/v0",
+      "title": "Schema",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/Source"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Text"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "terminates_on": {
+      "items": {
+        "description": "A signal name, optionally compared to a number: 'battery > 0.15'.",
+        "pattern": "^[a-z][a-z0-9_.]*(\\s*(<=|>=|==|!=|<|>)\\s*-?\\d+(\\.\\d+)?)?$",
+        "type": "string"
+      },
+      "title": "Terminates On",
+      "type": "array"
+    },
+    "ui": {
+      "additionalProperties": {
+        "discriminator": {
+          "mapping": {
+            "choice": "#/$defs/ChoiceControl",
+            "range": "#/$defs/RangeControl",
+            "select": "#/$defs/SelectControl",
+            "toggle": "#/$defs/ToggleControl"
+          },
+          "propertyName": "control"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/ChoiceControl"
+          },
+          {
+            "$ref": "#/$defs/SelectControl"
+          },
+          {
+            "$ref": "#/$defs/RangeControl"
+          },
+          {
+            "$ref": "#/$defs/ToggleControl"
+          }
+        ]
+      },
+      "title": "Ui",
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema",
+    "id",
+    "name",
+    "source"
+  ],
+  "title": "SkillManifest",
+  "type": "object"
+}

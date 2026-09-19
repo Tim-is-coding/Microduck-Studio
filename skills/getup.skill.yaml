@@ -1,0 +1,13 @@
+# Fall recovery. Used by `always: on fallen` rules; the executor calls it without a battery
+# gate above the global floor because staying on the ground is the worse outcome.
+schema: duckstudio.skill/v0
+id: getup
+name: { de: Aufstehen, en: Get up }
+summary: { de: "Steht nach einem Sturz wieder auf.", en: "Gets back up after a fall." }
+# Upstream has NO get-up skill: velstand.onnx recovers from falls itself once enabled
+# (`robot.enable {on: true}`); a community episodic policy exists (QingMuLYL/microduck-standup).
+source: { kind: builtin, policy: velstand, version: 5 }
+behavior: getup
+preconditions: [fallen]
+terminates_on: [standing, timeout]
+rate_hz: 2

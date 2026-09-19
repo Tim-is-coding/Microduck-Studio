@@ -1,0 +1,11 @@
+schema: duckstudio.skill/v0
+id: kick
+name: { de: Kicken, en: Kick }
+summary: { de: "Kickt einen Ball vor den Füßen.", en: "Kicks a ball in front of the feet." }
+# Upstream: `robot.do {skill: kick_right}` (ball_kick_right.onnx, 0.5 s); kick_left exists too.
+source: { kind: builtin, policy: kick_right, version: 5 }
+behavior: kick
+preconditions: [standing, battery > 0.20]
+terminates_on: [timeout, fallen]
+interrupts: [fallen -> getup -> abort]
+rate_hz: 2

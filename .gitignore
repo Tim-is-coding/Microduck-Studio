@@ -1,0 +1,25 @@
+# Python / uv
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# Node / pnpm
+node_modules/
+studio/dist/
+studio/coverage/
+*.tsbuildinfo
+
+# Upstream checkout (pinned, never vendored)
+sim/upstream/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

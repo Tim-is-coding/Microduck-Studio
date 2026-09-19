@@ -1,0 +1,10 @@
+schema: duckstudio.skill/v0
+id: sit
+name: { de: Hinsetzen, en: Sit down }
+summary: { de: "Setzt sich hin und wartet.", en: "Sits down and waits." }
+# Upstream: `robot.do {skill: sit_toggle}`; check `robot.policies.sitting` first.
+source: { kind: builtin, policy: sitstand, version: 5 }
+behavior: sit
+preconditions: [standing, battery > 0.05]
+terminates_on: [sitting, fallen]
+rate_hz: 2

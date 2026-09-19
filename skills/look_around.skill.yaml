@@ -1,0 +1,22 @@
+# Head sweep while searching for a person. Upstream verified 2026-09-19: `robot.look`
+# {x, y, z} in metres, trunk frame (x forward, y left, z up; floor ≈ 0.12 m below origin),
+# answered with the head pose it chose. The executor generates the sweep targets.
+schema: duckstudio.skill/v0
+id: look_around
+name: { de: Umschauen, en: Look around }
+summary:
+  de: "Dreht den Kopf langsam hin und her und sucht die Umgebung ab."
+  en: "Slowly sweeps the head from side to side."
+source:
+  kind: builtin
+  policy: velstand
+intent: robot.look
+params:
+  x: { type: float, min: 0.2,  max: 3.0, unit: m }
+  y: { type: float, min: -2.0, max: 2.0, unit: m }
+  z: { type: float, min: -0.3, max: 0.5, unit: m }
+ui:
+  pattern: { control: select, options: [sweep, left, right], default: sweep }
+preconditions:  [battery > 0.10]
+terminates_on:  [person_found, timeout, fallen]
+rate_hz: 5

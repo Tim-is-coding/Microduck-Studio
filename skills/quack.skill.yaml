@@ -1,0 +1,11 @@
+schema: duckstudio.skill/v0
+id: quack
+name: { de: Quaken, en: Quack }
+summary: { de: "Quakt einmal kurz. Die Ente spricht nicht.", en: "One short quack." }
+# Upstream: `robot.sound {tag: chirp}` (what `robotctl quack` plays). Not a policy.
+source: { kind: builtin, policy: sounds }
+behavior: quack
+ui:
+  style: { control: choice, options: [short, double], default: short }
+terminates_on: [timeout]
+rate_hz: 1

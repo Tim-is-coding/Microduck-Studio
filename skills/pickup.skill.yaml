@@ -1,0 +1,13 @@
+schema: duckstudio.skill/v0
+id: pickup
+name: { de: Aufheben, en: Pick up }
+summary:
+  de: "Hebt einen kleinen Gegenstand vor dem Schnabel auf (bis 800 g)."
+  en: "Picks up a small object in front of the beak (up to 800 g)."
+# Upstream: `robot.do {skill: ground_pick}` (alpha_ground_pick.onnx, episodic, 2.8 s).
+source: { kind: builtin, policy: ground_pick, version: 5 }
+behavior: pickup
+preconditions: [standing, battery > 0.20]
+terminates_on: [object_grasped, timeout, fallen]
+interrupts: [fallen -> getup -> abort]
+rate_hz: 2
