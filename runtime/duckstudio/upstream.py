@@ -203,10 +203,28 @@ SIM_SOCKETS = {  # `{duck}` is duck-a, duck-b, ... (DUCK_SIM_DUCKS)
 }
 SIM_CONSOLE_URL = "http://127.0.0.1:8080"  # mediad console of duck-a; 8080 + index for others
 
-# `robot.state.policy` labels seen in robotd/src/{control,main}.rs @344925c.
+# `robot.state.policy` labels seen in robotd/src/{control,main}.rs @344925c and live on duck-sim.
+# Skill labels (kick_left, roulade, ...) appear while a one-shot runs.
 POLICY_LABELS = frozenset(
-    {"walk", "stand", "sitstand", "sit", "ground_pick", "held", "homing", "limp_fall", "limp_pose"}
+    {
+        "walk",
+        "stand",
+        "sitstand",
+        "sit",
+        "rise",
+        "ground_pick",
+        "roulade",
+        "kick_left",
+        "kick_right",
+        "held",
+        "homing",
+        "limp_fall",
+        "limp_pose",
+    }
 )
+# Labels during which the duck is neither standing nor fallen: mid-transition. `sit` is the
+# held sit, `rise` the way back up (observed live), `sitstand` the scripted move between.
+TRANSITION_LABELS = frozenset({"sitstand", "rise", "homing"})
 
 # Real duck socket paths (duck-ipc-proto/src/lib.rs:393–422) and ports (architecture.md:80–89).
 DUCK_SOCKETS = {

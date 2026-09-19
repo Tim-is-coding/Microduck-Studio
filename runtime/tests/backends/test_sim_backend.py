@@ -166,6 +166,25 @@ def test_upright_gravity_is_zero_roll_and_pitch() -> None:
     assert s.imu.roll == pytest.approx(0.0) and s.imu.pitch == pytest.approx(0.0)
 
 
+@pytest.mark.parametrize(
+    ("label", "standing", "sitting"),
+    [
+        ("stand", True, False),
+        ("walk", True, False),
+        ("sit", False, True),
+        ("rise", False, False),
+        ("sitstand", False, False),
+        ("homing", False, False),
+        ("held", True, False),
+    ],
+)
+def test_policy_label_to_flags(label: str, standing: bool, sitting: bool) -> None:
+    s = state_from_upstream(
+        {"joints": [0.0] * 15, "policy": label, "safety": {"fallen": False, "limp": False}}
+    )
+    assert (s.flags.standing, s.flags.sitting) == (standing, sitting)
+
+
 def test_pure_mappings() -> None:
     h = health_from_upstream({"healthy": False, "degraded": True, "reason": "policy missing"})
     assert h.ok is False and h.warnings == ["battery_not_reported", "degraded", "policy missing"]

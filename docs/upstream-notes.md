@@ -160,10 +160,11 @@ Not present as methods: `robot.walk`, `robot.velocity`, `robot.sit`, `robot.stan
 ## Details read for the `sim` backend (2026-09-19, same revision)
 
 - `robot.state.policy` labels (`robotd/src/control.rs`, `robotd/src/main.rs:2822–2881`):
-  `walk`, `stand`, `sitstand`, `sit` (holding the sit), `ground_pick`, skill labels while a
-  one-shot runs, `held` (no policy driving), `homing`, `limp_fall`, `limp_pose`. Our
-  `Flags.sitting` is `policy == "sit"`; `standing` is "not fallen, not limp, not in
-  {sit, homing, limp_fall, limp_pose}".
+  `walk`, `stand`, `sitstand`, `sit` (holding the sit), `rise` (standing up from the sit,
+  seen live), `ground_pick`, skill labels while a one-shot runs (`kick_left`, `roulade`, ...),
+  `held` (no policy driving), `homing`, `limp_fall`, `limp_pose`. Our `Flags.sitting` is
+  `policy == "sit"`; `standing` is "not fallen, not limp, not in {sit, limp_fall, limp_pose}
+  and not mid-transition {sitstand, rise, homing}".
 - `RobotState.move` is `{requested[3], applied[3], limited_by[]}`; `safety` is
   `{fallen, limp, gravity[3], gain?}`; `odom` is `{position[3], yaw}`; `imu?` is
   `{gyro[3], quat[4]}`. Roll/pitch in our `Imu` are derived from `safety.gravity`; the sign

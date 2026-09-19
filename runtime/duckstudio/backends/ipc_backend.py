@@ -259,7 +259,7 @@ def health_from_upstream(raw: dict[str, Any]) -> Health:
     )
 
 
-NOT_STANDING_LABELS = frozenset({"sit", "homing", "limp_fall", "limp_pose"})
+NOT_STANDING_LABELS = frozenset({"sit", "limp_fall", "limp_pose"}) | upstream.TRANSITION_LABELS
 
 
 def state_from_upstream(raw: dict[str, Any]) -> RobotState:
