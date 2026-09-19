@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
+import os
+import tempfile
 from pathlib import Path
 
 from ..skills.registry import SkillRegistry
-from ..yamlio import load_yaml
+from ..yamlio import dump_yaml, load_yaml
 from .schema import RESERVED_ACTIONS, BehaviorPack, PerceiveStep, SkillStep
 
 
@@ -49,3 +52,38 @@ def validate_against_registry(pack: BehaviorPack, registry: SkillRegistry) -> li
             if action not in RESERVED_ACTIONS and action not in registry:
                 problems.append(f"always[{j}] ({rule.on}): unknown skill {action!r}")
     return problems
+
+
+def pack_to_yaml(pack: BehaviorPack) -> str:
+    """The pack as the Studio saves it: block style, defaults and empties left out."""
+    data = pack.model_dump(by_alias=True, mode="json", exclude_none=True, exclude_defaults=True)
+    return dump_yaml(data)
+
+
+def behavior_path(directory: Path, behavior_id: str) -> Path:
+    return Path(directory) / f"{behavior_id}.behavior.yaml"
+
+
+def save_behavior_pack(pack: BehaviorPack, directory: Path) -> Path:
+    """Write `<id>.behavior.yaml` atomically (temp file + rename) and return its path."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    target = behavior_path(directory, pack.id)
+    fd, tmp = tempfile.mkstemp(prefix=f".{pack.id}.", suffix=".yaml", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(pack_to_yaml(pack))
+        os.replace(tmp, target)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(tmp)
+        raise
+    return target
+
+
+def delete_behavior_pack(behavior_id: str, directory: Path) -> bool:
+    target = behavior_path(directory, behavior_id)
+    if not target.exists():
+        return False
+    target.unlink()
+    return True

@@ -40,3 +40,35 @@ def load_yaml(path: Path) -> Any:
 
 def load_yaml_str(text: str) -> Any:
     return yaml.load(text, Loader=Yaml12Loader)
+
+
+class Yaml12Dumper(yaml.SafeDumper):
+    """Writes what the loader reads: bare `on:` keys, block style, indented lists."""
+
+    def increase_indent(self, flow: bool = False, indentless: bool = False) -> None:
+        return super().increase_indent(flow, False)
+
+
+Yaml12Dumper.add_implicit_resolver(
+    "tag:yaml.org,2002:bool",
+    re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"),
+    list("tTfF"),
+)
+for first in "yYnNoOtTfF":
+    resolvers = Yaml12Dumper.yaml_implicit_resolvers.get(first, [])
+    Yaml12Dumper.yaml_implicit_resolvers[first] = [
+        (tag, regexp)
+        for tag, regexp in resolvers
+        if tag != "tag:yaml.org,2002:bool" or regexp.pattern.startswith("^(?:true|True|TRUE")
+    ]
+
+
+def dump_yaml(data: Any) -> str:
+    return yaml.dump(
+        data,
+        Dumper=Yaml12Dumper,
+        sort_keys=False,
+        allow_unicode=True,
+        default_flow_style=False,
+        width=100,
+    )

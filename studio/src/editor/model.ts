@@ -1,0 +1,196 @@
+/**
+ * Pure editing operations on a behavior pack draft. No React here, so the rules the editor
+ * enforces (ids, step shapes, condition forms) can be unit-tested.
+ */
+import type { BehaviorPack, SkillManifest, Step, StopCondition, Trigger } from "../schemas";
+
+export const BEHAVIOR_SCHEMA_ID = "duckstudio.behavior/v0";
+export const PERCEIVE_QUERIES = ["person.nearest"] as const;
+export const SIGNALS = ["fallen", "motor_hot", "battery", "tof_distance", "person_found", "target_reached", "standing", "sitting"] as const;
+export const AFTER_ACTIONS = ["resume", "abort", "stop"] as const;
+export const THEN_OPTIONS = ["retry", "abort", "continue"] as const;
+export const DURATION_UNITS = ["s", "m"] as const;
+
+const UMLAUTS: Record<string, string> = { ä: "ae", ö: "oe", ü: "ue", ß: "ss" };
+
+/** "Folge mir!" → "folge-mir"; ids must start with a letter and match ^[a-z][a-z0-9_-]*$. */
+export function slugify(name: string): string {
+  let s = name
+    .toLowerCase()
+    .replace(/[äöüß]/g, (c) => UMLAUTS[c] ?? c)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!/^[a-z]/.test(s)) s = `ablauf-${s}`.replace(/-$/, "");
+  return s.slice(0, 64);
+}
+
+export function newBehavior(name = "Neuer Ablauf"): BehaviorPack {
+  return {
+    schema: BEHAVIOR_SCHEMA_ID,
+    id: slugify(name),
+    name: { de: name },
+    trigger: { kind: "manual" },
+    steps: [],
+    always: [],
+  };
+}
+
+export function renameBehavior(pack: BehaviorPack, name: string, keepId: boolean): BehaviorPack {
+  return { ...pack, name: { ...pack.name, de: name }, id: keepId ? pack.id : slugify(name) };
+}
+
+/** Default `with` values for a skill card: every ui control that declares a default. */
+export function defaultWith(skill: SkillManifest): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {};
+  for (const [key, control] of Object.entries(skill.ui)) {
+    if (control.default !== undefined && control.default !== null) out[key] = control.default;
+  }
+  return out;
+}
+
+export function newSkillStep(skill: SkillManifest): Step {
+  return { skill: skill.id, with: defaultWith(skill) };
+}
+
+export function newPerceiveStep(): Step {
+  return { perceive: "person.nearest", on_none: { do: "look_around", seconds: 5, then: "retry" } };
+}
+
+export function newWaitStep(): Step {
+  return { wait: "2s" };
+}
+
+export function addStep(pack: BehaviorPack, step: Step, at?: number): BehaviorPack {
+  const steps = [...pack.steps];
+  steps.splice(at ?? steps.length, 0, step);
+  return { ...pack, steps };
+}
+
+export function removeStep(pack: BehaviorPack, index: number): BehaviorPack {
+  return { ...pack, steps: pack.steps.filter((_, i) => i !== index) };
+}
+
+export function moveStep(pack: BehaviorPack, index: number, delta: -1 | 1): BehaviorPack {
+  const target = index + delta;
+  if (target < 0 || target >= pack.steps.length) return pack;
+  const steps = [...pack.steps];
+  const [step] = steps.splice(index, 1);
+  steps.splice(target, 0, step!);
+  return { ...pack, steps };
+}
+
+export function replaceStep(pack: BehaviorPack, index: number, step: Step): BehaviorPack {
+  return { ...pack, steps: pack.steps.map((s, i) => (i === index ? step : s)) };
+}
+
+export function setTrigger(pack: BehaviorPack, trigger: Trigger): BehaviorPack {
+  return { ...pack, trigger };
+}
+
+export function speechTrigger(phrasesText: string): Trigger {
+  const de = splitPhrases(phrasesText);
+  return { kind: "speech", phrases: { de: de.length ? de : ["Los"] } };
+}
+
+export function splitPhrases(text: string): string[] {
+  return text
+    .split(/[,;\n]/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
+export function formatDurationInput(value: number, unit: (typeof DURATION_UNITS)[number]): string {
+  const n = Number.isFinite(value) && value > 0 ? value : 1;
+  return `${Number.isInteger(n) ? n : n.toFixed(1)}${unit}`;
+}
+
+export function parseDurationInput(text: string): { value: number; unit: (typeof DURATION_UNITS)[number] } {
+  const m = /^(\d+(?:\.\d+)?)(ms|s|m|h)$/.exec(text.trim());
+  if (!m) return { value: 2, unit: "s" };
+  const value = Number(m[1]);
+  switch (m[2]) {
+    case "ms":
+      return { value: Math.max(1, Math.round(value / 1000)), unit: "s" };
+    case "h":
+      return { value: value * 60, unit: "m" };
+    case "m":
+      return { value, unit: "m" };
+    default:
+      return { value, unit: "s" };
+  }
+}
+
+export type StopConditionKind = "speech" | "elapsed" | "signal";
+
+export function conditionKind(c: StopCondition): StopConditionKind {
+  if ("speech" in c) return "speech";
+  if ("elapsed" in c) return "elapsed";
+  return "signal";
+}
+
+export function newStopCondition(kind: StopConditionKind): StopCondition {
+  switch (kind) {
+    case "speech":
+      return { speech: { de: ["Stopp"] } };
+    case "elapsed":
+      return { elapsed: "1m" };
+    default:
+      return { signal: "tof_distance < 0.25" };
+  }
+}
+
+/** `until` in the editor always uses `any` (oder). */
+export function setUntil(step: Step, conditions: StopCondition[]): Step {
+  if (!("skill" in step)) return step;
+  const { until: _until, ...rest } = step;
+  return conditions.length ? { ...rest, until: { any: conditions } } : rest;
+}
+
+export function untilConditions(step: Step): StopCondition[] {
+  if (!("skill" in step) || !step.until) return [];
+  return step.until.any ?? step.until.all ?? [];
+}
+
+export function setAlwaysRule(pack: BehaviorPack, index: number, on: string, skill: string | null, after: string): BehaviorPack {
+  const rule = { on, do: skill ? [skill, after] : [after] };
+  const always = pack.always.map((r, i) => (i === index ? rule : r));
+  return { ...pack, always };
+}
+
+export function addAlwaysRule(pack: BehaviorPack): BehaviorPack {
+  return { ...pack, always: [...pack.always, { on: "fallen", do: ["getup", "resume"] }] };
+}
+
+export function removeAlwaysRule(pack: BehaviorPack, index: number): BehaviorPack {
+  return { ...pack, always: pack.always.filter((_, i) => i !== index) };
+}
+
+export function setVlm(pack: BehaviorPack, provider: string | null): BehaviorPack {
+  const { vlm: _vlm, ...rest } = pack;
+  return provider ? { ...rest, vlm: { provider } } : rest;
+}
+
+/** Strip nulls and empty defaults so the saved YAML stays as short as a hand-written one. */
+export function tidy(pack: BehaviorPack): BehaviorPack {
+  const out: BehaviorPack = {
+    schema: pack.schema,
+    id: pack.id,
+    name: pack.name.en ? pack.name : { de: pack.name.de },
+    trigger: pack.trigger,
+    steps: pack.steps.map((s) => {
+      if ("skill" in s) {
+        const step: Step = { skill: s.skill, with: s.with };
+        if (s.until) return { ...step, until: s.until };
+        return step;
+      }
+      if ("perceive" in s) return s.on_none ? { perceive: s.perceive, on_none: s.on_none } : { perceive: s.perceive };
+      return s;
+    }),
+    always: pack.always,
+  };
+  if (pack.summary?.de) out.summary = { de: pack.summary.de };
+  if (pack.vlm) out.vlm = pack.vlm;
+  return out;
+}

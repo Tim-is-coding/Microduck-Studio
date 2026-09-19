@@ -140,3 +140,36 @@ body { margin: 0; }
 .step.active .card { border-color: var(--accent); box-shadow: 0 0 0 2px #f6dfae; }
 .step.active .num { animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+
+/* editor */
+.behavior-tabs button.new { border-style: dashed; color: var(--muted); }
+.behavior-tabs button:disabled { opacity: 0.6; cursor: default; }
+.runbar .spacer { flex: 1; }
+.editor .card { margin-bottom: 10px; }
+.step.editing .card { padding-right: 96px; position: relative; }
+.card-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
+.card-actions button, .cond > button {
+  border: 1px solid var(--line); background: #fff; border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-size: 13px;
+}
+.card-actions button:disabled { opacity: 0.35; cursor: default; }
+.danger-text { color: var(--danger) !important; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.field.inline, .inline { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; flex-wrap: wrap; }
+.field-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); font-weight: 600; }
+.field input[type="text"], .field input:not([type]), .field select, .inline input, .inline select, .sayrow select {
+  padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; background: #fff;
+}
+.inline input[type="number"] { width: 72px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: #fff; padding: 6px 12px; cursor: pointer; font-size: 13px; border-right: 1px solid var(--line); }
+.seg button:last-child { border-right: 0; }
+.seg button.active { background: var(--accent); color: #fff; }
+.branch.editing { margin-top: 10px; }
+.cond { display: flex; align-items: center; gap: 8px; margin: 6px 0; flex-wrap: wrap; }
+.cond .or { font-size: 12px; color: var(--muted); text-transform: uppercase; }
+.add-menu { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 14px 38px; }
+.sub.empty { margin: 8px 0 8px 38px; }
+.card.vlm-on { border-color: #f3c7c4; }
+.yaml { margin-top: 12px; font-size: 13px; color: var(--muted); }
+.yaml pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 12px; overflow: auto; max-height: 320px; color: var(--ink); }

@@ -43,3 +43,11 @@ vlm: { provider: anthropic }                # optional opt-in, shown in the Stud
 The runtime reads YAML with 1.2 booleans (`duckstudio/yamlio.py`): `on`, `off`, `yes`, `no`
 stay strings, so `on: fallen` works as written. Only `true`/`false` are booleans. The
 Studio's `yaml` package behaves the same way.
+
+## Editing
+
+The Studio edits packs through the runtime (ADR-0003): `PUT /api/behaviors/{id}` saves,
+`DELETE` removes, `POST /api/behaviors/validate` returns the problem list while editing and
+`GET /api/behaviors/{id}/yaml` is the developer view. The runtime writes YAML the way it
+reads it (block style, bare `on:`, defaults omitted), so hand-written and saved files look
+alike. Card controls come from the skill manifests' `ui`; nothing in the editor knows YAML.

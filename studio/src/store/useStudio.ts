@@ -1,12 +1,14 @@
 import { create } from "zustand";
 
 import {
+  BehaviorPack,
   BehaviorPackFromApi,
   Event,
   ExecutorStatus,
   RobotState,
   RuntimeHealth,
   SkillManifest,
+  type BehaviorPack as PackT,
   type BehaviorPackFromApi as Pack,
   type Event as EventT,
   type ExecutorStatus as ExecutorStatusT,
@@ -15,6 +17,8 @@ import {
   type SkillManifest as Skill,
 } from "../schemas";
 import { z } from "zod";
+
+import { newBehavior, tidy } from "../editor/model";
 
 export type RuntimeStatus = "loading" | "online" | "offline";
 
@@ -27,12 +31,26 @@ interface StudioState {
   behaviors: Pack[];
   selectedBehaviorId: string | null;
   events: EventT[];
+  draft: PackT | null;
+  draftIsNew: boolean;
+  draftDirty: boolean;
+  draftProblems: string[];
+  saving: boolean;
+  yamlText: string | null;
   refreshHealth: () => Promise<void>;
   refreshState: () => Promise<void>;
   refreshExecutor: () => Promise<void>;
   run: (behaviorId: string) => Promise<void>;
   abortRun: () => Promise<void>;
   say: (text: string) => Promise<void>;
+  editBehavior: (id: string) => void;
+  newDraft: () => void;
+  updateDraft: (fn: (draft: PackT) => PackT) => void;
+  validateDraft: () => Promise<void>;
+  saveDraft: (thenRun: boolean) => Promise<boolean>;
+  discardDraft: () => void;
+  deleteBehavior: (id: string) => Promise<void>;
+  loadYaml: (id: string) => Promise<void>;
   loadCatalog: () => Promise<void>;
   select: (id: string) => void;
   stop: () => Promise<void>;
@@ -54,6 +72,12 @@ export const useStudio = create<StudioState>((set, get) => ({
   behaviors: [],
   selectedBehaviorId: null,
   events: [],
+  draft: null,
+  draftIsNew: false,
+  draftDirty: false,
+  draftProblems: [],
+  saving: false,
+  yamlText: null,
 
   async refreshHealth() {
     try {
@@ -108,6 +132,89 @@ export const useStudio = create<StudioState>((set, get) => ({
     }
   },
 
+  editBehavior(id) {
+    const pack = get().behaviors.find((b) => b.id === id);
+    if (!pack) return;
+    const { problems, ...rest } = pack;
+    set({ draft: structuredClone(rest), draftIsNew: false, draftDirty: false, draftProblems: problems });
+  },
+
+  newDraft() {
+    set({ draft: newBehavior(), draftIsNew: true, draftDirty: true, draftProblems: [], selectedBehaviorId: null });
+  },
+
+  updateDraft(fn) {
+    const draft = get().draft;
+    if (!draft) return;
+    set({ draft: fn(draft), draftDirty: true });
+  },
+
+  async validateDraft() {
+    const draft = get().draft;
+    if (!draft) return;
+    try {
+      const res = await fetch("/api/behaviors/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tidy(draft)),
+      });
+      if (res.ok) {
+        const body = (await res.json()) as { problems: string[] };
+        if (get().draft === draft) set({ draftProblems: body.problems });
+      }
+    } catch {
+      /* offline: keep the last result */
+    }
+  },
+
+  async saveDraft(thenRun) {
+    const draft = get().draft;
+    if (!draft) return false;
+    set({ saving: true });
+    try {
+      const res = await fetch(`/api/behaviors/${encodeURIComponent(draft.id)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tidy(draft)),
+      });
+      if (!res.ok) {
+        const detail = (await res.json().catch(() => ({}))) as { detail?: { problems?: string[] } | string };
+        const problems = typeof detail.detail === "object" && detail.detail?.problems ? detail.detail.problems : [String(detail.detail ?? res.statusText)];
+        set({ draftProblems: problems });
+        return false;
+      }
+      await get().loadCatalog();
+      set({ draft: null, draftDirty: false, draftIsNew: false, selectedBehaviorId: draft.id, yamlText: null });
+      if (thenRun) await get().run(draft.id);
+      return true;
+    } finally {
+      set({ saving: false });
+    }
+  },
+
+  discardDraft() {
+    set((s) => ({ draft: null, draftDirty: false, draftIsNew: false, selectedBehaviorId: s.selectedBehaviorId ?? s.behaviors[0]?.id ?? null }));
+  },
+
+  async deleteBehavior(id) {
+    const res = await fetch(`/api/behaviors/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!res.ok) {
+      console.error(await res.text());
+      return;
+    }
+    set({ draft: null, draftDirty: false, selectedBehaviorId: null });
+    await get().loadCatalog();
+  },
+
+  async loadYaml(id) {
+    try {
+      const res = await fetch(`/api/behaviors/${encodeURIComponent(id)}/yaml`);
+      set({ yamlText: res.ok ? await res.text() : null });
+    } catch {
+      set({ yamlText: null });
+    }
+  },
+
   async loadCatalog() {
     try {
       const [skills, behaviors] = await Promise.all([
@@ -117,7 +224,12 @@ export const useStudio = create<StudioState>((set, get) => ({
       set((s) => ({
         skills,
         behaviors,
-        selectedBehaviorId: s.selectedBehaviorId ?? behaviors[0]?.id ?? null,
+        selectedBehaviorId:
+          s.draft && s.draftIsNew
+            ? null
+            : behaviors.some((b) => b.id === s.selectedBehaviorId)
+              ? s.selectedBehaviorId
+              : (behaviors[0]?.id ?? null),
       }));
     } catch (err) {
       console.error(err);

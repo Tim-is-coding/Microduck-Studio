@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { BehaviorEditor } from "./editor/BehaviorEditor";
 import { StepList } from "./editor/StepList";
 import { t } from "./i18n";
 import { LivePanel } from "./live/LivePanel";
@@ -12,9 +13,23 @@ const STATE_INTERVAL_MS = 500;
 export function App() {
   const {
     runtime, health, state, executor, skills, behaviors, selectedBehaviorId, events,
+    draft, draftIsNew, draftDirty, draftProblems, saving, yamlText,
     refreshHealth, refreshState, refreshExecutor, loadCatalog, select, stop, run, abortRun, say,
+    editBehavior, newDraft, updateDraft, validateDraft, saveDraft, discardDraft, deleteBehavior, loadYaml,
   } = useStudio();
   const [phrase, setPhrase] = useState("");
+
+  // live validation while editing, debounced
+  useEffect(() => {
+    if (!draft) return;
+    const id = setTimeout(() => void validateDraft(), 300);
+    return () => clearTimeout(id);
+  }, [draft, validateDraft]);
+
+  // developer view for the selected (saved) behavior
+  useEffect(() => {
+    if (selectedBehaviorId && !draft) void loadYaml(selectedBehaviorId);
+  }, [selectedBehaviorId, draft, behaviors, loadYaml]);
 
   useEffect(() => {
     void refreshHealth();
@@ -33,7 +48,7 @@ export function App() {
   }, [refreshHealth, refreshState, refreshExecutor, loadCatalog]);
 
   const skillMap = useMemo(() => new Map(skills.map((s) => [s.id, s])), [skills]);
-  const selected = behaviors.find((b) => b.id === selectedBehaviorId) ?? null;
+  const selected = draft ? null : (behaviors.find((b) => b.id === selectedBehaviorId) ?? null);
   const connected = health?.connected ?? false;
   const running = executor?.state === "running";
   const runningSelected = running && executor?.behavior === selected?.id;
@@ -62,11 +77,37 @@ export function App() {
           <h2>{t("panel.editor")}</h2>
           <div className="behavior-tabs">
             {behaviors.map((b) => (
-              <button className={b.id === selectedBehaviorId ? "active" : ""} key={b.id} onClick={() => select(b.id)} type="button">
+              <button
+                className={b.id === selectedBehaviorId && !draft ? "active" : ""}
+                disabled={Boolean(draft)}
+                key={b.id}
+                onClick={() => select(b.id)}
+                type="button"
+              >
                 {b.name.de}
               </button>
             ))}
+            {draft && draftIsNew && <button className="active" type="button">{draft.name.de || t("editor.new")}</button>}
+            {!draft && <button className="new" onClick={newDraft} type="button">+ {t("editor.new")}</button>}
           </div>
+          {draft && (
+            <BehaviorEditor
+              connected={connected}
+              dirty={draftDirty}
+              draft={draft}
+              isNew={draftIsNew}
+              onChange={(pack) => updateDraft(() => pack)}
+              onDelete={() => {
+                if (window.confirm(t("editor.delete.confirm", { name: draft.name.de }))) void deleteBehavior(draft.id);
+              }}
+              onDiscard={discardDraft}
+              onSave={() => void saveDraft(false)}
+              onSaveAndRun={() => void saveDraft(true)}
+              problems={draftProblems}
+              saving={saving}
+              skills={skillMap}
+            />
+          )}
           {selected && (
             <div className="runbar">
               {runningSelected ? (
@@ -78,6 +119,8 @@ export function App() {
               )}
               <span className="runstate">{executorLabel(executor)}</span>
               {!connected && <span className="sub">{t("run.needs_connection")}</span>}
+              <span className="spacer" />
+              <button className="btn" disabled={running} onClick={() => editBehavior(selected.id)} type="button">✎ {t("editor.edit")}</button>
             </div>
           )}
           {selected && (
@@ -98,16 +141,21 @@ export function App() {
               </div>
             </form>
           )}
-          {selected ? (
-            <StepList
-              activeStep={runningSelected ? executor?.step_index ?? null : null}
-              behavior={selected}
-              interrupt={runningSelected ? executor?.interrupt ?? null : null}
-              skills={skillMap}
-            />
-          ) : (
-            <div className="sub">{t("editor.empty")}</div>
+          {selected && (
+            <>
+              <StepList
+                activeStep={runningSelected ? executor?.step_index ?? null : null}
+                behavior={selected}
+                interrupt={runningSelected ? executor?.interrupt ?? null : null}
+                skills={skillMap}
+              />
+              <details className="yaml">
+                <summary>{t("editor.yaml")}</summary>
+                <pre>{yamlText ?? "…"}</pre>
+              </details>
+            </>
           )}
+          {!selected && !draft && <div className="sub">{t("editor.empty")}</div>}
         </section>
         <LivePanel events={events} executor={executor} health={health} state={state} onStop={() => void stop()} />
       </main>

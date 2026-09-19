@@ -10,13 +10,20 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import Response
-from pydantic import BaseModel
+from fastapi.responses import PlainTextResponse, Response
+from pydantic import BaseModel, ValidationError
 
 from .. import __version__, behaviors_dir, skills_dir, upstream
 from ..backends import make_backend
 from ..backends.base import BackendError, DuckBackend, NoCamera
-from ..behaviors import load_behavior_packs, validate_against_registry
+from ..behaviors import (
+    BehaviorPack,
+    delete_behavior_pack,
+    load_behavior_packs,
+    pack_to_yaml,
+    save_behavior_pack,
+    validate_against_registry,
+)
 from ..events import EventBus
 from ..executor import Executor, ExecutorBusy
 from ..executor.safety import IntentGate
@@ -43,7 +50,8 @@ def create_app(
     auto_connect: bool = True,
 ) -> FastAPI:
     registry = SkillRegistry.load(skills_path or skills_dir())
-    packs = load_behavior_packs(behaviors_path or behaviors_dir())
+    behaviors_root = Path(behaviors_path or behaviors_dir())
+    packs = load_behavior_packs(behaviors_root)
     bus = EventBus()
     duck = backend or make_backend()
     gate = IntentGate(duck, bus=bus)
@@ -164,6 +172,67 @@ def create_app(
             raise HTTPException(404, f"unknown behavior {behavior_id!r}")
         return _pack_payload(pack, registry)
 
+    def parse_pack(body: dict[str, Any]) -> BehaviorPack:
+        try:
+            return BehaviorPack.model_validate(body)
+        except ValidationError as e:
+            raise HTTPException(422, {"problems": _format_validation_error(e)}) from e
+
+    @app.post("/api/behaviors/validate")
+    async def validate_behavior(body: dict[str, Any]) -> dict[str, Any]:
+        """Live check while editing: schema errors and registry problems in one list."""
+        try:
+            pack = BehaviorPack.model_validate(body)
+        except ValidationError as e:
+            return {"valid": False, "problems": _format_validation_error(e)}
+        problems = validate_against_registry(pack, registry)
+        return {"valid": not problems, "problems": problems}
+
+    @app.put("/api/behaviors/{behavior_id}")
+    async def save_behavior(behavior_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Ändern → Speichern (§3.1): writes behaviors/<id>.behavior.yaml and reloads it."""
+        pack = parse_pack(body)
+        if pack.id != behavior_id:
+            raise HTTPException(400, f"id in path ({behavior_id!r}) and body ({pack.id!r}) differ")
+        if (
+            executor.state == "running"
+            and executor.pack is not None
+            and executor.pack.id == pack.id
+        ):
+            raise HTTPException(409, "this behavior is running; stop it before saving")
+        path = save_behavior_pack(pack, behaviors_root)
+        packs[pack.id] = pack
+        bus.emit(
+            "behavior.saved", f"„{pack.name.de}“ gespeichert.", behavior=pack.id, path=str(path)
+        )
+        return _pack_payload(pack, registry)
+
+    @app.delete("/api/behaviors/{behavior_id}")
+    async def remove_behavior(behavior_id: str) -> dict[str, bool]:
+        pack = packs.get(behavior_id)
+        if pack is None:
+            raise HTTPException(404, f"unknown behavior {behavior_id!r}")
+        if (
+            executor.state == "running"
+            and executor.pack is not None
+            and executor.pack.id == behavior_id
+        ):
+            raise HTTPException(409, "this behavior is running; stop it before deleting")
+        delete_behavior_pack(behavior_id, behaviors_root)
+        del packs[behavior_id]
+        bus.emit(
+            "behavior.deleted", f"„{pack.name.de}“ gelöscht.", level="warn", behavior=behavior_id
+        )
+        return {"ok": True}
+
+    @app.get("/api/behaviors/{behavior_id}/yaml")
+    async def behavior_yaml(behavior_id: str) -> PlainTextResponse:
+        """The developer view next to the cards (§3.1: beside, never in front)."""
+        pack = packs.get(behavior_id)
+        if pack is None:
+            raise HTTPException(404, f"unknown behavior {behavior_id!r}")
+        return PlainTextResponse(pack_to_yaml(pack), media_type="text/yaml; charset=utf-8")
+
     @app.get("/api/frame")
     async def frame() -> Response:
         if not is_connected():
@@ -262,3 +331,11 @@ def _pack_payload(pack: Any, registry: SkillRegistry) -> dict[str, Any]:
     data = pack.model_dump(by_alias=True, mode="json")
     data["problems"] = validate_against_registry(pack, registry)
     return data
+
+
+def _format_validation_error(error: ValidationError) -> list[str]:
+    out = []
+    for err in error.errors():
+        loc = ".".join(str(part) for part in err["loc"]) or "pack"
+        out.append(f"{loc}: {err['msg']}")
+    return out

@@ -9,7 +9,7 @@ keep building with Claude Code.
 > Not affiliated with Pollen Robotics or Hugging Face. Apache-2.0, like upstream.
 > The UI is German first (`de`), English follows. Code, docs and commits are English.
 
-## Status: M2 — executor and follow-me (2026-09-19)
+## Status: M3 — editing in the Studio (2026-09-19)
 
 | Piece | State |
 | --- | --- |
@@ -25,7 +25,9 @@ keep building with Claude Code.
 | Perception: local magenta-marker detector on the sim camera (bearing + range from ToF column or apparent width), ToF and state feeds into one snapshot | done |
 | Follow-me live in duck-sim: „Folge mir“ finds the person, steers toward it, „Stopp“ ends the walk, quack — but the simulated duck does not advance (upstream `microduck_rl#46`, see upstream notes) | partial |
 | Studio: Start / Abbrechen, „Ich sage: …“ with trigger chips, active step highlighted, person and state chips in the Live panel | done |
-| Editing in the Studio (M3), real duck (M4) | next |
+| Studio editor: new behavior from empty, cards from manifest `ui` (choice/select/range/toggle), perceive/wait steps, `until` conditions, always rules, trigger, VLM opt-in with warning, live validation, Speichern / Speichern & Starten / Löschen, YAML developer view | done |
+| Runtime: `PUT`/`DELETE /api/behaviors/{id}` write `behaviors/*.behavior.yaml` atomically (ADR-0003), `POST /api/behaviors/validate`, `GET …/yaml` | done |
+| Real duck (M4) | next |
 
 Roadmap and rules live in [`CLAUDE.md`](CLAUDE.md); decisions in [`docs/adr/`](docs/adr/).
 
