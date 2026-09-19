@@ -75,5 +75,16 @@
   "duration.ms": "{n} ms",
   "duration.s": "{n} Sekunden",
   "duration.m": "{n} Minuten",
-  "duration.h": "{n} Stunden"
+  "duration.h": "{n} Stunden",
+  "live.state": "Zustand",
+  "live.state.none": "Noch kein Zustand",
+  "live.pose": "Position",
+  "state.standing": "steht",
+  "state.fallen": "umgefallen",
+  "state.sitting": "sitzt",
+  "state.moving": "läuft",
+  "state.idle": "ruht",
+  "live.camera.none": "Diese Ente hat gerade keine Kamera",
+  "status.sim.connected": "Simulation (MuJoCo) · verbunden",
+  "status.mock.connected": "Attrappe (Mock) · verbunden"
 }

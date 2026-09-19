@@ -9,7 +9,7 @@ keep building with Claude Code.
 > Not affiliated with Pollen Robotics or Hugging Face. Apache-2.0, like upstream.
 > The UI is German first (`de`), English follows. Code, docs and commits are English.
 
-## Status: M0 — scaffold (2026-09-19)
+## Status: M1 — simulation backend (2026-09-19)
 
 | Piece | State |
 | --- | --- |
@@ -18,16 +18,25 @@ keep building with Claude Code.
 | Runtime API (`/api/health`, `/api/skills`, `/api/behaviors`, `/api/frame`, `/api/stop`, `/ws/events`) | done |
 | Studio shell: skills panel, step list of `follow-me`, live panel with camera + Notstopp + log | done, read-only |
 | Upstream API verified against `microduck@344925c` (0.14.1) → `docs/upstream-notes.md` | done |
-| `sim` backend against duck-sim (M1), executor + follow-me (M2), editing in the Studio (M3), real duck (M4) | next |
+| `sim` backend: JSON-RPC/NDJSON over duck-sim's Unix sockets, `robot.subscribe` state stream, `tof.stream`, `robot.do`/`robot.sound`, contract tests green against the real daemons and against a protocol double in CI | done |
+| `sim/up.sh` wraps upstream `scripts/duck-sim` (no compose upstream, ADR-0002); `sim` is the default backend, the runtime reconnects on its own | done |
+| Live panel shows the simulated duck's state (steht / läuft / umgefallen, position, battery); camera needs `gstreamer` + `mediad` and is pending | partial |
+| Executor + follow-me in sim (M2), editing in the Studio (M3), real duck (M4) | next |
 
 Roadmap and rules live in [`CLAUDE.md`](CLAUDE.md); decisions in [`docs/adr/`](docs/adr/).
 
-## Quickstart (simulation is the normal state; today the mock stands in)
+## Quickstart (simulation is the normal state)
 
 ```bash
-# runtime
+# simulation: pinned upstream checkouts, MuJoCo body, the real daemons (needs cargo + uv)
+./sim/fetch-upstream.sh
+DUCK_SIM_CAMERAS= ./sim/up.sh          # headless, no camera; drop DUCK_SIM_CAMERAS= once gstreamer is installed
+```
+
+```bash
+# runtime (talks to the simulated duck by default; DUCKSTUDIO_BACKEND=mock for a fake one)
 cd runtime && uv sync && uv run pytest -q
-DUCKSTUDIO_BACKEND=mock uv run python -m duckstudio        # http://127.0.0.1:8000/api/health
+uv run python -m duckstudio             # http://127.0.0.1:8000/api/health
 ```
 
 ```bash
@@ -36,8 +45,11 @@ cd studio && pnpm install && pnpm dev                        # http://localhost:
 ```
 
 The Studio talks only to the runtime; the runtime talks to one backend
-(`DUCKSTUDIO_BACKEND=mock|sim|duck`). With `mock` you get a deterministic duck that walks
-when told to, a fake person in the ToF grid and a camera frame.
+(`DUCKSTUDIO_BACKEND=sim|mock|duck`, default `sim`). Without a running duck-sim the runtime
+says so in the log and retries; the Studio stays usable. With `mock` you get a deterministic
+duck that walks when told to, a fake person in the ToF grid and a camera frame.
+`DUCKSTUDIO_SIM=1 uv run pytest tests/backends` runs the backend contract against the real
+simulator; see `sim/README.md`.
 
 ## Layout
 

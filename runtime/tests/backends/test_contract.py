@@ -1,8 +1,14 @@
-"""One contract for all backends (§6.3). `sim` and `duck` skip until they exist / are reachable."""
+"""One contract for all backends (§6.3).
+
+`sim` runs against the fake daemon in CI and against real duck-sim with `DUCKSTUDIO_SIM=1`
+(start it with `sim/up.sh`). `duck` skips until hardware and an M4 transport exist.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import os
+import shutil
 
 import pytest
 
@@ -11,13 +17,18 @@ from duckstudio.backends import make_backend
 from duckstudio.backends.base import (
     JOINT_COUNT,
     TOF_SIZE,
+    BehaviorRefused,
     DuckBackend,
     Health,
+    NoCamera,
     RobotState,
     TofFrame,
     UnknownBehavior,
     UnknownIntent,
 )
+from duckstudio.backends.sim import SimBackend
+
+from .fake_robotd import FakeDuck, short_tmp_dir
 
 KINDS = ["mock", "sim", "duck"]
 
@@ -25,17 +36,26 @@ KINDS = ["mock", "sim", "duck"]
 @pytest.fixture(params=KINDS)
 async def backend(request: pytest.FixtureRequest):
     kind = request.param
+    fake: FakeDuck | None = None
     if kind == "sim" and not os.environ.get("DUCKSTUDIO_SIM"):
-        pytest.skip("set DUCKSTUDIO_SIM=1 with duck-sim running (M1)")
-    if kind == "duck" and not os.environ.get("DUCKSTUDIO_DUCK_URL"):
+        fake = FakeDuck(short_tmp_dir())
+        await fake.start()
+        b: DuckBackend = SimBackend(socket_dir=str(fake.dir), console_url=None)
+    elif kind == "duck" and not os.environ.get("DUCKSTUDIO_DUCK_URL"):
         pytest.skip("set DUCKSTUDIO_DUCK_URL to a reachable duck (M4)")
-    b = make_backend(kind)
+    else:
+        b = make_backend(kind)
     try:
         await b.connect()
     except NotImplementedError as e:
         pytest.skip(f"{kind}: {e}")
-    yield b
-    await b.close()
+    try:
+        yield b
+    finally:
+        await b.close()
+        if fake is not None:
+            await fake.stop()
+            shutil.rmtree(fake.dir, ignore_errors=True)
 
 
 async def test_satisfies_protocol(backend: DuckBackend) -> None:
@@ -57,14 +77,21 @@ async def test_state(backend: DuckBackend) -> None:
 
 
 async def test_frame_is_an_encoded_image(backend: DuckBackend) -> None:
-    data = await backend.frame()
+    try:
+        data = await backend.frame()
+    except NoCamera as e:
+        pytest.skip(f"{backend.kind}: {e}")
     is_jpeg = data[:2] == b"\xff\xd8" and data[-2:] == b"\xff\xd9"
     is_png = data[:8] == b"\x89PNG\r\n\x1a\n"
     assert is_jpeg or is_png, "frame must be JPEG (mock) or PNG (mediad GET /frame)"
 
 
 async def test_tof_is_8x8(backend: DuckBackend) -> None:
-    frame = await anext(backend.tof())
+    stream = backend.tof()
+    try:
+        frame = await asyncio.wait_for(anext(stream), 3.0)
+    finally:
+        await stream.aclose()
     assert isinstance(frame, TofFrame)
     assert len(frame.distances_m) == TOF_SIZE
     assert all(len(r) == TOF_SIZE for r in frame.distances_m)
@@ -81,8 +108,12 @@ async def test_unknown_intent_rejected(backend: DuckBackend) -> None:
 
 
 @pytest.mark.parametrize("name", sorted(upstream.BEHAVIORS))
-async def test_named_behaviors_accepted(backend: DuckBackend, name: str) -> None:
-    await backend.behavior(name)
+async def test_named_behaviors_are_understood(backend: DuckBackend, name: str) -> None:
+    """Every name in our vocabulary maps to an upstream call. The robot may still say no."""
+    try:
+        await backend.behavior(name)
+    except BehaviorRefused:
+        pass
 
 
 async def test_unknown_behavior_rejected(backend: DuckBackend) -> None:
@@ -93,8 +124,12 @@ async def test_unknown_behavior_rejected(backend: DuckBackend) -> None:
 async def test_stop_halts_motion(backend: DuckBackend) -> None:
     await backend.intent(upstream.ROBOT_MOVE.name, vx=0.1, vy=0.0, vyaw=0.0)
     await backend.stop()
-    s = await backend.state()
-    assert s.flags.moving is False
+    for _ in range(40):  # the state stream needs a tick or two to reflect it
+        s = await backend.state()
+        if not s.flags.moving:
+            return
+        await asyncio.sleep(0.05)
+    pytest.fail("still moving 2 s after stop()")
 
 
 @pytest.mark.parametrize("kind", KINDS)

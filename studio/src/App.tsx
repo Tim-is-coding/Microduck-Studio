@@ -7,21 +7,26 @@ import { SkillPanel } from "./skills/SkillPanel";
 import { connectEvents, useStudio } from "./store/useStudio";
 
 const HEALTH_INTERVAL_MS = 2000;
+const STATE_INTERVAL_MS = 500;
 
 export function App() {
-  const { runtime, health, skills, behaviors, selectedBehaviorId, events, refreshHealth, loadCatalog, select, stop } =
-    useStudio();
+  const {
+    runtime, health, state, skills, behaviors, selectedBehaviorId, events,
+    refreshHealth, refreshState, loadCatalog, select, stop,
+  } = useStudio();
 
   useEffect(() => {
     void refreshHealth();
     void loadCatalog();
     const id = setInterval(() => void refreshHealth(), HEALTH_INTERVAL_MS);
+    const stateId = setInterval(() => void refreshState(), STATE_INTERVAL_MS);
     const disconnect = connectEvents();
     return () => {
       clearInterval(id);
+      clearInterval(stateId);
       disconnect();
     };
-  }, [refreshHealth, loadCatalog]);
+  }, [refreshHealth, refreshState, loadCatalog]);
 
   const skillMap = useMemo(() => new Map(skills.map((s) => [s.id, s])), [skills]);
   const selected = behaviors.find((b) => b.id === selectedBehaviorId) ?? null;
@@ -50,7 +55,7 @@ export function App() {
           </div>
           {selected ? <StepList behavior={selected} skills={skillMap} /> : <div className="sub">{t("editor.empty")}</div>}
         </section>
-        <LivePanel events={events} health={health} onStop={() => void stop()} />
+        <LivePanel events={events} health={health} state={state} onStop={() => void stop()} />
       </main>
 
       <footer className="footer">{t("app.disclaimer")}</footer>
@@ -62,5 +67,5 @@ function statusLabel(runtime: "loading" | "online" | "offline", health: ReturnTy
   if (runtime === "loading") return t("status.runtime.loading");
   if (runtime === "offline" || !health) return t("status.runtime.offline");
   if (health.backend === "duck") return t(health.connected ? "status.duck.connected" : "status.duck.disconnected");
-  return t(`status.${health.backend}`);
+  return t(health.connected ? `status.${health.backend}.connected` : `status.${health.backend}`);
 }

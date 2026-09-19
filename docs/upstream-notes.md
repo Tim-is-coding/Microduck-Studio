@@ -157,6 +157,42 @@ Not present as methods: `robot.walk`, `robot.velocity`, `robot.sit`, `robot.stan
 - Knobs: `DUCK_SIM_DUCKS`, `DUCK_SIM_SCENE` (`apartment`), `DUCK_SIM_KEYFRAME`
   (`SIT|HOME|STAND|FOLD`). Realtime factor below 1.0× → policies cannot balance.
 
+## Details read for the `sim` backend (2026-09-19, same revision)
+
+- `robot.state.policy` labels (`robotd/src/control.rs`, `robotd/src/main.rs:2822–2881`):
+  `walk`, `stand`, `sitstand`, `sit` (holding the sit), `ground_pick`, skill labels while a
+  one-shot runs, `held` (no policy driving), `homing`, `limp_fall`, `limp_pose`. Our
+  `Flags.sitting` is `policy == "sit"`; `standing` is "not fallen, not limp, not in
+  {sit, homing, limp_fall, limp_pose}".
+- `RobotState.move` is `{requested[3], applied[3], limited_by[]}`; `safety` is
+  `{fallen, limp, gravity[3], gain?}`; `odom` is `{position[3], yaw}`; `imu?` is
+  `{gyro[3], quat[4]}`. Roll/pitch in our `Imu` are derived from `safety.gravity`; the sign
+  convention is **not yet checked** against a tilted sim duck.
+- `DoParams.skill` is a plain `String` (`lib.rs:2226`), refused with the known list.
+- `HealthResult.motors` is `{hottest, max_c, mean_c}` (`lib.rs:3419`); our
+  `temperatures_c` carries `servo_max` and `servo_mean`.
+- `scripts/duck-sim` writes its own `robotd.toml` naming **`alpha_walking.onnx` as walk and
+  `alpha_stand.onnx` as stand** (`scripts/duck-sim:236–246`), so the simulated duck runs
+  alpha_walking, not robotd's velstand default. Policies come from
+  `scripts/seed-policies.sh` into `$DUCK_SIM_STATE/policies/current` (needs network once).
+- **tofd does not answer `hello`.** Against duck-sim 0.14.1 it replies -32601 "tofd serves
+  tof.stream and head_imu.stream and nothing else". The "every daemon answers hello" line
+  above holds for robotd/configd/updaterd/mediad only; our tof connection skips the handshake.
+- `robotd --sim` reports a constant battery of 50 % (`robot.health.battery.percent = 50`),
+  servo temperatures 32 °C. Good enough to pass our 15 % floor; not a simulation of drain.
+- **Deadman observed live** (duck-sim 0.14.1, our `robot.move` at 10 Hz then silence):
+  ~0.5 s after the last message `robot.state.move.limited_by == ["deadman"]`, `policy`
+  drops from `walk` to `stand`, `requested` keeps the stale value and `applied` ramps down
+  0.1 → 0.017 → 0.001 → 0.0 over roughly half a second. So "stopped" is `applied ≈ 0`, not
+  `requested == 0`; our `Flags.moving` reads `applied`.
+- `robot.subscribe` on duck-sim answers `walk: alpha_walking.onnx, stand: alpha_stand.onnx`
+  (the script's params file, see above). Odometry moved only a few millimetres during a 3 s
+  0.1 m/s walk through our backend **and** under upstream's own `duck-sim drive 0.1 0` for
+  8 s (bare-floor scene, 1.01× realtime). Whether alpha_walking walks in place at 0.1 m/s or
+  odometry lags is unverified and belongs to M2 (follow-me needs real progress).
+- Python 3.12's `asyncio.Server.wait_closed()` waits for accepted connections; anything
+  faking a daemon must close them first (bit us in tests, not upstream).
+
 ## microduck-mcp (community reference)
 
 Transports `unix | ssh | sim | mock`; `ssh` = `ssh -N -L` tunnels for robotd/configd/updaterd

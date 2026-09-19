@@ -1,24 +1,40 @@
-# sim — duck-sim wrapper (M1)
+# sim — upstream duck-sim, wrapped (ADR-0002)
 
-Upstream `scripts/duck-sim` runs the real daemons (`robotd --sim`, `tofd --sim`, `configd`,
-`updaterd`, optionally `mediad`) against a MuJoCo body served by `microduck_rl`. We never
-vendor or fork upstream (`CLAUDE.md` §10); `fetch-upstream.sh` checks out the pinned revision
-from `docs/upstream-notes.md` into `sim/upstream/` (git-ignored).
-
-Verified facts that shape M1 (`docs/upstream-notes.md`, section "duck-sim"):
-
-- Upstream ships **no docker-compose**; `boot` mode needs systemd-nspawn (Linux). On macOS
-  the supported path is `scripts/duck-sim` (`up` mode) with `DUCK_SIM_VIEWER=0` for headless.
-- Requirements: Rust toolchain, a `microduck_rl` checkout with `uv sync` (Python 3.12,
-  `mjlab==1.3.0`, CPU is enough), optionally gstreamer for the camera.
-- Sockets land under `~/.cache/duck-sim/` (`duck-a.sock`, `duck-a-tof.sock`,
-  `duck-a-frame.sock`, ...); the `sim` backend dials them directly.
-
-Plan for M1: `sim/up.sh` wrapping `scripts/duck-sim` with our env defaults, a scene with a
-marked "person" object for the follow-me detector (M2), and an ADR replacing the
-docker-compose wording in `CLAUDE.md` §8.
+The real daemons (`robotd --sim`, `tofd --sim`, `configd`, `updaterd`, optionally `mediad`)
+against a MuJoCo body from `microduck_rl`. Nothing here is ours except two shell wrappers.
 
 ```bash
-./sim/fetch-upstream.sh                 # pinned checkout into sim/upstream/
-DUCK_SIM_VIEWER=0 sim/upstream/scripts/duck-sim   # M1: wrapped by sim/up.sh
+./sim/fetch-upstream.sh        # pinned checkouts into sim/upstream + sim/upstream-rl, uv sync
+./sim/up.sh                    # build (first time: minutes) and start, headless, camera on duck-a
+./sim/up.sh status             # health, standing?
+./sim/up.sh ctl health         # anything robotctl does
+./sim/up.sh drive 0.1 0        # walk forward for a few seconds
+./sim/up.sh down
 ```
+
+Requirements: `cargo` (Rust ≥ 1.89, e.g. `brew install rust`), `uv`, Python 3.12 (uv fetches
+it), and for the camera off Linux `brew install gstreamer libnice-gstreamer`. Without the
+camera set `DUCK_SIM_CAMERAS=` (empty) and the duck runs blind: `frame()` then raises
+`NoCamera` and the Live panel shows "Kein Bild".
+
+Where things land (`DUCK_SIM_STATE`, default `~/.cache/duck-sim`):
+
+| Path | What |
+| --- | --- |
+| `duck-a.sock` | robotd JSON-RPC (`duck.sock` links here) |
+| `duck-a-tof.sock` | tofd `tof.stream` |
+| `duck-a-frame.sock` | mediad `media.frame` (raw UYVY) |
+| `http://127.0.0.1:8080` | mediad console, `GET /frame` → PNG |
+| `duck-a.log`, `body.log` | robotd and MuJoCo logs |
+
+Then, from the repo root:
+
+```bash
+cd runtime && uv run python -m duckstudio          # DUCKSTUDIO_BACKEND defaults to sim
+DUCKSTUDIO_SIM=1 uv run pytest tests/backends -q   # contract tests against the real thing
+```
+
+Knobs passed through to upstream: `DUCK_SIM_VIEWER=1` (MuJoCo window, macOS via mjpython),
+`DUCK_SIM_SCENE=apartment`, `DUCK_SIM_DUCKS=2`, `DUCK_SIM_KEYFRAME=STAND`.
+
+Planned for M2: a scene with a marked "person" object for the follow-me detector.

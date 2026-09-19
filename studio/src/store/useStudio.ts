@@ -3,10 +3,12 @@ import { create } from "zustand";
 import {
   BehaviorPackFromApi,
   Event,
+  RobotState,
   RuntimeHealth,
   SkillManifest,
   type BehaviorPackFromApi as Pack,
   type Event as EventT,
+  type RobotState as RobotStateT,
   type RuntimeHealth as RuntimeHealthT,
   type SkillManifest as Skill,
 } from "../schemas";
@@ -17,11 +19,13 @@ export type RuntimeStatus = "loading" | "online" | "offline";
 interface StudioState {
   runtime: RuntimeStatus;
   health: RuntimeHealthT | null;
+  state: RobotStateT | null;
   skills: Skill[];
   behaviors: Pack[];
   selectedBehaviorId: string | null;
   events: EventT[];
   refreshHealth: () => Promise<void>;
+  refreshState: () => Promise<void>;
   loadCatalog: () => Promise<void>;
   select: (id: string) => void;
   stop: () => Promise<void>;
@@ -37,6 +41,7 @@ async function getJson<T>(url: string, schema: z.ZodType<T>): Promise<T> {
 export const useStudio = create<StudioState>((set, get) => ({
   runtime: "loading",
   health: null,
+  state: null,
   skills: [],
   behaviors: [],
   selectedBehaviorId: null,
@@ -48,6 +53,18 @@ export const useStudio = create<StudioState>((set, get) => ({
       set({ runtime: "online", health });
     } catch {
       set({ runtime: "offline", health: null });
+    }
+  },
+
+  async refreshState() {
+    if (!get().health?.connected) {
+      if (get().state) set({ state: null });
+      return;
+    }
+    try {
+      set({ state: await getJson("/api/state", RobotState) });
+    } catch {
+      set({ state: null });
     }
   },
 

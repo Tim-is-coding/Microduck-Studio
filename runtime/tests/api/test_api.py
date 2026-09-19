@@ -9,7 +9,7 @@ from duckstudio.backends.mock import MockBackend
 
 @pytest.fixture
 async def client(mock: MockBackend):
-    app = create_app(mock, connect_on_startup=False)
+    app = create_app(mock, auto_connect=False)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
@@ -35,6 +35,12 @@ async def test_skills_and_behaviors_are_served(client: httpx.AsyncClient) -> Non
     assert (await client.get("/api/behaviors/nope")).status_code == 404
 
 
+async def test_state_is_served(client: httpx.AsyncClient) -> None:
+    r = await client.get("/api/state")
+    assert r.status_code == 200
+    assert len(r.json()["joints"]) == 15 and r.json()["flags"]["standing"] is True
+
+
 async def test_frame_is_jpeg(client: httpx.AsyncClient) -> None:
     r = await client.get("/api/frame")
     assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
@@ -48,3 +54,17 @@ async def test_stop_reaches_backend_and_logs_in_german(
     assert r.json() == {"ok": True} and mock.stopped
     events = (await client.get("/api/events")).json()
     assert events[-1]["kind"] == "stop" and "Notstopp" in events[-1]["text"]["de"]
+
+
+async def test_default_backend_is_sim_and_unreachable_sim_is_reported(monkeypatch) -> None:
+    """§3.3: simulation is the normal state; without duck-sim the runtime says so and stays up."""
+    monkeypatch.delenv("DUCKSTUDIO_BACKEND", raising=False)
+    monkeypatch.setenv("DUCK_SIM_STATE", "/tmp/ds-no-sim-here")
+    app = create_app(auto_connect=False)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        body = (await c.get("/api/health")).json()
+        assert body["backend"] == "sim" and body["connected"] is False
+        assert (await c.get("/api/frame")).status_code == 503
+        assert (await c.get("/api/state")).status_code == 503
+        assert (await c.post("/api/stop")).json() == {"ok": True}

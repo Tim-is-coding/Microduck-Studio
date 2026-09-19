@@ -1,23 +1,26 @@
 import { useEffect, useState } from "react";
 
 import { t } from "../i18n";
-import type { Event, RuntimeHealth } from "../schemas";
+import type { Event, RobotState, RuntimeHealth } from "../schemas";
 
 interface Props {
   health: RuntimeHealth | null;
+  state: RobotState | null;
   events: Event[];
   onStop: () => void;
 }
 
 const FRAME_INTERVAL_MS = 500; // 2 fps, CLAUDE.md §5 "Kamera (2 fps JPEG)"
 
-export function LivePanel({ health, events, onStop }: Props) {
+export function LivePanel({ health, state, events, onStop }: Props) {
   const [frameUrl, setFrameUrl] = useState<string | null>(null);
+  const [noCamera, setNoCamera] = useState(false);
   const connected = health?.connected ?? false;
 
   useEffect(() => {
     if (!connected) {
       setFrameUrl(null);
+      setNoCamera(false);
       return;
     }
     const tick = () => setFrameUrl(`/api/frame?t=${Date.now()}`);
@@ -30,7 +33,25 @@ export function LivePanel({ health, events, onStop }: Props) {
     <section className="panel live">
       <h2>{t("panel.live")}</h2>
       <div className="camera">
-        {frameUrl ? <img src={frameUrl} alt={t("live.camera")} /> : <span>{t("live.camera.offline")}</span>}
+        {frameUrl && !noCamera ? (
+          <img src={frameUrl} alt={t("live.camera")} onError={() => setNoCamera(true)} onLoad={() => setNoCamera(false)} />
+        ) : (
+          <span>{t(noCamera ? "live.camera.none" : "live.camera.offline")}</span>
+        )}
+      </div>
+      <div className="chips">
+        {state ? (
+          <>
+            {describeFlags(state).map((label) => <span className="chip" key={label}>{label}</span>)}
+            {state.pose && (
+              <span className="chip">
+                {t("live.pose")}: <b>{state.pose.x.toFixed(2)} / {state.pose.y.toFixed(2)} m</b>
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="chip">{t("live.state.none")}</span>
+        )}
       </div>
       <div className="meta">
         <span>{t("live.backend")}: {health?.backend ?? "–"}</span>
@@ -52,4 +73,13 @@ export function LivePanel({ health, events, onStop }: Props) {
       )}
     </section>
   );
+}
+
+function describeFlags(state: RobotState): string[] {
+  const out: string[] = [];
+  if (state.flags.fallen) out.push(t("state.fallen"));
+  else if (state.flags.sitting) out.push(t("state.sitting"));
+  else if (state.flags.standing) out.push(t("state.standing"));
+  out.push(t(state.flags.moving ? "state.moving" : "state.idle"));
+  return out;
 }

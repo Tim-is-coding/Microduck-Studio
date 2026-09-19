@@ -193,14 +193,20 @@ DEFAULT_WALK_POLICY = "velstand"
 # duck-sim socket layout (scripts/duck-sim; docs/robot/simulation.md). State dir default
 # ~/.cache/duck-sim, overridable with DUCK_SIM_STATE.
 SIM_STATE_DIR = "~/.cache/duck-sim"
-SIM_SOCKETS = {
-    "robot": "duck-a.sock",
-    "tof": "duck-a-tof.sock",
-    "config": "duck-a-config.sock",
-    "updater": "duck-a-updater.sock",
-    "frame": "duck-a-frame.sock",
+SIM_DEFAULT_DUCK = "duck-a"
+SIM_SOCKETS = {  # `{duck}` is duck-a, duck-b, ... (DUCK_SIM_DUCKS)
+    "robot": "{duck}.sock",
+    "tof": "{duck}-tof.sock",
+    "config": "{duck}-config.sock",
+    "updater": "{duck}-updater.sock",
+    "frame": "{duck}-frame.sock",
 }
-SIM_CONSOLE_URL = "http://127.0.0.1:8080"
+SIM_CONSOLE_URL = "http://127.0.0.1:8080"  # mediad console of duck-a; 8080 + index for others
+
+# `robot.state.policy` labels seen in robotd/src/{control,main}.rs @344925c.
+POLICY_LABELS = frozenset(
+    {"walk", "stand", "sitstand", "sit", "ground_pick", "held", "homing", "limp_fall", "limp_pose"}
+)
 
 # Real duck socket paths (duck-ipc-proto/src/lib.rs:393–422) and ports (architecture.md:80–89).
 DUCK_SOCKETS = {

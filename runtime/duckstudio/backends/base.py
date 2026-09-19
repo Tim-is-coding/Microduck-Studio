@@ -84,7 +84,15 @@ class UnknownIntent(BackendError):
 
 
 class UnknownBehavior(BackendError):
-    pass
+    """The name is not one of ours (programming error, not a robot condition)."""
+
+
+class BehaviorRefused(BackendError):
+    """The robot understood the behavior but said no (`accepted: false`, with a reason)."""
+
+
+class NoCamera(BackendError):
+    """This duck has no camera right now (duck-sim without DUCK_SIM_CAMERAS, mediad down)."""
 
 
 @runtime_checkable

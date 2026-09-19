@@ -228,7 +228,7 @@ strukturierten Daten fürs Debugging.
 - **M0 – Gerüst (Woche 1–2):** Repo, `uv`/`pnpm`, CI, ADR-0001 (Topologie), Schemata
   aus §6 als pydantic/zod mit Beispieldateien, `mock`-Backend, Contract-Tests grün.
 - **M1 – Simulation (Woche 3–4):** duck-sim läuft reproduzierbar (Upstream hat kein
-  docker-compose; Wrapper um `scripts/duck-sim`, siehe `sim/README.md`),
+  docker-compose; Wrapper um `scripts/duck-sim`, ADR-0002, `sim/README.md`),
   `sim`-Backend spricht die echten Sockets; Enten-Zustand und Frame landen in einem
   minimalen Live-Panel. `docs/upstream-notes.md` mit verifizierten Methodennamen.
 - **M2 – Follow-me in Sim (Woche 5–7):** Executor führt `follow-me.behavior.yaml` aus;

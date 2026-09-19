@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -13,13 +14,16 @@ from fastapi.responses import Response
 
 from .. import __version__, behaviors_dir, skills_dir, upstream
 from ..backends import make_backend
-from ..backends.base import DuckBackend
+from ..backends.base import BackendError, DuckBackend, NoCamera
 from ..behaviors import load_behavior_packs, validate_against_registry
 from ..events import EventBus
 from ..executor.safety import IntentGate
 from ..skills import SkillRegistry
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+RECONNECT_EVERY_S = 3.0
+
+_BACKEND_DE = {"mock": "Attrappe (Mock)", "sim": "Simulation (MuJoCo)", "duck": "Ente"}
 
 
 def create_app(
@@ -27,30 +31,60 @@ def create_app(
     *,
     skills_path: Path | None = None,
     behaviors_path: Path | None = None,
-    connect_on_startup: bool = True,
+    auto_connect: bool = True,
 ) -> FastAPI:
     registry = SkillRegistry.load(skills_path or skills_dir())
     packs = load_behavior_packs(behaviors_path or behaviors_dir())
     bus = EventBus()
     duck = backend or make_backend()
     gate = IntentGate(duck, bus=bus)
+    label = _BACKEND_DE.get(duck.kind, duck.kind)
+
+    def is_connected() -> bool:
+        return bool(getattr(duck, "connected", False))
+
+    async def try_connect() -> str | None:
+        """One connection attempt. Returns an error string, or None when connected."""
+        try:
+            await duck.connect()
+        except NotImplementedError as e:
+            return f"not implemented: {e}"
+        except BackendError as e:
+            return str(e)
+        bus.emit("backend.connected", f"{label} verbunden.", backend=duck.kind)
+        return None
+
+    async def reconnect_loop() -> None:
+        last_error: str | None = ""
+        while True:
+            if not is_connected():
+                error = await try_connect()
+                if error is not None and error != last_error:
+                    hint = " Starte sie mit sim/up.sh." if duck.kind == "sim" else ""
+                    bus.emit(
+                        "backend.unavailable",
+                        f"{label} nicht erreichbar.{hint}",
+                        level="warn",
+                        backend=duck.kind,
+                        error=error,
+                    )
+                last_error = error
+                if error is not None and error.startswith("not implemented"):
+                    return
+            await asyncio.sleep(RECONNECT_EVERY_S)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        if connect_on_startup:
-            try:
-                await duck.connect()
-                bus.emit(
-                    "backend.connected", f"Backend „{duck.kind}“ verbunden.", backend=duck.kind
-                )
-            except NotImplementedError as e:
-                bus.emit(
-                    "backend.unavailable",
-                    f"Backend „{duck.kind}“ nicht verfügbar: {e}",
-                    level="error",
-                    backend=duck.kind,
-                )
+        task = (
+            asyncio.create_task(reconnect_loop(), name="backend-reconnect")
+            if auto_connect
+            else None
+        )
         yield
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
         await duck.close()
 
     app = FastAPI(title="Duck Studio Runtime", version=__version__, lifespan=lifespan)
@@ -60,21 +94,41 @@ def create_app(
     app.state.gate = gate
     app.state.bus = bus
 
+    def lost(e: Exception) -> None:
+        bus.emit(
+            "backend.lost", f"{label}: Verbindung verloren ({e}).", level="error", backend=duck.kind
+        )
+
     @app.get("/api/health")
     async def health() -> dict[str, Any]:
-        connected = bool(getattr(duck, "connected", False))
         payload: dict[str, Any] = {
             "version": __version__,
             "backend": duck.kind,
-            "connected": connected,
+            "connected": is_connected(),
             "health": None,
             "unverified_upstream_methods": [m.name for m in upstream.unverified()],
         }
-        if connected:
-            h = await duck.health()
-            gate.observe(health=h)
-            payload["health"] = h.model_dump()
+        if payload["connected"]:
+            try:
+                h = await duck.health()
+            except BackendError as e:
+                lost(e)
+                payload["connected"] = is_connected()
+            else:
+                gate.observe(health=h)
+                payload["health"] = h.model_dump()
         return payload
+
+    @app.get("/api/state")
+    async def state() -> dict[str, Any]:
+        if not is_connected():
+            raise HTTPException(503, "backend not connected")
+        try:
+            s = await duck.state()
+        except BackendError as e:
+            raise HTTPException(503, str(e)) from e
+        gate.observe(state=s)
+        return s.model_dump()
 
     @app.get("/api/skills")
     async def skills() -> list[dict[str, Any]]:
@@ -93,13 +147,16 @@ def create_app(
 
     @app.get("/api/frame")
     async def frame() -> Response:
-        if not getattr(duck, "connected", False):
+        if not is_connected():
             raise HTTPException(503, "backend not connected")
-        return Response(
-            content=await duck.frame(),
-            media_type="image/jpeg",
-            headers={"Cache-Control": "no-store"},
-        )
+        try:
+            data = await duck.frame()
+        except NoCamera as e:
+            raise HTTPException(503, f"no camera: {e}") from e
+        except BackendError as e:
+            raise HTTPException(502, str(e)) from e
+        media_type = "image/png" if data[:8] == PNG_SIGNATURE else "image/jpeg"
+        return Response(content=data, media_type=media_type, headers={"Cache-Control": "no-store"})
 
     @app.post("/api/stop")
     async def stop() -> dict[str, bool]:

@@ -18,6 +18,15 @@ export const RuntimeHealth = z.object({
 });
 export type RuntimeHealth = z.infer<typeof RuntimeHealth>;
 
+export const RobotState = z.object({
+  timestamp: z.number(),
+  joints: z.array(z.number()).length(15),
+  imu: z.object({ roll: z.number(), pitch: z.number(), yaw: z.number() }),
+  flags: z.object({ standing: z.boolean(), fallen: z.boolean(), sitting: z.boolean(), moving: z.boolean() }),
+  pose: z.object({ x: z.number(), y: z.number(), heading: z.number() }).nullable(),
+});
+export type RobotState = z.infer<typeof RobotState>;
+
 export const Event = z.object({
   ts: z.number(),
   level: z.enum(["info", "warn", "error"]).default("info"),
