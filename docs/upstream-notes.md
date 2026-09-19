@@ -202,6 +202,36 @@ Not present as methods: `robot.walk`, `robot.velocity`, `robot.sit`, `robot.stan
   while the scripted sit was in progress (`policy == "sitstand"`), so our "already standing"
   guard skipped the second toggle. For M2 the executor must treat `sitstand` as "in
   transition" and wait before deciding; the backend guard alone is not enough.
+- **Camera geometry, checked against frames**: `GET /frame` is already upright — 360 px wide,
+  640 px tall, floor at the bottom — i.e. the duck sees a tall, narrow slice (≈45° × 72°).
+  mediad's logged intrinsics (`fx = fy = 434.56`, `cx = 320`, `cy = 180`) describe the sensor's
+  640×360 frame; after the quarter turn the optical centre is at (180, 320) and `fx` is
+  unchanged. Our detector: `bearing = -atan2(px - 180, 434.56)`, positive = left like `vyaw`.
+  A 0.24 m cylinder 1.5 m ahead spans ≈70 px, so range from apparent width works as a
+  fallback for the ToF.
+- **Simulated ToF sends `distance_mm = 0` with `status = 255` for zones without a target**
+  (empty sky), `status = 5` for valid ones (`microduck_rl` `sim/tof.py`). Reading zeros as
+  0 m tripped every "too close" rule; the backend maps non-valid zones to the sensor's
+  4 m range instead. With the head level, the lower rows see the floor at ~1.2 m.
+- **A live `tof.frame` from duck-sim** (`sensor: "sim"`, 15 Hz): rows 0–1 are mostly
+  `0/255` (sky, no target), row 2 reads ≈2.3 m, rows 3–7 read the floor at 1.16 / 0.78 /
+  0.60 / 0.48 / 0.41 m — the sensor looks slightly down. A 1.2 m marker 1.26 m ahead-right
+  showed up as ≈1.25–1.32 m in rows 0–2 of columns 5–6, exactly where the camera put it.
+  Hence the fusion picks the zone the blob's image position points at, never the row minimum.
+- **Follow-me observed live** (2026-09-19): „Folge mir“ → person found at −15°, 1.26 m
+  (ToF-fused) → `robot.move` at 10 Hz with `vx 0.08`, `vyaw ≈ −0.23` → „Stopp“ ends the step
+  → `robot.sound chirp` → done. The duck turned a few degrees toward the marker and did not
+  advance (next item).
+- **The simulated duck does not walk.** With `alpha_walking.onnx` or `velstand.onnx` in the
+  walk slot, `policy = walk`, `applied = [0.15, 0, 0]` at 50 Hz, the leg joints move by
+  < 0.02 rad peak-to-peak, odometry and the camera agree that nothing advances — also under
+  upstream's own `duck-sim drive 0.15 0`. Turning yields a few degrees. This matches the open
+  upstream issue pollen-robotics/microduck_rl#46 (2026-09-10): velocity-family policies
+  "converge to standing / stepping-in-place"; the official `alpha_walking.onnx` "drifts
+  0.66 m / 20 s — also does not walk" in their MuJoCo, with an observation-convention mismatch
+  suspected. StandUp/SitStand work (we see `sit`/`rise` fine). Consequence for M2: perception,
+  steering and the step logic are verified live in the sim; forward progress is verified
+  against the mock only, until upstream's sim gait or the hardware arrives.
 - Python 3.12's `asyncio.Server.wait_closed()` waits for accepted connections; anything
   faking a daemon must close them first (bit us in tests, not upstream).
 

@@ -3,11 +3,13 @@ import { create } from "zustand";
 import {
   BehaviorPackFromApi,
   Event,
+  ExecutorStatus,
   RobotState,
   RuntimeHealth,
   SkillManifest,
   type BehaviorPackFromApi as Pack,
   type Event as EventT,
+  type ExecutorStatus as ExecutorStatusT,
   type RobotState as RobotStateT,
   type RuntimeHealth as RuntimeHealthT,
   type SkillManifest as Skill,
@@ -20,12 +22,17 @@ interface StudioState {
   runtime: RuntimeStatus;
   health: RuntimeHealthT | null;
   state: RobotStateT | null;
+  executor: ExecutorStatusT | null;
   skills: Skill[];
   behaviors: Pack[];
   selectedBehaviorId: string | null;
   events: EventT[];
   refreshHealth: () => Promise<void>;
   refreshState: () => Promise<void>;
+  refreshExecutor: () => Promise<void>;
+  run: (behaviorId: string) => Promise<void>;
+  abortRun: () => Promise<void>;
+  say: (text: string) => Promise<void>;
   loadCatalog: () => Promise<void>;
   select: (id: string) => void;
   stop: () => Promise<void>;
@@ -42,6 +49,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   runtime: "loading",
   health: null,
   state: null,
+  executor: null,
   skills: [],
   behaviors: [],
   selectedBehaviorId: null,
@@ -65,6 +73,38 @@ export const useStudio = create<StudioState>((set, get) => ({
       set({ state: await getJson("/api/state", RobotState) });
     } catch {
       set({ state: null });
+    }
+  },
+
+  async refreshExecutor() {
+    if (get().runtime !== "online") return;
+    try {
+      set({ executor: await getJson("/api/executor", ExecutorStatus) });
+    } catch {
+      set({ executor: null });
+    }
+  },
+
+  async run(behaviorId) {
+    const res = await fetch(`/api/behaviors/${encodeURIComponent(behaviorId)}/run`, { method: "POST" });
+    if (res.ok) set({ executor: ExecutorStatus.parse(await res.json()) });
+    else console.error(await res.text());
+  },
+
+  async abortRun() {
+    const res = await fetch("/api/executor/abort", { method: "POST" });
+    if (res.ok) set({ executor: ExecutorStatus.parse(await res.json()) });
+  },
+
+  async say(text) {
+    const res = await fetch("/api/say", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (res.ok) {
+      const { heard: _heard, started: _started, ...status } = await res.json();
+      set({ executor: ExecutorStatus.parse(status) });
     }
   },
 

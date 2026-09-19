@@ -11,19 +11,28 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from .. import __version__, behaviors_dir, skills_dir, upstream
 from ..backends import make_backend
 from ..backends.base import BackendError, DuckBackend, NoCamera
 from ..behaviors import load_behavior_packs, validate_against_registry
 from ..events import EventBus
+from ..executor import Executor, ExecutorBusy
 from ..executor.safety import IntentGate
+from ..perception import PerceptionService, detector_for
 from ..skills import SkillRegistry
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 RECONNECT_EVERY_S = 3.0
 
 _BACKEND_DE = {"mock": "Attrappe (Mock)", "sim": "Simulation (MuJoCo)", "duck": "Ente"}
+
+
+class SayBody(BaseModel):
+    """Module level on purpose: FastAPI resolves the annotation through module globals."""
+
+    text: str
 
 
 def create_app(
@@ -39,6 +48,13 @@ def create_app(
     duck = backend or make_backend()
     gate = IntentGate(duck, bus=bus)
     label = _BACKEND_DE.get(duck.kind, duck.kind)
+    executor = Executor(registry, gate, bus, packs=packs)
+    perception = PerceptionService(
+        duck,
+        gate.snapshot,
+        detector=detector_for(duck.kind),
+        on_pad_activity=lambda _frame: executor.preempt("gamepad"),
+    )
 
     def is_connected() -> bool:
         return bool(getattr(duck, "connected", False))
@@ -75,12 +91,13 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        task = (
-            asyncio.create_task(reconnect_loop(), name="backend-reconnect")
-            if auto_connect
-            else None
-        )
+        task = None
+        if auto_connect:
+            task = asyncio.create_task(reconnect_loop(), name="backend-reconnect")
+            perception.start()
         yield
+        await executor.close()
+        await perception.close()
         if task is not None:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -93,6 +110,8 @@ def create_app(
     app.state.backend = duck
     app.state.gate = gate
     app.state.bus = bus
+    app.state.executor = executor
+    app.state.perception = perception
 
     def lost(e: Exception) -> None:
         bus.emit(
@@ -160,8 +179,58 @@ def create_app(
 
     @app.post("/api/stop")
     async def stop() -> dict[str, bool]:
+        """Notstopp: aborts the executor and stops the duck, no checks anywhere (§7)."""
+        await executor.abort("notstopp")
         await gate.stop()
         return {"ok": True}
+
+    def executor_payload() -> dict[str, Any]:
+        snap = gate.snapshot
+        person = snap.person_fresh if snap.now else snap.person
+        return {
+            **executor.status(),
+            "camera": perception.camera_available,
+            "person": person.model_dump() if person is not None else None,
+            "tof_min_m": snap.tof_min_m,
+        }
+
+    @app.get("/api/executor")
+    async def executor_status() -> dict[str, Any]:
+        return executor_payload()
+
+    async def start_behavior(behavior_id: str) -> dict[str, Any]:
+        pack = packs.get(behavior_id)
+        if pack is None:
+            raise HTTPException(404, f"unknown behavior {behavior_id!r}")
+        if not is_connected():
+            raise HTTPException(503, "backend not connected")
+        problems = validate_against_registry(pack, registry)
+        if problems:
+            raise HTTPException(422, {"problems": problems})
+        try:
+            await executor.start(pack)
+        except ExecutorBusy as e:
+            raise HTTPException(409, str(e)) from e
+        return executor_payload()
+
+    @app.post("/api/behaviors/{behavior_id}/run")
+    async def run_behavior(behavior_id: str) -> dict[str, Any]:
+        return await start_behavior(behavior_id)
+
+    @app.post("/api/executor/abort")
+    async def abort_behavior() -> dict[str, Any]:
+        await executor.abort("studio")
+        return executor_payload()
+
+    @app.post("/api/say")
+    async def say(body: SayBody) -> dict[str, Any]:
+        """v1 stand-in for speech recognition (CLAUDE.md §9): the Studio's „Ich sage: …“."""
+        matched = executor.say(body.text)
+        started = None
+        if matched is not None and executor.state != "running":
+            await start_behavior(matched)
+            started = matched
+        return {"heard": body.text, "started": started, **executor_payload()}
 
     @app.get("/api/events")
     async def events() -> list[dict[str, Any]]:

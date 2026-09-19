@@ -9,7 +9,7 @@ keep building with Claude Code.
 > Not affiliated with Pollen Robotics or Hugging Face. Apache-2.0, like upstream.
 > The UI is German first (`de`), English follows. Code, docs and commits are English.
 
-## Status: M1 — simulation backend (2026-09-19)
+## Status: M2 — executor and follow-me (2026-09-19)
 
 | Piece | State |
 | --- | --- |
@@ -21,7 +21,11 @@ keep building with Claude Code.
 | `sim` backend: JSON-RPC/NDJSON over duck-sim's Unix sockets, `robot.subscribe` state stream, `tof.stream`, `robot.do`/`robot.sound`, contract tests green against the real daemons and against a protocol double in CI | done |
 | `sim/up.sh` wraps upstream `scripts/duck-sim` (no compose upstream, ADR-0002); `sim` is the default backend, the runtime reconnects on its own | done |
 | Live panel shows the simulated duck's state (steht / läuft / umgefallen, position, battery) and its camera at 2 fps (`mediad` `GET /frame`, PNG) | done |
-| Executor + follow-me in sim (M2), editing in the Studio (M3), real duck (M4) | next |
+| Executor: 10 Hz tick, step list with `on_none` / `until` / `always` branches, heartbeat by resending `robot.move`, watchdog task, gamepad preemption, German event log; 19 mock-based tests incl. fall → getup → resume | done |
+| Perception: local magenta-marker detector on the sim camera (bearing + range from ToF column or apparent width), ToF and state feeds into one snapshot | done |
+| Follow-me live in duck-sim: „Folge mir“ finds the person, steers toward it, „Stopp“ ends the walk, quack — but the simulated duck does not advance (upstream `microduck_rl#46`, see upstream notes) | partial |
+| Studio: Start / Abbrechen, „Ich sage: …“ with trigger chips, active step highlighted, person and state chips in the Live panel | done |
+| Editing in the Studio (M3), real duck (M4) | next |
 
 Roadmap and rules live in [`CLAUDE.md`](CLAUDE.md); decisions in [`docs/adr/`](docs/adr/).
 

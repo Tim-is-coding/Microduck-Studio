@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
 
 import { t } from "../i18n";
-import type { Event, RobotState, RuntimeHealth } from "../schemas";
+import type { Event, ExecutorStatus, RobotState, RuntimeHealth } from "../schemas";
 
 interface Props {
   health: RuntimeHealth | null;
   state: RobotState | null;
+  executor: ExecutorStatus | null;
   events: Event[];
   onStop: () => void;
 }
 
 const FRAME_INTERVAL_MS = 500; // 2 fps, CLAUDE.md §5 "Kamera (2 fps JPEG)"
 
-export function LivePanel({ health, state, events, onStop }: Props) {
+export function LivePanel({ health, state, executor, events, onStop }: Props) {
   const [frameUrl, setFrameUrl] = useState<string | null>(null);
   const [noCamera, setNoCamera] = useState(false);
   const connected = health?.connected ?? false;
@@ -52,6 +53,7 @@ export function LivePanel({ health, state, events, onStop }: Props) {
         ) : (
           <span className="chip">{t("live.state.none")}</span>
         )}
+        {connected && <span className="chip">{describePerson(executor)}</span>}
       </div>
       <div className="meta">
         <span>{t("live.backend")}: {health?.backend ?? "–"}</span>
@@ -82,4 +84,12 @@ function describeFlags(state: RobotState): string[] {
   else if (state.flags.standing) out.push(t("state.standing"));
   out.push(t(state.flags.moving ? "state.moving" : "state.idle"));
   return out;
+}
+
+function describePerson(executor: ExecutorStatus | null): string {
+  const p = executor?.person;
+  if (!p) return t("live.person.none");
+  const degrees = Math.abs((p.bearing_rad * 180) / Math.PI).toFixed(0);
+  const distance = p.distance_m != null ? `${p.distance_m.toFixed(1)} m · ` : "";
+  return t("live.person.at", { distance, degrees, side: t(p.bearing_rad >= 0 ? "live.person.left" : "live.person.right") });
 }

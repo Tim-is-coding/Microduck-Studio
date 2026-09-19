@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 import pytest
 
@@ -68,3 +70,29 @@ async def test_default_backend_is_sim_and_unreachable_sim_is_reported(monkeypatc
         assert (await c.get("/api/frame")).status_code == 503
         assert (await c.get("/api/state")).status_code == 503
         assert (await c.post("/api/stop")).json() == {"ok": True}
+
+
+async def test_run_status_abort_and_say(client: httpx.AsyncClient, mock: MockBackend) -> None:
+    await client.get("/api/health")  # gives the gate a battery reading
+    await client.get("/api/state")
+    status = (await client.get("/api/executor")).json()
+    assert status["state"] == "idle" and status["person"] is None
+
+    r = await client.post("/api/behaviors/follow-me/run")
+    assert r.status_code == 200 and r.json()["state"] == "running"
+    assert (await client.post("/api/behaviors/follow-me/run")).status_code == 409
+    assert (await client.post("/api/behaviors/nope/run")).status_code == 404
+    await asyncio.sleep(0.25)  # a couple of real-time ticks: nobody in sight → look_around
+    status = (await client.get("/api/executor")).json()
+    assert status["state"] == "running" and status["active_skill"] == "look_around"
+
+    r = await client.post("/api/executor/abort")
+    assert r.json()["state"] == "aborted" and mock.stopped
+
+    r = await client.post("/api/say", json={"text": "Folge mir"})
+    assert r.json()["started"] == "follow-me" and r.json()["state"] == "running"
+    r = await client.post("/api/say", json={"text": "Stopp"})
+    assert r.json()["started"] is None and r.json()["state"] == "running"
+    r = await client.post("/api/stop")  # Notstopp aborts the executor too
+    assert r.json() == {"ok": True}
+    assert (await client.get("/api/executor")).json()["state"] == "aborted"

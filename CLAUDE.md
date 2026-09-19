@@ -252,6 +252,12 @@ strukturierten Daten fürs Debugging.
   WebRTC-Datachannel – Entscheidung als ADR in M4.
 - Spracherkennung: läuft auf der Runtime (Mikro der Ente → Audio-Stream) oder lokal
   im Browser? Für v1 ist ein Studio-Button „Ich sage: …“ als Simulation des Triggers ok.
+  **Stand M2:** genau so gebaut (`POST /api/say`, Studio-Zeile „Ich sage:“). Echte
+  Erkennung wird ein weiteres Backend für denselben Aufruf.
+- **Die simulierte Ente geht nicht (Stand 2026-09-19):** Gehpolicies treten in duck-sim auf
+  der Stelle, auch mit Upstreams eigenem `drive` — offenes Upstream-Issue
+  `pollen-robotics/microduck_rl#46`. Wahrnehmung, Lenkung und Ablauf sind in der Sim
+  verifiziert, Vorwärtskommen nur gegen den Mock. Details in `docs/upstream-notes.md`.
 - Welches VLM/embodied-reasoning-Modell für Phase 2 (Zielpixel, Szenenfragen)? Aktuelle
   API-Fähigkeiten vor der Entscheidung prüfen; Adapter-Interface so schneiden, dass
   das Modell austauschbar ist.

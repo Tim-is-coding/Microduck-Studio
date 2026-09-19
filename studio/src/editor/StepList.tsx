@@ -14,10 +14,12 @@ import {
 interface Props {
   behavior: BehaviorPackFromApi;
   skills: Map<string, SkillManifest>;
+  activeStep?: number | null;
+  interrupt?: string | null;
 }
 
 /** Read-only rendering of a behavior pack as a vertical step list with side branches (§3.2). */
-export function StepList({ behavior, skills }: Props) {
+export function StepList({ behavior, skills, activeStep = null, interrupt = null }: Props) {
   return (
     <div>
       {behavior.problems.length > 0 && (
@@ -34,7 +36,7 @@ export function StepList({ behavior, skills }: Props) {
       </div>
 
       {behavior.steps.map((step, i) => (
-        <div className="step" key={i}>
+        <div className={`step${activeStep === i && !interrupt ? " active" : ""}`} key={i}>
           <div className="num">{i + 1}</div>
           <div className="card">
             {isPerceive(step) && (
@@ -58,7 +60,7 @@ export function StepList({ behavior, skills }: Props) {
       ))}
 
       {behavior.always.map((rule, i) => (
-        <div className="step" key={`always-${i}`}>
+        <div className={`step${interrupt === rule.on ? " active" : ""}`} key={`always-${i}`}>
           <div className="num always">!</div>
           <div className="card">
             <div className="title">

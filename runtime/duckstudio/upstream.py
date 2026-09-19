@@ -137,6 +137,13 @@ TOF_STREAM = Method(
     "`tof.frame` notifications {seq, at_us, rows, cols, distance_mm: [i16], status: [u8]} (mm!)",
 )
 TOF_FRAME = Method("tof.frame", True, f"{_PROTO}:828,4507 TofFrame", "row-major, millimetres")
+PAD_REPORT = Method(
+    "pad.report",
+    True,
+    f"{_PROTO}:4279 PadReport (notification)",
+    'internally tagged: {"report": "attached"|"frame"|"detached"|...}; frame carries '
+    "{seq, at_us, since_us?, events: [{kind, code, value, name}], ...}",
+)
 PAD_INPUT = Method(
     "pad.input",
     True,
@@ -170,6 +177,7 @@ QUERIES: dict[str, Method] = {
         TOF_STREAM,
         TOF_FRAME,
         PAD_INPUT,
+        PAD_REPORT,
     )
 }
 

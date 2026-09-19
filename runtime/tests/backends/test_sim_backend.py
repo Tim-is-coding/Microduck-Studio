@@ -192,5 +192,6 @@ def test_pure_mappings() -> None:
         state_from_upstream({"joints": [0.0] * 14})
     with pytest.raises(BackendError, match="shape"):
         tof_from_upstream({"rows": 4, "cols": 4, "distance_mm": [1] * 16}, 8, 8)
-    frame = tof_from_upstream({"distance_mm": [-1] + [1500] * 63}, 8, 8)
-    assert frame.distances_m[0][0] == 0.0 and frame.distances_m[7][7] == 1.5
+    frame = tof_from_upstream({"distance_mm": [0] + [1500] * 63, "status": [255] + [5] * 63}, 8, 8)
+    assert frame.distances_m[0][0] == 4.0, "no-target zones read as the sensor's range"
+    assert frame.distances_m[7][7] == 1.5

@@ -5,6 +5,8 @@
 #   DUCK_SIM_VIEWER   0 = headless (default here; 1 opens the MuJoCo window, macOS uses mjpython)
 #   DUCK_SIM_CAMERAS  a = duck-a gets a camera + mediad console on :8080 (needs gstreamer off Linux)
 #   DUCK_SIM_STATE    where sockets and logs land (default ~/.cache/duck-sim)
+#   DUCK_SIM_SCENE    world; unset = our follow-me scene with a magenta person 1.5 m ahead
+#   STUDIO_PERSON_X/Y where that person stands (metres ahead / left of the duck's start)
 # Any arguments go to duck-sim: `sim/up.sh status`, `sim/up.sh ctl health`, `sim/up.sh down`.
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -16,4 +18,10 @@ export DUCK_SIM_RL="${DUCK_SIM_RL:-$HERE/upstream-rl}"
 export DUCK_SIM_VIEWER="${DUCK_SIM_VIEWER:-0}"
 export DUCK_SIM_CAMERAS="${DUCK_SIM_CAMERAS-a}"
 export DUCK_SIM_STATE="${DUCK_SIM_STATE:-$HOME/.cache/duck-sim}"
+# Default world: upstream's bare floor plus a marked "person" for follow-me (sim/make-scene.py).
+# `DUCK_SIM_SCENE=` (set but empty) gives upstream's default, any other value passes through.
+if [ -z "${DUCK_SIM_SCENE+x}" ]; then
+  DUCK_SIM_SCENE="$(python3 "$HERE/make-scene.py")" || exit 1
+  export DUCK_SIM_SCENE
+fi
 exec "$DUCK_SIM" "$@"

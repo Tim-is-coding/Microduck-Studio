@@ -52,6 +52,7 @@ class IntentGate:
         self.bus = bus or EventBus()
         self.snapshot = Snapshot()
         self._sent_at: deque[float] = deque()
+        self._last_logged: dict[str, tuple[float, tuple[tuple[str, float], ...]]] = {}
 
     # -- perception input (last-value-wins) ---------------------------------------------
 
@@ -106,7 +107,7 @@ class IntentGate:
                 skill=skill.id,
                 clamped={k: list(v) for k, v in clamped.items()},
             )
-        self.bus.emit("intent.sent", f"{skill.name.de} gesendet.", skill=skill.id, params=sent)
+        self._log_sent(skill, sent)
         return GateDecision(accepted=True, params=sent, clamped=clamped)
 
     async def send_behavior(self, skill: SkillManifest) -> GateDecision:
@@ -128,6 +129,17 @@ class IntentGate:
         self.bus.emit("stop", "Notstopp: Ente angehalten.", level="warn")
 
     # -- internals ----------------------------------------------------------------------
+
+    def _log_sent(self, skill: SkillManifest, sent: dict[str, float]) -> None:
+        """One log line per change of command, not one per 10 Hz tick."""
+        key = tuple(sorted((k, round(v, 1)) for k, v in sent.items()))
+        now = self.clock()
+        last = self._last_logged.get(skill.id)
+        if last is not None and last[1] == key and now - last[0] < 5.0:
+            return
+        self._last_logged[skill.id] = (now, key)
+        desc = ", ".join(f"{k} {v:g}" for k, v in sent.items())
+        self.bus.emit("intent.sent", f"{skill.name.de}: {desc}.", skill=skill.id, params=sent)
 
     def _common_checks(self, skill: SkillManifest) -> GateDecision | None:
         health = self.snapshot.health

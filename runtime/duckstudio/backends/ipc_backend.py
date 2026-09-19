@@ -57,11 +57,13 @@ class IpcBackend:
         *,
         robot_socket: str,
         tof_socket: str | None = None,
+        pad_socket: str | None = None,
         console_url: str | None = None,
         state_hz: int = 10,
     ) -> None:
         self.robot_socket = robot_socket
         self.tof_socket = tof_socket
+        self.pad_socket = pad_socket
         self.console_url = console_url.rstrip("/") if console_url else None
         self.state_hz = state_hz
         self.connected = False
@@ -191,6 +193,29 @@ class IpcBackend:
         finally:
             await conn.close()
 
+    async def pad_activity(self) -> AsyncIterator[dict[str, Any]]:
+        """Yield `pad.report` frames from padd (`{"report": "frame", "events": [...]}`).
+
+        padd is not part of duck-sim, so this is exercised against the fake daemon only until
+        hardware arrives. Any frame with events means a human holds the sticks (§7).
+        """
+        self._ctl_conn()
+        if not self.pad_socket:
+            raise BackendError(f"{self.kind}: no pad socket configured")
+        conn = await Connection.open(self.pad_socket, hello=False)
+        try:
+            result = await conn.call(upstream.PAD_INPUT.name)
+            if isinstance(result, dict) and result.get("accepted") is False:
+                raise BackendError(f"pad.input refused: {result.get('reason', '?')}")
+            async for msg in conn.notifications():
+                if msg.get("method") != upstream.PAD_REPORT.name:
+                    continue
+                params = msg.get("params") or {}
+                if params.get("report") == "frame" and params.get("events"):
+                    yield params
+        finally:
+            await conn.close()
+
     async def intent(self, name: str, **params: float) -> None:
         ctl = self._ctl_conn()
         if name not in upstream.INTENTS:
@@ -290,12 +315,29 @@ def state_from_upstream(raw: dict[str, Any]) -> RobotState:
     )
 
 
+TOF_STATUS_VALID = {5, 9}  # ST VL53L8CX: 5 = valid, 9 = valid but merged; sim sends 5
+TOF_NO_TARGET_M = 4.0  # the sensor's range; what a zone without a valid target reads as
+
+
 def tof_from_upstream(raw: dict[str, Any], rows: int, cols: int) -> TofFrame:
-    """tof.frame (millimetres, row-major) → TofFrame (metres, 8x8)."""
+    """tof.frame (millimetres + status byte, row-major) → TofFrame (metres, 8x8).
+
+    A zone whose status is not "valid" (no target, or a failed measurement) reads as
+    `TOF_NO_TARGET_M`, never as 0 m: the simulated sensor sends distance 0 with status 255
+    for empty sky, and 0 m would trip every "too close" rule at once.
+    """
     rows = int(raw.get("rows") or rows)
     cols = int(raw.get("cols") or cols)
     mm = raw.get("distance_mm") or []
+    status = raw.get("status") or []
     if rows != TOF_SIZE or cols != TOF_SIZE or len(mm) != rows * cols:
         raise BackendError(f"unexpected ToF shape {rows}x{cols} with {len(mm)} values")
-    grid = [[max(0.0, float(mm[r * cols + c])) / 1000.0 for c in range(cols)] for r in range(rows)]
+
+    def zone(i: int) -> float:
+        if status and (i >= len(status) or int(status[i]) not in TOF_STATUS_VALID):
+            return TOF_NO_TARGET_M
+        d = float(mm[i]) / 1000.0
+        return TOF_NO_TARGET_M if d <= 0.0 else d
+
+    grid = [[zone(r * cols + c) for c in range(cols)] for r in range(rows)]
     return TofFrame(timestamp=float(raw.get("at_us", 0)) / 1e6, distances_m=grid)
