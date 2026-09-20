@@ -285,6 +285,8 @@ input[type="range"] { accent-color: var(--accent); }
   background: var(--surface-3); color: var(--muted); border: 1px solid var(--line);
 }
 .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); }
+.card.offline { border-color: var(--accent-line); background: var(--accent-weak); }
+.card.offline p { margin: 6px 0 0; }
 .card.problems { border-color: var(--danger-line); background: var(--danger-weak); }
 .card.problems ul { margin: 6px 0 0; padding-left: 18px; }
 

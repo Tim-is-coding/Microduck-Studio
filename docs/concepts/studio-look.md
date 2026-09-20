@@ -64,6 +64,14 @@ An empty screen is a first lesson, so it says what to do next rather than what i
 - **A new draft is nameless.** The name field shows its placeholder and the id line shows
   "Gib dem Ablauf einen Namen." until there is a name — no prefilled text to delete first,
   and no `Kennung: neuer-ablauf` before anybody named anything.
+- **A Studio without a runtime says so.** The Studio only ever talks to the runtime (§4), so
+  when nothing answers, the place where the behaviors would be carries the reason and the one
+  command that fixes it — an empty overview would read as "you have nothing" instead. The
+  live panel says the same in its status line, the blocks panel in its empty list, and the
+  page reconnects by itself: the catalog is loaded whenever the runtime answers and the
+  Studio does not have it yet, so a Studio opened before `python -m duckstudio` fills in
+  rather than staying empty until somebody reloads. The Notstopp stays pressable — never
+  gate the emergency stop, not even on a connection.
 - **Unfinished is not broken.** While the name is empty or the step list is, the schema's
   English complaints about those fields stay hidden and Speichern stays out of reach; the
   empty field and the empty list already say what is missing (`docs/m3-acceptance.md`).

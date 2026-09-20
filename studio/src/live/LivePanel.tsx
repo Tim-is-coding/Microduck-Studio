@@ -7,13 +7,14 @@ import { degrees, formatDistance } from "./overlay";
 
 interface Props {
   health: RuntimeHealth | null;
+  offline: boolean;
   state: RobotState | null;
   executor: ExecutorStatus | null;
   events: Event[];
   onStop: () => void;
 }
 
-export function LivePanel({ health, state, executor, events, onStop }: Props) {
+export function LivePanel({ health, offline, state, executor, events, onStop }: Props) {
   const connected = health?.connected ?? false;
   const running = executor?.state === "running";
 
@@ -22,7 +23,7 @@ export function LivePanel({ health, state, executor, events, onStop }: Props) {
       <h2>{t("panel.live")}</h2>
 
       <div className={`doing${running ? " running" : ""}`}>
-        <div className="doing-line">{headline(executor)}</div>
+        <div className="doing-line">{offline ? t("live.doing.offline") : headline(executor)}</div>
         {running && executor && executor.step_count > 0 && (
           <div className="progress" aria-hidden="true">
             {Array.from({ length: executor.step_count }, (_, i) => (

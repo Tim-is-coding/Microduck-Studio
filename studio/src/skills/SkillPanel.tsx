@@ -6,6 +6,7 @@ import { Icon } from "../ui/Icon";
 
 interface Props {
   skills: SkillManifest[];
+  offline: boolean;
   hubResults: HubPolicy[] | null;
   hubBusy: boolean;
   hubError: string | null;
@@ -17,7 +18,7 @@ interface Props {
 }
 
 /** The building blocks: what this Studio has, and what the Hub offers (ADR-0005). */
-export function SkillPanel({ skills, hubResults, hubBusy, hubError, onSearch, onClear, onDetails, onImport, onRemove }: Props) {
+export function SkillPanel({ skills, offline, hubResults, hubBusy, hubError, onSearch, onClear, onDetails, onImport, onRemove }: Props) {
   const [query, setQuery] = useState("");
   const builtinIds = skills.filter((s) => s.source.kind === "builtin").map((s) => s.id);
 
@@ -63,6 +64,7 @@ export function SkillPanel({ skills, hubResults, hubBusy, hubError, onSearch, on
         </div>
       )}
 
+      {offline && skills.length === 0 && <div className="sub">{t("offline.skills")}</div>}
       {skills.map((s) => (
         <article className="card" key={s.id}>
           <div className="card-head">

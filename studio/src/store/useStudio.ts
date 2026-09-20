@@ -104,9 +104,13 @@ export const useStudio = create<StudioState>((set, get) => ({
   hubError: null,
 
   async refreshHealth() {
+    const before = get().runtime;
     try {
       const health = await getJson("/api/health", RuntimeHealth);
       set({ runtime: "online", health });
+      // A Studio opened before the runtime was up would otherwise stay empty forever: the
+      // catalog is loaded once, and that one attempt failed. Load it when we can.
+      if (before !== "online" || !get().catalogLoaded) void get().loadCatalog();
     } catch {
       set({ runtime: "offline", health: null });
     }

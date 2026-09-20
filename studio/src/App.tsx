@@ -19,7 +19,7 @@ export function App() {
   const {
     runtime, health, state, executor, skills, behaviors, selectedBehaviorId, events,
     draft, draftIsNew, draftDirty, draftProblems, draftNotice, history, saving, yamlText, hubResults, hubBusy, hubError,
-    refreshHealth, refreshState, refreshExecutor, loadCatalog, select, stop, run, abortRun, say,
+    refreshHealth, refreshState, refreshExecutor, select, stop, run, abortRun, say,
     editBehavior, newDraft, updateDraft, undoDraft, redoDraft, validateDraft, saveDraft, discardDraft, deleteBehavior, loadYaml,
     searchHub, clearHub, policyDetails, importPolicy, removeSkill,
   } = useStudio();
@@ -39,8 +39,7 @@ export function App() {
   }, [selectedBehaviorId, draft, behaviors, loadYaml]);
 
   useEffect(() => {
-    void refreshHealth();
-    void loadCatalog();
+    void refreshHealth(); // loads the catalog as soon as the runtime answers
     const id = setInterval(() => void refreshHealth(), HEALTH_INTERVAL_MS);
     const stateId = setInterval(() => {
       void refreshState();
@@ -52,7 +51,7 @@ export function App() {
       clearInterval(stateId);
       disconnect();
     };
-  }, [refreshHealth, refreshState, refreshExecutor, loadCatalog]);
+  }, [refreshHealth, refreshState, refreshExecutor]);
 
   const skillMap = useMemo(() => new Map(skills.map((s) => [s.id, s])), [skills]);
   const selected = draft ? null : (behaviors.find((b) => b.id === selectedBehaviorId) ?? null);
@@ -89,6 +88,7 @@ export function App() {
           onDetails={policyDetails}
           onImport={(repo, slot) => void importPolicy(repo, slot)}
           onRemove={(id) => void removeSkill(id)}
+          offline={runtime === "offline"}
           onSearch={(q) => void searchHub(q)}
           skills={skills}
         />
@@ -117,6 +117,7 @@ export function App() {
             {draft && draftIsNew && <button className="active" type="button">{text(draft.name) || t("editor.new")}</button>}
             {!draft && selectedBehaviorId && <button className="new" onClick={() => newDraft()} type="button">+ {t("editor.new")}</button>}
           </div>
+          {runtime === "offline" && <OfflineCard />}
           {draft && (
             <BehaviorEditor
               canRedo={history.future.length > 0}
@@ -188,7 +189,7 @@ export function App() {
               </details>
             </>
           )}
-          {!selected && !draft && (
+          {!selected && !draft && runtime !== "offline" && (
             <BehaviorList
               behaviors={behaviors}
               connected={connected}
@@ -201,10 +202,22 @@ export function App() {
             />
           )}
         </section>
-        <LivePanel events={events} executor={executor} health={health} state={state} onStop={() => void stop()} />
+        <LivePanel events={events} executor={executor} health={health} offline={runtime === "offline"} state={state} onStop={() => void stop()} />
       </main>
 
       <footer className="footer">{t("app.disclaimer")}</footer>
+    </div>
+  );
+}
+
+/** The runtime is the only thing the Studio talks to (§4), so when it is gone, say so where
+ *  the behaviors would be — an empty overview would look like "you have nothing" instead. */
+function OfflineCard() {
+  return (
+    <div className="card offline">
+      <div className="title">{t("offline.title")}</div>
+      <p>{t("offline.body")}</p>
+      <p className="sub">{t("offline.start")} <code>cd runtime &amp;&amp; uv run python -m duckstudio</code></p>
     </div>
   );
 }
