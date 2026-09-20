@@ -6,6 +6,8 @@ import { StepList } from "./editor/StepList";
 import { t } from "./i18n";
 import { LivePanel } from "./live/LivePanel";
 import { SkillPanel } from "./skills/SkillPanel";
+import { Icon } from "./ui/Icon";
+import { ThemeSwitch } from "./ui/ThemeSwitch";
 import { connectEvents, useStudio } from "./store/useStudio";
 
 const HEALTH_INTERVAL_MS = 2000;
@@ -66,6 +68,7 @@ export function App() {
       <header className="topbar">
         <h1>{t("app.title")}</h1>
         <div className="spacer" />
+        <ThemeSwitch />
         <div className={`status ${runtime}`}>
           <span className="dot" />
           {statusLabel(runtime, health)}
@@ -120,16 +123,16 @@ export function App() {
           {selected && (
             <div className="runbar">
               {runningSelected ? (
-                <button className="btn danger" onClick={() => void abortRun()} type="button">■ {t("run.abort")}</button>
+                <button className="btn danger" onClick={() => void abortRun()} type="button"><Icon name="stop" /> {t("run.abort")}</button>
               ) : (
                 <button className="btn primary" disabled={!connected || running} onClick={() => void run(selected.id)} type="button">
-                  ▶ {t("run.start")}
+                  <Icon name="play" /> {t("run.start")}
                 </button>
               )}
               <span className="runstate">{executorLabel(executor)}</span>
               {!connected && <span className="sub">{t("run.needs_connection")}</span>}
               <span className="spacer" />
-              <button className="btn" disabled={running} onClick={() => editBehavior(selected.id)} type="button">✎ {t("editor.edit")}</button>
+              <button className="btn" disabled={running} onClick={() => editBehavior(selected.id)} type="button"><Icon name="pencil" /> {t("editor.edit")}</button>
             </div>
           )}
           {selected && (

@@ -1,5 +1,6 @@
 import { t, tOr } from "../i18n";
 import type { Event, ExecutorStatus, RobotState, RuntimeHealth } from "../schemas";
+import { Icon } from "../ui/Icon";
 import { CameraView } from "./CameraView";
 import { TofGrid } from "./TofGrid";
 import { degrees, formatDistance } from "./overlay";
@@ -76,7 +77,9 @@ export function LivePanel({ health, state, executor, events, onStop }: Props) {
         )}
       </div>
 
-      <button className="stop" onClick={onStop} type="button">■ {t("live.stop")}</button>
+      <button className="stop" onClick={onStop} type="button">
+        <Icon name="stop" /> {t("live.stop")}
+      </button>
 
       <h2>{t("live.log")}</h2>
       {events.length === 0 ? (

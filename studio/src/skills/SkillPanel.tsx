@@ -7,8 +7,10 @@ export function SkillPanel({ skills }: { skills: SkillManifest[] }) {
       <h2>{t("panel.skills")}</h2>
       {skills.map((s) => (
         <article className="card" key={s.id}>
-          <span className="tag">{t(s.intent ? "skill.kind.intent" : "skill.kind.behavior")}</span>
-          <div className="title">{s.name.de}</div>
+          <div className="card-head">
+            <span className="title">{s.name.de}</span>
+            <span className="tag">{t(s.intent ? "skill.kind.intent" : "skill.kind.behavior")}</span>
+          </div>
           {s.summary && <div className="sub">{s.summary.de}</div>}
         </article>
       ))}

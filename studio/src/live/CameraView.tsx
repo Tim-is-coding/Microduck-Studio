@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 
 import { t } from "../i18n";
 import type { ExecutorStatus } from "../schemas";
@@ -23,6 +23,7 @@ interface Props {
 export function CameraView({ connected, executor }: Props) {
   const [frameUrl, setFrameUrl] = useState<string | null>(null);
   const [noCamera, setNoCamera] = useState(false);
+  const [ratio, setRatio] = useState<string | null>(null); // the frame's own aspect ratio
 
   useEffect(() => {
     if (!connected) {
@@ -46,9 +47,18 @@ export function CameraView({ connected, executor }: Props) {
 
   const showPicture = Boolean(frameUrl) && !noCamera;
   return (
-    <div className="camera">
+    <div className="camera" style={ratio ? ({ "--camera-ratio": ratio } as CSSProperties) : undefined}>
       {showPicture ? (
-        <img alt={t("live.camera")} onError={() => setNoCamera(true)} onLoad={() => setNoCamera(false)} src={frameUrl!} />
+        <img
+          alt={t("live.camera")}
+          onError={() => setNoCamera(true)}
+          onLoad={(e) => {
+            const img = e.currentTarget;
+            if (img.naturalWidth && img.naturalHeight) setRatio(`${img.naturalWidth} / ${img.naturalHeight}`);
+            setNoCamera(false);
+          }}
+          src={frameUrl!}
+        />
       ) : (
         <span>{t(noCamera ? "live.camera.none" : "live.camera.offline")}</span>
       )}

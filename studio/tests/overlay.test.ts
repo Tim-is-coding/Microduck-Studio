@@ -95,9 +95,12 @@ describe("ToF zones", () => {
     expect(proximity(1.2)).toBeLessThan(1);
   });
 
-  it("colours near zones warm and far ones pale", () => {
+  it("colours near zones warm and far ones quiet, in both themes", () => {
     expect(zoneColor(0.2)).not.toBe(zoneColor(3.0));
     expect(zoneColor(0.2)).toMatch(/^hsl\(/);
+    const lightness = (c: string) => Number(/ ([\d.]+)%\)$/.exec(c)![1]);
+    expect(lightness(zoneColor(3.0))).toBeGreaterThan(lightness(zoneColor(0.2))); // pale on paper
+    expect(lightness(zoneColor(3.0, true))).toBeLessThan(lightness(zoneColor(0.2, true))); // dark at night
   });
 
   it("finds the closest zone straight ahead, ignoring sky and floor", () => {

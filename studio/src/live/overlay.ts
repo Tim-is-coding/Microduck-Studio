@@ -102,12 +102,12 @@ export function proximity(distanceM: number): number {
   return clamp01((distanceM - TOF_NEAR_M) / (TOF_FAR_M - TOF_NEAR_M));
 }
 
-/** Warm where something is close, pale where the way is clear. */
-export function zoneColor(distanceM: number): string {
+/** Warm where something is close, quiet where the way is clear — in both themes. */
+export function zoneColor(distanceM: number, dark = false): string {
   const p = proximity(distanceM);
   const hue = 8 + p * 40; // red → sand
-  const light = 42 + p * 46;
-  const sat = 78 - p * 55;
+  const light = dark ? 48 - p * 32 : 42 + p * 46;
+  const sat = dark ? 72 - p * 66 : 78 - p * 55;
   return `hsl(${hue.toFixed(0)} ${sat.toFixed(0)}% ${light.toFixed(0)}%)`;
 }
 

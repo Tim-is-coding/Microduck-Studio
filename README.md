@@ -32,6 +32,7 @@ keep building with Claude Code.
 | Live panel: markers for person and KI target drawn on the camera frame, 8×8 ToF proximity grid, one-line status with a step bar | done |
 | Editor: insert a step in any gap, drag a card by its grip to reorder (pointer-based, works with a finger), ↑↓ for the keyboard | done |
 | Studio opens on an overview of the behaviors (summary, trigger, steps, KI marker, problems) with Öffnen / ▶ Start per card | done |
+| Design pass: one token set (`docs/concepts/studio-look.md`), dark mode with a switch, drawn icons instead of emoji, focus rings, columns that scroll on their own | done |
 | Real duck (M4) | next |
 
 Roadmap and rules live in [`CLAUDE.md`](CLAUDE.md); decisions in [`docs/adr/`](docs/adr/).
@@ -76,7 +77,7 @@ simulator; see `sim/README.md`.
 ```
 CLAUDE.md          handover, decisions, working rules (German)
 docs/adr/          architecture decision records
-docs/concepts/     skill manifest, behavior pack, backend interface, perception
+docs/concepts/     skill manifest, behavior pack, backend interface, perception, the Studio's look
 docs/schemas/      JSON Schemas (golden files, exported from pydantic)
 docs/upstream-notes.md  what we verified about the Microduck API, with commit hashes
 runtime/           Python 3.12 · uv · FastAPI · pydantic v2 — executor, backends, API

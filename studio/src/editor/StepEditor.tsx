@@ -20,6 +20,7 @@ import {
   splitPhrases,
   untilConditions,
 } from "./model";
+import { Icon } from "../ui/Icon";
 import { UiControl } from "./UiControl";
 
 interface Props {
@@ -41,11 +42,17 @@ export function StepEditor({ index, step, skills, count, dragging = false, onCha
       <div className="card">
         <div className="card-actions">
           <span className="grip" onPointerDown={onDragStart} title={t("editor.step.drag")}>
-            ⠿
+            <Icon name="grip" title={t("editor.step.drag")} />
           </span>
-          <button disabled={index === 0} onClick={() => onMove(-1)} title={t("editor.step.up")} type="button">↑</button>
-          <button disabled={index === count - 1} onClick={() => onMove(1)} title={t("editor.step.down")} type="button">↓</button>
-          <button className="danger-text" onClick={onRemove} title={t("editor.step.remove")} type="button">✕</button>
+          <button disabled={index === 0} onClick={() => onMove(-1)} title={t("editor.step.up")} type="button">
+            <Icon name="up" title={t("editor.step.up")} />
+          </button>
+          <button disabled={index === count - 1} onClick={() => onMove(1)} title={t("editor.step.down")} type="button">
+            <Icon name="down" title={t("editor.step.down")} />
+          </button>
+          <button className="danger-text" onClick={onRemove} title={t("editor.step.remove")} type="button">
+            <Icon name="close" title={t("editor.step.remove")} />
+          </button>
         </div>
         {isSkill(step) && <SkillBody onChange={onChange} skill={skills.get(step.skill)} step={step} />}
         {isPerceive(step) && <PerceiveBody onChange={onChange} skills={skills} step={step} />}
@@ -74,7 +81,9 @@ function SkillBody({ step, skill, onChange }: { step: Extract<Step, { skill: str
           <div className="cond" key={i}>
             {i > 0 && <span className="or">{t("editor.until.or")}</span>}
             <ConditionEditor condition={c} onChange={(nc) => onChange(setUntil(step, conditions.map((x, j) => (j === i ? nc : x))))} />
-            <button className="danger-text" onClick={() => onChange(setUntil(step, conditions.filter((_, j) => j !== i)))} type="button">✕</button>
+            <button className="danger-text" onClick={() => onChange(setUntil(step, conditions.filter((_, j) => j !== i)))} title={t("editor.until.remove")} type="button">
+              <Icon name="close" title={t("editor.until.remove")} />
+            </button>
           </div>
         ))}
         <div className="chips">

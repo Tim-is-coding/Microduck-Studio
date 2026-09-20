@@ -198,5 +198,11 @@
   "list.new": "Neuer Ablauf",
   "list.new.hint": "Leere Schrittliste — Bausteine anklicken, fertig.",
   "list.overview": "Übersicht",
-  "list.title": "Deine Abläufe"
+  "list.title": "Deine Abläufe",
+  "theme": "Erscheinungsbild",
+  "theme.system": "Wie das System",
+  "theme.light": "Hell",
+  "theme.dark": "Dunkel",
+  "editor.until.remove": "Bedingung entfernen",
+  "editor.always.remove": "Regel entfernen"
 }

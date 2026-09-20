@@ -1,5 +1,6 @@
 import { t } from "../i18n";
 import type { BehaviorPackFromApi } from "../schemas";
+import { Icon } from "../ui/Icon";
 
 interface Props {
   behaviors: BehaviorPackFromApi[];
@@ -37,13 +38,13 @@ export function BehaviorList({ behaviors, connected, running, onOpen, onRun, onN
               onClick={() => onRun(b.id)}
               type="button"
             >
-              ▶ {t("run.start")}
+              <Icon name="play" /> {t("run.start")}
             </button>
           </div>
         </article>
       ))}
       <button className="behavior-card new" onClick={onNew} type="button">
-        <span className="plus" aria-hidden="true">+</span>
+        <span className="plus"><Icon name="plus" size={1.4} /></span>
         <span className="title">{t("list.new")}</span>
         <span className="sub">{t("list.new.hint")}</span>
       </button>

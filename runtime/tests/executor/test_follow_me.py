@@ -74,7 +74,9 @@ async def test_nobody_found_sweeps_then_retries(h: Harness) -> None:
     assert 5 <= len(looks) <= 7
     await h.tick(45)  # past the 5 s sweep → retry → sweep again
     assert h.executor.state == "running" and h.executor.step_index == 0
-    assert h.kinds().count("perceive.none") >= 2
+    looks_after_retry = [c for c in h.mock.intents_sent() if c.name == upstream.ROBOT_LOOK.name]
+    assert len(looks_after_retry) > len(looks)  # it really is still sweeping
+    assert h.kinds().count("perceive.none") == 1  # said once, not once per sweep
     h.see_person(distance=1.0)
     await h.tick(2)
     assert h.executor.step_index == 1

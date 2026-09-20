@@ -25,6 +25,7 @@ import {
   speechTrigger,
   tidy,
 } from "./model";
+import { Icon } from "../ui/Icon";
 import { StepEditor } from "./StepEditor";
 
 interface Props {
@@ -110,11 +111,11 @@ export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, 
   function AddButtons({ at }: { at: number }) {
     return (
       <>
-        <button className="chip clickable" onClick={() => add(newPerceiveStep(), at)} type="button">👁 {t("editor.add.perceive")}</button>
+        <button className="chip clickable" onClick={() => add(newPerceiveStep(), at)} type="button"><Icon name="eye" /> {t("editor.add.perceive")}</button>
         {skillList.map((s) => (
           <button className="chip clickable" key={s.id} onClick={() => add(newSkillStep(s), at)} type="button">+ {s.name.de}</button>
         ))}
-        <button className="chip clickable" onClick={() => add(newWaitStep(), at)} type="button">⏱ {t("editor.add.wait")}</button>
+        <button className="chip clickable" onClick={() => add(newWaitStep(), at)} type="button"><Icon name="clock" /> {t("editor.add.wait")}</button>
       </>
     );
   }
@@ -136,7 +137,7 @@ export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, 
           </div>
         ) : (
           <button className="insert-open" onClick={() => setInsertAt(at)} title={t("editor.insert")} type="button">
-            +
+            <Icon name="plus" size={0.9} title={t("editor.insert")} />
           </button>
         )}
       </div>
@@ -147,7 +148,7 @@ export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, 
     <div className="editor">
       <div className="runbar">
         <button className="btn primary" disabled={saving || draft.steps.length === 0} onClick={onSave} type="button">{saving ? t("editor.saving") : t("editor.save")}</button>
-        <button className="btn" disabled={saving || !canStart} onClick={onSaveAndRun} type="button">▶ {t("editor.save_run")}</button>
+        <button className="btn" disabled={saving || !canStart} onClick={onSaveAndRun} type="button"><Icon name="play" /> {t("editor.save_run")}</button>
         <button className="btn" onClick={onDiscard} type="button">{t("editor.discard")}</button>
         {!isNew && <button className="btn danger-text" onClick={onDelete} type="button">{t("editor.delete")}</button>}
         {dirty && <span className="runstate">{t("editor.unsaved")}</span>}
@@ -245,7 +246,9 @@ export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, 
                   {AFTER_ACTIONS.map((a) => <option key={a} value={a}>{t(`action.${a}`)}</option>)}
                 </select>
               </span>
-              <button className="danger-text" onClick={() => onChange(removeAlwaysRule(draft, i))} type="button">✕</button>
+              <button className="danger-text" onClick={() => onChange(removeAlwaysRule(draft, i))} title={t("editor.always.remove")} type="button">
+              <Icon name="close" title={t("editor.always.remove")} />
+            </button>
             </div>
           );
         })}

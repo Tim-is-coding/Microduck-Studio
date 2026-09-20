@@ -1,4 +1,5 @@
 import { t } from "../i18n";
+import { useIsDark } from "../theme";
 import { TOF_RANGE_M, closestZone, formatDistance, zoneColor } from "./overlay";
 
 /**
@@ -7,6 +8,7 @@ import { TOF_RANGE_M, closestZone, formatDistance, zoneColor } from "./overlay";
  * a walk step (`tof_distance < 0.25`).
  */
 export function TofGrid({ rows, minM }: { rows?: number[][] | null; minM?: number | null }) {
+  const dark = useIsDark();
   if (!rows || rows.length === 0) return null;
   const closest = closestZone(rows);
   return (
@@ -17,7 +19,7 @@ export function TofGrid({ rows, minM }: { rows?: number[][] | null; minM?: numbe
             <span
               className={`zone${closest && closest.row === r && closest.col === c ? " closest" : ""}`}
               key={`${r}-${c}`}
-              style={{ background: zoneColor(distanceM) }}
+              style={{ background: zoneColor(distanceM, dark) }}
               title={distanceM >= TOF_RANGE_M ? t("live.tof.empty") : formatDistance(distanceM)}
             />
           )),

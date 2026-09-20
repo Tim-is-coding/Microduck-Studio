@@ -153,6 +153,7 @@ class Executor:
         self.on_none_run: SkillRun | None = None
         self.interrupt: InterruptRun | None = None
         self.reason: str | None = None
+        self._announced_none = False  # "nothing found" is worth saying once, not every sweep
         self.counters = _Counters()
         self._preempt_source: str | None = None
         self._driving_this_tick = False
@@ -170,6 +171,7 @@ class Executor:
         self.step_started = self.clock()
         self.run = self.on_none_run = None
         self.interrupt = None
+        self._announced_none = False
         self.counters = _Counters()
         self._preempt_source = None
         self.snapshot.speech.clear()
@@ -307,6 +309,7 @@ class Executor:
     async def _advance(self) -> None:
         assert self.pack is not None
         self.run = self.on_none_run = None
+        self._announced_none = False
         self.step_index += 1
         self.step_started = self.clock()
         if self.step_index >= len(self.pack.steps):
@@ -488,6 +491,7 @@ class Executor:
             self._clear_vlm_request()
         seen = self._seen(step)
         if seen is not None:
+            self._announced_none = False
             side = "links" if seen.bearing_rad >= 0 else "rechts"
             dist = f"{seen.distance_m:.1f} m, " if seen.distance_m is not None else ""
             what = f"Ziel „{step.question.de}“" if step.question is not None else "Person"
@@ -511,11 +515,14 @@ class Executor:
             self.on_none_run = self._make_run(
                 step.on_none.do, {}, None, budget_s=step.on_none.seconds
             )
-            self.bus.emit(
-                "perceive.none",
-                f"{nothing}: {self.on_none_run.skill.name.de}, {step.on_none.seconds:g} Sekunden.",
-                do=step.on_none.do,
-            )
+            if not self._announced_none:  # `retry` sweeps again and again; say it once
+                self._announced_none = True
+                self.bus.emit(
+                    "perceive.none",
+                    f"{nothing}: {self.on_none_run.skill.name.de}, "
+                    f"{step.on_none.seconds:g} Sekunden.",
+                    do=step.on_none.do,
+                )
         status = await self._tick_run(self.on_none_run)
         if status == Status.RUNNING:
             return Status.RUNNING
