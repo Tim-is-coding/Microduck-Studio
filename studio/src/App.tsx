@@ -17,9 +17,10 @@ const STATE_INTERVAL_MS = 500;
 export function App() {
   const {
     runtime, health, state, executor, skills, behaviors, selectedBehaviorId, events,
-    draft, draftIsNew, draftDirty, draftProblems, saving, yamlText,
+    draft, draftIsNew, draftDirty, draftProblems, saving, yamlText, hubResults, hubBusy, hubError,
     refreshHealth, refreshState, refreshExecutor, loadCatalog, select, stop, run, abortRun, say,
     editBehavior, newDraft, updateDraft, validateDraft, saveDraft, discardDraft, deleteBehavior, loadYaml,
+    searchHub, clearHub, policyDetails, importPolicy, removeSkill,
   } = useStudio();
   const [phrase, setPhrase] = useState("");
   useLanguage(); // re-render the whole Studio when the language changes
@@ -79,7 +80,17 @@ export function App() {
       </header>
 
       <main className="columns">
-        <SkillPanel skills={skills} />
+        <SkillPanel
+          hubBusy={hubBusy}
+          hubError={hubError}
+          hubResults={hubResults}
+          onClear={clearHub}
+          onDetails={policyDetails}
+          onImport={(repo, slot) => void importPolicy(repo, slot)}
+          onRemove={(id) => void removeSkill(id)}
+          onSearch={(q) => void searchHub(q)}
+          skills={skills}
+        />
         <section className="panel">
           <h2>{t("panel.editor")}</h2>
           <div className="behavior-tabs">

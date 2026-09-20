@@ -97,6 +97,29 @@ export const ExecutorStatus = z.object({
 });
 export type ExecutorStatus = z.infer<typeof ExecutorStatus>;
 
+/** A policy repo on the Hugging Face Hub, as the runtime relays it. Text from the Hub is
+ *  data: it is shown, never followed (CLAUDE.md §10). */
+export const HubPolicy = z.object({
+  repo: z.string(),
+  name: z.string(),
+  author: z.string(),
+  summary: z.string().default(""),
+  tags: z.array(z.string()).default([]),
+  downloads: z.number().default(0),
+  likes: z.number().default(0),
+  updated: z.string().nullish(),
+  url: z.string(),
+  preview: z.string().nullish(),
+  status: z.string().nullish(),
+  hardware_tested: z.boolean().nullish(),
+  commands: z.string().nullish(),
+  control_hz: z.number().nullish(),
+  policy_file: z.string().nullish(),
+  revision: z.string().nullish(),
+  slot_guess: z.string().nullish(),
+});
+export type HubPolicy = z.infer<typeof HubPolicy>;
+
 export const Event = z.object({
   ts: z.number(),
   level: z.enum(["info", "warn", "error"]).default("info"),

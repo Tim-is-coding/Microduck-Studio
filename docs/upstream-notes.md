@@ -266,3 +266,24 @@ API 16/28, behind current 31.
     (needs an ADR when M1 starts).
 13. Velocity limits do not exist upstream; the manifest clamps in our `IntentGate` are the
     only ones. Never disable them.
+
+## Hugging Face Hub — community policies (read live 2026-09-20)
+
+Not upstream code, but the other thing we read without being able to run it. Method: the
+public API (`https://huggingface.co/api/models?filter=microduck-policy`) plus each repo's
+`resolve/main/manifest.json`; 25 repos at the time of reading.
+
+| What | Finding |
+| --- | --- |
+| Tag | `microduck-policy` (all 25); most also carry `microduck`, `mjlab`, `onnx` |
+| Files | `policy.onnx` everywhere; usually `config.json`, often `manifest.json`, sometimes `checkpoint.pt`, `params/*.yaml`, `media/preview.*`, `SHA256SUMS` |
+| `manifest.json` | a community convention, not a standard: `schema_version` 1, 2, 4, 5; `model_api` 1 or 2 |
+| `command` block | **a sentence** (`HannesVonEssen/microduck-basketball`), **a list of free-text lines** (`RemiFabre/microduck-flamingo-cycle`: flag / side, not a velocity), or **absent** (`cdeplanne/*`, `HannesVonEssen/microduck-swing`) |
+| Machine-readable ranges | 1 of 25: `"… continuation ranges ±0.15 m/s, ±0.10 m/s, ±0.50 rad/s"` |
+| Provenance worth showing | `status`, `hardware_tested` (false where stated), `robot.control_hz` (50 everywhere), `description`, downloads/likes, commit `sha` |
+| Loading a policy | not ours: `robot.loadPolicy {slot?, path?}` on the duck, slots `walk, stand, sitstand, ground_pick, kick_left, kick_right, roulade`; fetching is `policy.fetch` on `updaterd` (seen in microduck-mcp, **unverified against upstream code**) |
+
+Consequence, recorded as ADR-0005: the Studio browses and records provenance, a person picks
+which builtin block a policy stands in for, and limits are only ever narrowed by what a repo
+states. `runtime/tests/hub/fake_hub.py` keeps these shapes as fixtures; the live check is
+`DUCKSTUDIO_HUB=1 uv run pytest tests/hub/test_hub_live.py`.

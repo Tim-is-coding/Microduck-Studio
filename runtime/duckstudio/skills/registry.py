@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
+import os
+import tempfile
 from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
+from ..yamlio import dump_yaml
 from .manifest import ChoiceControl, RangeControl, SkillManifest, load_skill_manifest
 
 Scalar = str | float | int | bool
@@ -30,6 +34,9 @@ class SkillRegistry:
         if manifest.id in self._by_id:
             raise ValueError(f"duplicate skill id {manifest.id!r}")
         self._by_id[manifest.id] = manifest
+
+    def remove(self, skill_id: str) -> None:
+        self._by_id.pop(skill_id, None)
 
     def get(self, skill_id: str) -> SkillManifest:
         try:
@@ -91,3 +98,34 @@ class SkillRegistry:
                 raise ValueError(
                     f"{skill_id}.{key}: {value} outside [{control.min}, {control.max}]"
                 )
+
+
+def manifest_to_yaml(manifest: SkillManifest) -> str:
+    """The manifest as the Studio saves it: block style, defaults and empties left out."""
+    data = manifest.model_dump(by_alias=True, mode="json", exclude_none=True, exclude_defaults=True)
+    return dump_yaml(data)
+
+
+def skill_path(directory: Path, skill_id: str) -> Path:
+    return Path(directory) / f"{skill_id}.skill.yaml"
+
+
+def save_skill_manifest(manifest: SkillManifest, directory: Path) -> Path:
+    """Write `<id>.skill.yaml` atomically (temp file + rename), like behavior packs."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    target = skill_path(directory, manifest.id)
+    fd, tmp = tempfile.mkstemp(prefix=f".{manifest.id}.", suffix=".yaml", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(manifest_to_yaml(manifest))
+        os.replace(tmp, target)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(tmp)
+        raise
+    return target
+
+
+def delete_skill_manifest(skill_id: str, directory: Path) -> None:
+    skill_path(Path(directory), skill_id).unlink(missing_ok=True)

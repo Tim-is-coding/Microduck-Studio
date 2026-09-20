@@ -7,6 +7,7 @@ import {
   ExecutorStatus,
   RobotState,
   RuntimeHealth,
+  HubPolicy,
   SkillManifest,
   type BehaviorPack as PackT,
   type BehaviorPackFromApi as Pack,
@@ -14,6 +15,7 @@ import {
   type ExecutorStatus as ExecutorStatusT,
   type RobotState as RobotStateT,
   type RuntimeHealth as RuntimeHealthT,
+  type HubPolicy as Policy,
   type SkillManifest as Skill,
 } from "../schemas";
 import { z } from "zod";
@@ -53,6 +55,14 @@ interface StudioState {
   discardDraft: () => void;
   deleteBehavior: (id: string) => Promise<void>;
   loadYaml: (id: string) => Promise<void>;
+  hubResults: Policy[] | null;
+  hubBusy: boolean;
+  hubError: string | null;
+  searchHub: (query: string) => Promise<void>;
+  clearHub: () => void;
+  policyDetails: (repo: string) => Promise<Policy | null>;
+  importPolicy: (repo: string, slot: string) => Promise<boolean>;
+  removeSkill: (id: string) => Promise<void>;
   loadCatalog: () => Promise<void>;
   select: (id: string | null) => void;
   stop: () => Promise<void>;
@@ -81,6 +91,9 @@ export const useStudio = create<StudioState>((set, get) => ({
   saving: false,
   yamlText: null,
   catalogLoaded: false,
+  hubResults: null,
+  hubBusy: false,
+  hubError: null,
 
   async refreshHealth() {
     try {
@@ -216,6 +229,58 @@ export const useStudio = create<StudioState>((set, get) => ({
     } catch {
       set({ yamlText: null });
     }
+  },
+
+  async searchHub(query) {
+    set({ hubBusy: true, hubError: null });
+    try {
+      const url = `/api/hub/policies?limit=12&q=${encodeURIComponent(query)}`;
+      set({ hubResults: await getJson(url, z.array(HubPolicy)), hubBusy: false });
+    } catch (err) {
+      console.error(err);
+      set({ hubBusy: false, hubError: String(err), hubResults: [] });
+    }
+  },
+
+  clearHub() {
+    set({ hubResults: null, hubError: null });
+  },
+
+  async policyDetails(repo) {
+    try {
+      return await getJson(`/api/hub/policy?repo=${encodeURIComponent(repo)}`, HubPolicy);
+    } catch (err) {
+      console.error(err);
+      set({ hubError: String(err) });
+      return null;
+    }
+  },
+
+  async importPolicy(repo, slot) {
+    set({ hubBusy: true, hubError: null });
+    try {
+      const res = await fetch("/api/hub/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repo, slot }),
+      });
+      if (!res.ok) {
+        set({ hubError: (await res.text()).slice(0, 300), hubBusy: false });
+        return false;
+      }
+      await get().loadCatalog();
+      set({ hubBusy: false });
+      return true;
+    } catch (err) {
+      set({ hubError: String(err), hubBusy: false });
+      return false;
+    }
+  },
+
+  async removeSkill(id) {
+    const res = await fetch(`/api/skills/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!res.ok) set({ hubError: (await res.text()).slice(0, 300) });
+    await get().loadCatalog();
   },
 
   async loadCatalog() {

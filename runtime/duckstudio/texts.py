@@ -105,6 +105,19 @@ def behavior_deleted(name: Text) -> Bilingual:
     return f"{de} gelöscht.", f"{en} deleted."
 
 
+def skill_imported(name: Text, repo: str) -> Bilingual:
+    de, en = quoted(name)
+    return (
+        f"Baustein {de} von {repo} hinzugefügt.",
+        f"Building block {en} added from {repo}.",
+    )
+
+
+def skill_removed(name: Text) -> Bilingual:
+    de, en = quoted(name)
+    return f"Baustein {de} entfernt.", f"Building block {en} removed."
+
+
 def stopped_from(source: str) -> Bilingual:
     if source == "notstopp":
         return "Notstopp", "emergency stop"

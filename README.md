@@ -35,6 +35,7 @@ keep building with Claude Code.
 | Studio opens on an overview of the behaviors (summary, trigger, steps, KI marker, problems) with Öffnen / ▶ Start per card | done |
 | Design pass: one token set (`docs/concepts/studio-look.md`), dark mode with a switch, drawn icons instead of emoji, focus rings, columns that scroll on their own | done |
 | English as the second language: DE/EN switch, every runtime event bilingual (`runtime/duckstudio/texts.py`), data texts fall back to German, numbers and quotes follow the language | done |
+| Hub search in the building blocks panel: browse `microduck-policy` repos, see provenance and what a repo says about its commands, import one as a block that stands in for a builtin (ADR-0005), remove it again | done |
 | Real duck (M4) | next |
 
 Roadmap and rules live in [`CLAUDE.md`](CLAUDE.md); decisions in [`docs/adr/`](docs/adr/).

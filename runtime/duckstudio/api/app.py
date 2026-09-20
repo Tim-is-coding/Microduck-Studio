@@ -27,8 +27,13 @@ from ..behaviors import (
 from ..events import EventBus
 from ..executor import Executor, ExecutorBusy
 from ..executor.safety import IntentGate
+from ..hub import HubClient, HubError, skill_from_policy, skill_id_for
 from ..perception import PerceptionService, detector_for, make_vlm, vlm_hz
-from ..skills import SkillRegistry
+from ..skills import (
+    SkillRegistry,
+    delete_skill_manifest,
+    save_skill_manifest,
+)
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 RECONNECT_EVERY_S = 3.0
@@ -40,14 +45,24 @@ class SayBody(BaseModel):
     text: str
 
 
+class ImportBody(BaseModel):
+    """Which policy to bring in, and which building block it stands in for (ADR-0005)."""
+
+    repo: str
+    slot: str
+
+
 def create_app(
     backend: DuckBackend | None = None,
     *,
     skills_path: Path | None = None,
     behaviors_path: Path | None = None,
     auto_connect: bool = True,
+    hub: HubClient | None = None,
 ) -> FastAPI:
-    registry = SkillRegistry.load(skills_path or skills_dir())
+    skills_root = Path(skills_path or skills_dir())
+    registry = SkillRegistry.load(skills_root)
+    hub_client = hub or HubClient()
     behaviors_root = Path(behaviors_path or behaviors_dir())
     packs = load_behavior_packs(behaviors_root)
     bus = EventBus()
@@ -109,6 +124,7 @@ def create_app(
         yield
         await executor.close()
         await perception.close()
+        await hub_client.close()
         if task is not None:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -170,6 +186,74 @@ def create_app(
     @app.get("/api/skills")
     async def skills() -> list[dict[str, Any]]:
         return [m.model_dump(by_alias=True, mode="json") for m in registry]
+
+    @app.get("/api/hub/policies")
+    async def hub_policies(q: str = "", limit: int = 12) -> list[dict[str, Any]]:
+        """Policies tagged `microduck-policy` on the Hub. Their text is data, never orders."""
+        try:
+            found = await hub_client.search(q, limit=limit)
+        except HubError as e:
+            raise HTTPException(502, f"hub: {e}") from e
+        return [p.model_dump(mode="json") for p in found]
+
+    @app.get("/api/hub/policy")
+    async def hub_policy(repo: str) -> dict[str, Any]:
+        try:
+            return (await hub_client.details(repo)).model_dump(mode="json")
+        except HubError as e:
+            raise HTTPException(502, f"hub: {e}") from e
+
+    @app.post("/api/hub/import")
+    async def hub_import(body: ImportBody) -> dict[str, Any]:
+        """Write a building block that means "this policy, where `slot` drives" (ADR-0005).
+
+        What the duck does comes from the builtin skill the person picked; from the Hub come
+        the name, the description and the provenance — plus tighter limits when the policy
+        states them in a form a machine can read.
+        """
+        if body.slot not in registry:
+            raise HTTPException(422, f"unknown building block {body.slot!r}")
+        template = registry.get(body.slot)
+        if template.source.kind != "builtin":
+            raise HTTPException(
+                422, "a Hub policy stands in for a builtin block, not another import"
+            )
+        try:
+            policy = await hub_client.details(body.repo)
+        except HubError as e:
+            raise HTTPException(502, f"hub: {e}") from e
+        skill_id = skill_id_for(policy.repo, set(registry.ids))
+        try:
+            manifest = skill_from_policy(policy, template, skill_id)
+        except ValidationError as e:
+            raise HTTPException(422, {"problems": _format_validation_error(e)}) from e
+        path = save_skill_manifest(manifest, skills_root)
+        registry.add(manifest)
+        bus.emit(
+            "skill.imported",
+            *texts.skill_imported(manifest.name, policy.repo),
+            skill=manifest.id,
+            repo=policy.repo,
+            slot=body.slot,
+            path=str(path),
+        )
+        return manifest.model_dump(by_alias=True, mode="json")
+
+    @app.delete("/api/skills/{skill_id}")
+    async def remove_skill(skill_id: str) -> dict[str, bool]:
+        """Only what was imported can be removed again; the builtins are the repo's own."""
+        if skill_id not in registry:
+            raise HTTPException(404, f"unknown skill {skill_id!r}")
+        manifest = registry.get(skill_id)
+        if manifest.source.kind != "hub":
+            raise HTTPException(409, "builtin building blocks stay")
+        in_use = [p.id for p in packs.values() if skill_id in p.skill_ids]
+        if in_use:
+            raise HTTPException(409, f"still used by {', '.join(in_use)}")
+        delete_skill_manifest(skill_id, skills_root)
+        registry.remove(skill_id)
+        bus.emit("skill.removed", *texts.skill_removed(manifest.name), level="warn", skill=skill_id)
+        return {"ok": True}
 
     @app.get("/api/behaviors")
     async def behaviors() -> list[dict[str, Any]]:

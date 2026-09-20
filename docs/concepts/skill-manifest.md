@@ -40,6 +40,19 @@ Unknown signals evaluate to "unknown", which never passes a precondition.
 clamping), the second stays with the executor. Developers may also pass params directly
 (`{"vx": 0.1}`); the Studio never does.
 
+## Where a block comes from
+
+`source.kind` is `builtin` (a policy the duck ships, named in `source.policy`) or `hub` (a
+community policy, `source.repo` + `source.file` + `source.version` = the commit we imported).
+
+A `hub` block is written by the Studio's Hub search (ADR-0005), and it only ever borrows
+words from the Hub: name, summary, provenance. Everything that decides what the duck does —
+`intent`/`behavior`, `params`, `ui`, `preconditions`, `terminates_on`, `rate_hz` — is copied
+from the builtin block a person said it stands in for. Limits move in one direction only: a
+repo that states its own velocity ranges can narrow ours, never widen them (§7).
+
+Only `hub` blocks can be deleted through the API; the builtins are the repo's own files.
+
 ## Upstream verification
 
 `intent` names and behavior names are **unverified** until `docs/upstream-notes.md` lists
