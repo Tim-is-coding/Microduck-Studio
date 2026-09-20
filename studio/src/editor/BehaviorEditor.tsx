@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { stringify } from "yaml";
 
 import { t, tOr } from "../i18n";
@@ -9,6 +9,7 @@ import {
   addAlwaysRule,
   addStep,
   moveStep,
+  moveStepTo,
   newPerceiveStep,
   newSkillStep,
   newWaitStep,
@@ -45,6 +46,52 @@ interface Props {
  *  skill manifest's `ui`; nothing here needs the YAML. */
 export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, connected, onChange, onSave, onSaveAndRun, onDiscard, onDelete }: Props) {
   const [showYaml, setShowYaml] = useState(false);
+  const [insertAt, setInsertAt] = useState<number | null>(null);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dropAt, setDropAt] = useState<number | null>(null);
+  const stepsRef = useRef<HTMLDivElement | null>(null);
+  const dropRef = useRef<number | null>(null); // what the pointerup handler reads
+
+  /** Which gap is the pointer nearest? Gaps mark themselves with `data-gap`. */
+  const gapNear = useCallback((clientY: number): number | null => {
+    const root = stepsRef.current;
+    if (!root) return null;
+    let best: { at: number; distance: number } | null = null;
+    for (const gap of root.querySelectorAll<HTMLElement>("[data-gap]")) {
+      const box = gap.getBoundingClientRect();
+      const distance = Math.abs(clientY - (box.top + box.height / 2));
+      const at = Number(gap.dataset.gap);
+      if (!best || distance < best.distance) best = { at, distance };
+    }
+    return best?.at ?? null;
+  }, []);
+
+  // Dragging a step is pointer-based on purpose: it works with a finger, it can be tested,
+  // and the drop line is ours to draw. HTML5 drag-and-drop does none of those well.
+  useEffect(() => {
+    if (dragFrom === null) return;
+    const move = (e: PointerEvent) => {
+      e.preventDefault();
+      const at = gapNear(e.clientY);
+      dropRef.current = at;
+      setDropAt(at);
+    };
+    const finish = () => {
+      const at = dropRef.current;
+      if (at !== null) onChange(moveStepTo(draft, dragFrom, at));
+      dropRef.current = null;
+      setDragFrom(null);
+      setDropAt(null);
+    };
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+    };
+  }, [dragFrom, draft, gapNear, onChange]);
   const [phrases, setPhrases] = useState(draft.trigger.kind === "speech" ? draft.trigger.phrases.de.join(", ") : "");
   useEffect(() => {
     if (draft.trigger.kind === "speech") setPhrases(draft.trigger.phrases.de.join(", "));
@@ -53,6 +100,48 @@ export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, 
   const shownProblems = draft.steps.length === 0 ? problems.filter((p) => !p.startsWith("steps:")) : problems;
   const canStart = connected && problems.length === 0 && draft.steps.length > 0;
   const skillList = [...skills.values()];
+
+  const add = (step: Parameters<typeof addStep>[1], at: number) => {
+    onChange(withVlmIfNeeded(addStep(draft, step, at)));
+    setInsertAt(null);
+  };
+
+  /** The chips that create a step, aimed at one gap in the list. */
+  function AddButtons({ at }: { at: number }) {
+    return (
+      <>
+        <button className="chip clickable" onClick={() => add(newPerceiveStep(), at)} type="button">👁 {t("editor.add.perceive")}</button>
+        {skillList.map((s) => (
+          <button className="chip clickable" key={s.id} onClick={() => add(newSkillStep(s), at)} type="button">+ {s.name.de}</button>
+        ))}
+        <button className="chip clickable" onClick={() => add(newWaitStep(), at)} type="button">⏱ {t("editor.add.wait")}</button>
+      </>
+    );
+  }
+
+  /** The gap between two steps: drop a dragged step here, or add a new one in between. */
+  function InsertRow({ at }: { at: number }) {
+    const open = insertAt === at;
+    const dragActive = dragFrom !== null;
+    const over = dropAt === at && dragActive;
+    return (
+      <div
+        className={`insert${open ? " open" : ""}${dragActive ? " dragging" : ""}${over ? " over" : ""}`}
+        data-gap={at}
+      >
+        {open ? (
+          <div className="insert-menu">
+            <AddButtons at={at} />
+            <button className="chip clickable" onClick={() => setInsertAt(null)} type="button">{t("editor.insert.cancel")}</button>
+          </div>
+        ) : (
+          <button className="insert-open" onClick={() => setInsertAt(at)} title={t("editor.insert")} type="button">
+            +
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="editor">
@@ -105,26 +194,33 @@ export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, 
       </div>
 
       {draft.steps.length === 0 && <div className="sub empty">{t("editor.steps.empty")}</div>}
+      <div className={`steps${dragFrom !== null ? " dragging" : ""}`} ref={stepsRef}>
       {draft.steps.map((step, i) => (
-        <StepEditor
-          count={draft.steps.length}
-          index={i}
-          key={i}
-          onChange={(s) => onChange(withVlmIfNeeded(replaceStep(draft, i, s)))}
-          onMove={(d) => onChange(moveStep(draft, i, d))}
-          onRemove={() => onChange(removeStep(draft, i))}
-          skills={skills}
-          step={step}
-        />
+        <div key={i}>
+          <InsertRow at={i} />
+          <StepEditor
+            count={draft.steps.length}
+            dragging={dragFrom === i}
+            index={i}
+            onChange={(s) => onChange(withVlmIfNeeded(replaceStep(draft, i, s)))}
+            onDragStart={(e) => {
+              e.preventDefault();
+              dropRef.current = null;
+              setDragFrom(i);
+            }}
+            onMove={(d) => onChange(moveStep(draft, i, d))}
+            onRemove={() => onChange(removeStep(draft, i))}
+            skills={skills}
+            step={step}
+          />
+        </div>
       ))}
+      {draft.steps.length > 0 && <InsertRow at={draft.steps.length} />}
+      </div>
 
       <div className="add-menu">
         <span className="field-label">{t("editor.add")}:</span>
-        <button className="chip clickable" onClick={() => onChange(addStep(draft, newPerceiveStep()))} type="button">👁 {t("editor.add.perceive")}</button>
-        {skillList.map((s) => (
-          <button className="chip clickable" key={s.id} onClick={() => onChange(addStep(draft, newSkillStep(s)))} type="button">+ {s.name.de}</button>
-        ))}
-        <button className="chip clickable" onClick={() => onChange(addStep(draft, newWaitStep()))} type="button">⏱ {t("editor.add.wait")}</button>
+        <AddButtons at={draft.steps.length} />
       </div>
 
       <div className="card">

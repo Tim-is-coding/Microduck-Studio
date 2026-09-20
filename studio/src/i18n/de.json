@@ -187,5 +187,8 @@
   "skill.sit": "Hinsetzen",
   "skill.stand": "Stehen",
   "skill.pickup": "Aufheben",
-  "skill.kick": "Kicken"
+  "skill.kick": "Kicken",
+  "editor.step.drag": "Ziehen, um den Schritt zu verschieben",
+  "editor.insert": "Hier einen Schritt einfügen",
+  "editor.insert.cancel": "Abbrechen"
 }

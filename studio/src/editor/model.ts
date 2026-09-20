@@ -119,6 +119,19 @@ export function moveStep(pack: BehaviorPack, index: number, delta: -1 | 1): Beha
   return { ...pack, steps };
 }
 
+/**
+ * Move a step to a gap in the list, the way dropping it there reads: `to` counts gaps in the
+ * current list (0 = before the first step, steps.length = after the last one).
+ */
+export function moveStepTo(pack: BehaviorPack, from: number, to: number): BehaviorPack {
+  if (from < 0 || from >= pack.steps.length) return pack;
+  if (to === from || to === from + 1) return pack; // dropped where it already is
+  const steps = [...pack.steps];
+  const [step] = steps.splice(from, 1);
+  steps.splice(to > from ? to - 1 : to, 0, step!);
+  return { ...pack, steps };
+}
+
 export function replaceStep(pack: BehaviorPack, index: number, step: Step): BehaviorPack {
   return { ...pack, steps: pack.steps.map((s, i) => (i === index ? step : s)) };
 }

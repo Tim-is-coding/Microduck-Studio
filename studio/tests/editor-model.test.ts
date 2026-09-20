@@ -5,6 +5,7 @@ import {
   addStep,
   asksVlm,
   moveStep,
+  moveStepTo,
   newBehavior,
   newPerceiveStep,
   newWaitStep,
@@ -96,5 +97,32 @@ describe("a perceive card that asks a model", () => {
     const pack = addStep(newBehavior("Folge"), newPerceiveStep());
     expect(withVlmIfNeeded(pack).vlm).toBeUndefined();
     expect(asksVlm(pack)).toBe(false);
+  });
+});
+
+describe("moving a step by dropping it", () => {
+  const pack = () => {
+    let p = newBehavior("Reihenfolge");
+    p = addStep(p, newPerceiveStep());
+    p = addStep(p, { skill: "walk", with: {} });
+    p = addStep(p, { skill: "quack", with: {} });
+    return p;
+  };
+  const kinds = (p: ReturnType<typeof pack>) => p.steps.map((s) => ("skill" in s ? s.skill : Object.keys(s)[0]));
+
+  it("drops a step further down", () => {
+    expect(kinds(moveStepTo(pack(), 0, 3))).toEqual(["walk", "quack", "perceive"]);
+    expect(kinds(moveStepTo(pack(), 0, 2))).toEqual(["walk", "perceive", "quack"]);
+  });
+
+  it("drops a step further up", () => {
+    expect(kinds(moveStepTo(pack(), 2, 0))).toEqual(["quack", "perceive", "walk"]);
+  });
+
+  it("is a no-op when the step lands where it already was", () => {
+    const p = pack();
+    expect(moveStepTo(p, 1, 1)).toBe(p);
+    expect(moveStepTo(p, 1, 2)).toBe(p);
+    expect(moveStepTo(p, 7, 0)).toBe(p);
   });
 });

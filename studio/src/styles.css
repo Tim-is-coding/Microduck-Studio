@@ -204,3 +204,26 @@ body { margin: 0; }
 .card.vlm-on { border-color: #f3c7c4; }
 .yaml { margin-top: 12px; font-size: 13px; color: var(--muted); }
 .yaml pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 12px; overflow: auto; max-height: 320px; color: var(--ink); }
+
+/* Gaps between the step cards: a drop target while dragging, an insert point on hover. */
+.insert { height: 14px; margin-left: 38px; display: flex; align-items: center; position: relative; }
+.insert.open { height: auto; margin: 6px 0 6px 38px; }
+.insert-open {
+  opacity: 0.35; width: 22px; height: 22px; border-radius: 50%; border: 1px dashed var(--line);
+  background: var(--panel); color: var(--muted); cursor: pointer; line-height: 1; font-size: 14px;
+  transition: opacity 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.insert:hover .insert-open, .insert-open:focus-visible { opacity: 1; border-color: var(--accent); color: var(--accent-ink); }
+.insert.dragging { height: 22px; }
+.insert.dragging::before {
+  content: ""; position: absolute; left: 0; right: 0; height: 2px; border-radius: 2px;
+  background: var(--line);
+}
+.insert.over::before { background: var(--accent); height: 3px; }
+.insert-menu { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0; }
+.step.editing.dragging { opacity: 0.45; }
+.card-actions .grip { cursor: grab; color: var(--muted); padding: 0 4px; user-select: none; touch-action: none; }
+.card-actions .grip:active { cursor: grabbing; }
+/* While a step is travelling, every gap shows itself so the drop point is obvious. */
+.steps.dragging { cursor: grabbing; }
+.steps.dragging .card { pointer-events: none; }

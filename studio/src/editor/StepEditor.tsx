@@ -1,3 +1,5 @@
+import type React from "react";
+
 import { t, tOr } from "../i18n";
 import { isPerceive, isSkill, isWait, type SkillManifest, type Step, type StopCondition } from "../schemas";
 import {
@@ -25,17 +27,22 @@ interface Props {
   step: Step;
   skills: Map<string, SkillManifest>;
   count: number;
+  dragging?: boolean;
   onChange: (step: Step) => void;
   onMove: (delta: -1 | 1) => void;
   onRemove: () => void;
+  onDragStart?: (e: React.PointerEvent<HTMLSpanElement>) => void;
 }
 
-export function StepEditor({ index, step, skills, count, onChange, onMove, onRemove }: Props) {
+export function StepEditor({ index, step, skills, count, dragging = false, onChange, onMove, onRemove, onDragStart }: Props) {
   return (
-    <div className="step editing">
+    <div className={`step editing${dragging ? " dragging" : ""}`}>
       <div className="num">{index + 1}</div>
       <div className="card">
         <div className="card-actions">
+          <span className="grip" onPointerDown={onDragStart} title={t("editor.step.drag")}>
+            ⠿
+          </span>
           <button disabled={index === 0} onClick={() => onMove(-1)} title={t("editor.step.up")} type="button">↑</button>
           <button disabled={index === count - 1} onClick={() => onMove(1)} title={t("editor.step.down")} type="button">↓</button>
           <button className="danger-text" onClick={onRemove} title={t("editor.step.remove")} type="button">✕</button>
