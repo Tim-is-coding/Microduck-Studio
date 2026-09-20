@@ -16,6 +16,11 @@ dependencies = [
   "pillow>=10",
 ]
 
+[project.optional-dependencies]
+vlm = [
+  "anthropic>=1.7,<2",   # optional: only the Claude VLM provider needs it (ADR-0004)
+]
+
 [dependency-groups]
 dev = [
   "pytest>=8",

@@ -41,7 +41,11 @@ export function StepList({ behavior, skills, activeStep = null, interrupt = null
           <div className="card">
             {isPerceive(step) && (
               <>
-                <div className="title">{t("editor.step.perceive", { what: tOr(`perceive.${step.perceive}`, step.perceive) })}</div>
+                <div className="title">
+                  {step.question?.de
+                    ? t("editor.step.ask", { question: step.question.de })
+                    : t("editor.step.perceive", { what: tOr(`perceive.${step.perceive}`, step.perceive) })}
+                </div>
                 {step.on_none && (
                   <div className="branch">
                     {t("editor.step.on_none", {

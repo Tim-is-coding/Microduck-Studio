@@ -5,8 +5,11 @@
 import type { BehaviorPack, SkillManifest, Step, StopCondition, Trigger } from "../schemas";
 
 export const BEHAVIOR_SCHEMA_ID = "duckstudio.behavior/v0";
-export const PERCEIVE_QUERIES = ["person.nearest"] as const;
-export const SIGNALS = ["fallen", "motor_hot", "battery", "tof_distance", "person_found", "target_reached", "standing", "sitting"] as const;
+export const PERCEIVE_QUERIES = ["person.nearest", "vlm.target"] as const;
+export const VLM_QUERY_PREFIX = "vlm.";
+export const DEFAULT_VLM_PROVIDER = "anthropic";
+export const DEFAULT_QUESTION = "Wo ist der rote Ball?";
+export const SIGNALS = ["fallen", "motor_hot", "battery", "tof_distance", "person_found", "target_found", "target_reached", "standing", "sitting"] as const;
 export const AFTER_ACTIONS = ["resume", "abort", "stop"] as const;
 export const THEN_OPTIONS = ["retry", "abort", "continue"] as const;
 export const DURATION_UNITS = ["s", "m"] as const;
@@ -56,6 +59,41 @@ export function newSkillStep(skill: SkillManifest): Step {
 
 export function newPerceiveStep(): Step {
   return { perceive: "person.nearest", on_none: { do: "look_around", seconds: 5, then: "retry" } };
+}
+
+export function isVlmQuery(query: string): boolean {
+  return query.startsWith(VLM_QUERY_PREFIX);
+}
+
+/** Switching a perceive card between "die nächste Person" and "per KI suchen".
+ *  A KI query needs a question; the local one must not carry one (the runtime rejects it). */
+export function setPerceiveQuery(step: Step, query: string): Step {
+  if (!("perceive" in step)) return step;
+  const { question: _question, ...rest } = step;
+  if (!isVlmQuery(query)) return { ...rest, perceive: query };
+  return { ...rest, perceive: query, question: step.question ?? { de: DEFAULT_QUESTION } };
+}
+
+export function setOnNone(step: Step, onNone: { do: string; seconds: number; then: "retry" | "abort" | "continue" } | null): Step {
+  if (!("perceive" in step)) return step;
+  const { on_none: _onNone, ...rest } = step;
+  return onNone ? { ...rest, on_none: onNone } : rest;
+}
+
+export function setQuestion(step: Step, text: string): Step {
+  if (!("perceive" in step)) return step;
+  return { ...step, question: { ...step.question, de: text } };
+}
+
+export function asksVlm(pack: BehaviorPack): boolean {
+  return pack.steps.some((s) => "perceive" in s && isVlmQuery(s.perceive));
+}
+
+/** A step that asks a model implies the opt-in (§7): the Studio shows the red line either
+ *  way, so the consent stays visible — it just does not make the user hunt for a checkbox. */
+export function withVlmIfNeeded(pack: BehaviorPack): BehaviorPack {
+  if (!asksVlm(pack) || pack.vlm) return pack;
+  return { ...pack, vlm: { provider: DEFAULT_VLM_PROVIDER } };
 }
 
 export function newWaitStep(): Step {
@@ -185,7 +223,11 @@ export function tidy(pack: BehaviorPack): BehaviorPack {
         if (s.until) return { ...step, until: s.until };
         return step;
       }
-      if ("perceive" in s) return s.on_none ? { perceive: s.perceive, on_none: s.on_none } : { perceive: s.perceive };
+      if ("perceive" in s) {
+        const step: Step = { perceive: s.perceive };
+        if (s.question?.de) Object.assign(step, { question: { de: s.question.de } });
+        return s.on_none ? { ...step, on_none: s.on_none } : step;
+      }
       return s;
     }),
     always: pack.always,

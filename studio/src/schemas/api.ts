@@ -9,12 +9,23 @@ export const Health = z.strictObject({
   warnings: z.array(z.string()).default([]),
 });
 
+/** Which model would see the camera, and whether a frame would leave the machine at all. */
+export const VlmInfo = z.object({
+  provider: z.string(),
+  model: z.string(),
+  configured: z.boolean(),
+  sends_frames: z.boolean(),
+  hz: z.number(),
+});
+export type VlmInfo = z.infer<typeof VlmInfo>;
+
 export const RuntimeHealth = z.object({
   version: z.string(),
   backend: z.enum(["mock", "sim", "duck"]),
   connected: z.boolean(),
   health: Health.nullable(),
   unverified_upstream_methods: z.array(z.string()).default([]),
+  vlm: VlmInfo.nullish(),
 });
 export type RuntimeHealth = z.infer<typeof RuntimeHealth>;
 
@@ -38,6 +49,30 @@ export const PersonDetection = z.object({
 });
 export type PersonDetection = z.infer<typeof PersonDetection>;
 
+/** The same geometry, seen by a VLM instead of the local detector. */
+export const TargetSighting = PersonDetection.extend({ label: z.string(), source: z.string() });
+export type TargetSighting = z.infer<typeof TargetSighting>;
+
+export const VlmAnswer = z.object({
+  timestamp: z.number(),
+  question: z.string(),
+  found: z.boolean(),
+  answer: z.string().default(""),
+  provider: z.string(),
+  model: z.string(),
+  latency_s: z.number(),
+});
+export type VlmAnswer = z.infer<typeof VlmAnswer>;
+
+export const VlmActivity = z.object({
+  provider: z.string(),
+  sends_frames: z.boolean(),
+  question: z.string().nullable(),
+  asked: z.number(),
+  answer: VlmAnswer.nullable(),
+});
+export type VlmActivity = z.infer<typeof VlmActivity>;
+
 export const ExecutorState = z.enum(["idle", "running", "done", "failed", "aborted", "preempted"]);
 
 export const ExecutorStatus = z.object({
@@ -52,7 +87,9 @@ export const ExecutorStatus = z.object({
   intents_sent: z.number(),
   camera: z.boolean().nullable(),
   person: PersonDetection.nullable(),
+  target: TargetSighting.nullable(),
   tof_min_m: z.number().nullable(),
+  vlm: VlmActivity.nullish(),
 });
 export type ExecutorStatus = z.infer<typeof ExecutorStatus>;
 

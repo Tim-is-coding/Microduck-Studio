@@ -17,8 +17,10 @@ id: follow-me
 name: { de: Folge mir }
 trigger: { kind: speech, phrases: { de: ["Folge mir"] } }   # or { kind: manual }
 steps:
-  - perceive: person.nearest                # PerceiveStep
+  - perceive: person.nearest                # PerceiveStep, answered locally
     on_none: { do: look_around, seconds: 5, then: retry }
+  - perceive: vlm.target                    # answered by the model the behavior opted into
+    question: { de: "Wo ist der rote Ball?" }
   - skill: walk                             # SkillStep
     with: { direction: toward_person, tempo: easy, distance: 60 }
     until: { any: [speech: { de: ["Stopp"] }, elapsed: 10m] }
@@ -29,6 +31,10 @@ always:
 vlm: { provider: anthropic }                # optional opt-in, shown in the Studio
 ```
 
+- `perceive` takes a known query: `person.nearest` (local detector, every frame) or
+  `vlm.target` (ADR-0004, 0.5 Hz). A `vlm.*` query needs a `question` and a `vlm:` opt-in;
+  `person.*` takes no question. The schema refuses anything else, so a pack that cannot run
+  cannot be saved.
 - `with` keys must be `ui` controls (or params) of the skill; values are checked against the
   control's options/range by `validate_against_registry`.
 - `until` has exactly one of `any` / `all`, each a list of `speech`, `elapsed` or `signal`
@@ -36,7 +42,8 @@ vlm: { provider: anthropic }                # optional opt-in, shown in the Stud
 - `always.do` and `on_none.do` list skill ids or the reserved words `resume`, `abort`,
   `stop`, `retry`, `continue`.
 - `vlm` is the per-behavior opt-in required by `CLAUDE.md` §7; without it no frame leaves
-  the runtime except to the user's Studio.
+  the runtime except to the user's Studio. The named provider is what the runtime checks
+  against before it sends anything (`docs/concepts/perception.md`).
 
 ## YAML note
 

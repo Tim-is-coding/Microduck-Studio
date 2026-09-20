@@ -3,17 +3,22 @@ import { describe, expect, it } from "vitest";
 import {
   addAlwaysRule,
   addStep,
+  asksVlm,
   moveStep,
   newBehavior,
   newPerceiveStep,
   newWaitStep,
   parseDurationInput,
   removeStep,
+  setOnNone,
+  setPerceiveQuery,
+  setQuestion,
   setUntil,
   slugify,
   splitPhrases,
   tidy,
   untilConditions,
+  withVlmIfNeeded,
 } from "../src/editor/model";
 import { BehaviorPack, type Step } from "../src/schemas";
 
@@ -53,5 +58,43 @@ describe("draft operations keep the pack schema-valid", () => {
     expect(parseDurationInput("10m")).toEqual({ value: 10, unit: "m" });
     expect(parseDurationInput("500ms")).toEqual({ value: 1, unit: "s" });
     expect(parseDurationInput("garbage")).toEqual({ value: 2, unit: "s" });
+  });
+});
+
+describe("a perceive card that asks a model", () => {
+  it("adds a question when switched to the KI query and drops it when switched back", () => {
+    const step = newPerceiveStep();
+    const asking = setPerceiveQuery(step, "vlm.target");
+    expect(asking).toMatchObject({ perceive: "vlm.target", question: { de: expect.any(String) } });
+    const edited = setQuestion(asking, "Wo ist meine Tasse?");
+    expect((edited as { question: { de: string } }).question.de).toBe("Wo ist meine Tasse?");
+    const back = setPerceiveQuery(edited, "person.nearest");
+    expect(back).toEqual({ perceive: "person.nearest", on_none: { do: "look_around", seconds: 5, then: "retry" } });
+    expect("question" in back).toBe(false); // the local detector takes no question
+  });
+
+  it("keeps the question when the side branch is switched off", () => {
+    const asking = setQuestion(setPerceiveQuery(newPerceiveStep(), "vlm.target"), "Wo ist der Ball?");
+    const plain = setOnNone(asking, null);
+    expect(plain).toEqual({ perceive: "vlm.target", question: { de: "Wo ist der Ball?" } });
+  });
+
+  it("brings the opt-in with it, and the pack stays valid", () => {
+    let pack = newBehavior("Such das Ding");
+    pack = addStep(pack, setPerceiveQuery(newPerceiveStep(), "vlm.target"));
+    expect(pack.vlm).toBeUndefined();
+    pack = withVlmIfNeeded(pack);
+    expect(pack.vlm).toEqual({ provider: "anthropic" });
+    expect(asksVlm(pack)).toBe(true);
+    pack = addStep(pack, { skill: "walk", with: { direction: "toward_target", tempo: "easy", distance: 50 } });
+    const parsed = BehaviorPack.safeParse(tidy(pack));
+    expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
+    expect(tidy(pack).steps[0]).toEqual({ perceive: "vlm.target", question: { de: "Wo ist der rote Ball?" }, on_none: { do: "look_around", seconds: 5, then: "retry" } });
+  });
+
+  it("leaves a pack without a KI step alone", () => {
+    const pack = addStep(newBehavior("Folge"), newPerceiveStep());
+    expect(withVlmIfNeeded(pack).vlm).toBeUndefined();
+    expect(asksVlm(pack)).toBe(false);
   });
 });

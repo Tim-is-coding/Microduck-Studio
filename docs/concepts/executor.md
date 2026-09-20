@@ -7,8 +7,8 @@ branches (`CLAUDE.md` §3.2, §6.4). No general behaviour-tree library: the shap
 ## One tick, 10 Hz
 
 1. Refresh the step context in the shared `Snapshot` (`now`, `elapsed_s`, `budget_s`,
-   `target_distance_m`). Perception writes into the same object at its own rates; the tick
-   never waits for it.
+   `stop_distance_m`, `steering`). Perception writes into the same object at its own rates;
+   the tick never waits for it.
 2. **Gamepad preemption**: any `pad.report` frame with events → `robot.stop`, state
    `preempted`, nothing else goes out. Authority order (§4) is e-stop > gamepad > executor.
 3. **`always` rules** are evaluated before the active node. When one fires
@@ -17,9 +17,11 @@ branches (`CLAUDE.md` §3.2, §6.4). No general behaviour-tree library: the shap
    A rule that fires more than three times in a row fails the behavior ("Erholung klappt
    nicht"). An action refused for a precondition (getup while already standing) is skipped.
 4. **The active step**:
-   - `perceive: person.nearest` succeeds when a fresh detection (< 1 s) exists. `on_none`
-     runs its skill for `seconds` (look_around sweeps the head), then `retry` / `abort` /
-     `continue`.
+   - `perceive: person.nearest` succeeds when a fresh detection (< 1 s) exists;
+     `perceive: vlm.target` when a fresh VLM sighting (< 6 s) does — the step publishes its
+     question, the perception service asks it (ADR-0004), the tick only reads the answer.
+     `on_none` runs its skill for `seconds` (look_around sweeps the head), then
+     `retry` / `abort` / `continue`.
    - `skill:` runs the skill with params resolved from `with` (plus manifest `ui` defaults).
      End conditions come first — `until` (speech, elapsed, signal), then the manifest's
      `terminates_on` (`fallen`/`motor_hot` fail, everything else succeeds, e.g.
@@ -36,12 +38,17 @@ even when the command is zero (person lost → hold still). The `Watchdog` runs 
 task: if the executor stops ticking for 350 ms while it was driving, it calls
 `backend.stop()` and says so in the log. Tests: `tests/executor/test_watchdog.py`.
 
-## Steering toward a person
+## Steering toward something
 
-`direction: toward_person` turns bearing into yaw rate (`vyaw = 1.5 · bearing`, clamped by
-the manifest), slows forward speed while the bearing is large, and eases off inside 30 cm of
-the target distance. `target_reached` is `person_distance ≤ distance` from the card.
-Distance comes from the ToF column at the bearing, else from the marker's apparent width.
+`direction: toward_person` and `direction: toward_target` share one function
+(`steer_toward`): bearing becomes yaw rate (`vyaw = 1.5 · bearing`, clamped by the
+manifest), forward speed drops while the bearing is large, and eases off inside 30 cm of the
+distance the card asked for. `target_reached` compares that distance against whichever
+sighting the step steers by (`snapshot.steering`). Range comes from the ToF zone the thing
+appears in, else — for the local detector — from the marker's apparent width.
+
+With nothing fresh to steer by, the step sends a zero `robot.move` every tick: the duck
+stands still and the deadman stays fed.
 
 ## Failure and refusal handling
 

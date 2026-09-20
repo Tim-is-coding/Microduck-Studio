@@ -51,6 +51,7 @@ NEW_PACK = {
 async def test_save_lists_and_persists_a_new_behavior(
     client: httpx.AsyncClient, behaviors_tmp: Path
 ) -> None:
+    before = {b["id"] for b in (await client.get("/api/behaviors")).json()}
     r = await client.put("/api/behaviors/begruessung", json=NEW_PACK)
     assert r.status_code == 200, r.text
     assert r.json()["problems"] == []
@@ -61,7 +62,7 @@ async def test_save_lists_and_persists_a_new_behavior(
     reloaded = load_behavior_pack(path)
     assert reloaded.id == "begruessung" and len(reloaded.steps) == 3
     ids = {b["id"] for b in (await client.get("/api/behaviors")).json()}
-    assert ids == {"follow-me", "begruessung"}
+    assert ids == before | {"begruessung"}
     yaml_text = (await client.get("/api/behaviors/begruessung/yaml")).text
     assert yaml_text.startswith("schema: duckstudio.behavior/v0\nid: begruessung\n")
 

@@ -18,6 +18,11 @@ BEHAVIOR_SCHEMA_ID = "duckstudio.behavior/v0"
 # Reserved words allowed in `do:` lists next to skill ids.
 RESERVED_ACTIONS = frozenset({"resume", "abort", "stop", "retry", "continue"})
 
+# What a `perceive:` step may ask for. `person.*` is answered by a local detector on every
+# frame; `vlm.*` by the model the behavior opted into, 0.5–2 Hz (§4, ADR-0004).
+PERCEIVE_QUERIES = frozenset({"person.nearest", "vlm.target"})
+VLM_QUERY_PREFIX = "vlm."
+
 Scalar = str | float | int | bool
 
 
@@ -72,7 +77,23 @@ class PerceiveStep(Strict):
         pattern=r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$",
         description="Perception query, e.g. person.nearest",
     )
+    question: Text | None = None  # what the VLM is asked, in the user's own words
     on_none: OnNone | None = None
+
+    @property
+    def uses_vlm(self) -> bool:
+        return self.perceive.startswith(VLM_QUERY_PREFIX)
+
+    @model_validator(mode="after")
+    def _known_query(self) -> PerceiveStep:
+        if self.perceive not in PERCEIVE_QUERIES:
+            known = ", ".join(sorted(PERCEIVE_QUERIES))
+            raise ValueError(f"unknown perception query {self.perceive!r} (known: {known})")
+        if self.uses_vlm and self.question is None:
+            raise ValueError(f"{self.perceive} needs a `question` — what should it look for?")
+        if not self.uses_vlm and self.question is not None:
+            raise ValueError(f"{self.perceive} answers on its own; it takes no `question`")
+        return self
 
 
 class SkillStep(Strict):
@@ -109,6 +130,15 @@ class BehaviorPack(Strict):
     steps: list[Step] = Field(min_length=1)
     always: list[AlwaysRule] = Field(default_factory=list)
     vlm: VlmOptIn | None = None
+
+    @model_validator(mode="after")
+    def _vlm_steps_need_opt_in(self) -> BehaviorPack:
+        """§7: a frame only ever leaves the runtime for a behavior that says so, by name."""
+        if self.vlm is None and any(isinstance(s, PerceiveStep) and s.uses_vlm for s in self.steps):
+            raise ValueError(
+                "a step asks a VLM, so the behavior needs a `vlm:` opt-in naming the provider"
+            )
+        return self
 
     @property
     def skill_ids(self) -> set[str]:

@@ -16,9 +16,11 @@ import {
   removeStep,
   renameBehavior,
   replaceStep,
+  asksVlm,
   setAlwaysRule,
   setTrigger,
   setVlm,
+  withVlmIfNeeded,
   speechTrigger,
   tidy,
 } from "./model";
@@ -108,7 +110,7 @@ export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, 
           count={draft.steps.length}
           index={i}
           key={i}
-          onChange={(s) => onChange(replaceStep(draft, i, s))}
+          onChange={(s) => onChange(withVlmIfNeeded(replaceStep(draft, i, s)))}
           onMove={(d) => onChange(moveStep(draft, i, d))}
           onRemove={() => onChange(removeStep(draft, i))}
           skills={skills}
@@ -156,9 +158,15 @@ export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, 
 
       <div className={`card${draft.vlm ? " vlm-on" : ""}`}>
         <label className="field inline">
-          <input checked={Boolean(draft.vlm)} onChange={(e) => onChange(setVlm(draft, e.target.checked ? "anthropic" : null))} type="checkbox" />
+          <input
+            checked={Boolean(draft.vlm)}
+            disabled={asksVlm(draft)}
+            onChange={(e) => onChange(setVlm(draft, e.target.checked ? "anthropic" : null))}
+            type="checkbox"
+          />
           <span className="field-label">{t("editor.vlm.toggle")}</span>
         </label>
+        {asksVlm(draft) && <div className="sub">{t("editor.vlm.required")}</div>}
         {draft.vlm && (
           <>
             <label className="field">

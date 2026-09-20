@@ -2,8 +2,12 @@
 
 The snapshot is last-value-wins and never blocks (§6.4): perception tasks write whatever is
 fresh, the executor reads what is there at tick time. Step context (elapsed time, time
-budget, target distance) lives here too so `timeout` and `target_reached` evaluate like any
-other signal.
+budget, stop distance, what the current step is steering at) lives here too so `timeout` and
+`target_reached` evaluate like any other signal.
+
+Two subjects can be steered at: the person the local detector tracks, and the thing the VLM
+was asked to find. They have different clocks — the detector runs on every frame, the VLM
+twice a minute — so they have different freshness windows.
 """
 
 from __future__ import annotations
@@ -12,10 +16,28 @@ from dataclasses import dataclass, field
 
 from ..backends.base import Health, RobotState
 from ..common import Condition
-from ..perception.base import PersonDetection
+from ..perception.base import PersonDetection, Sighting, TargetSighting
+from ..perception.vlm import VlmAnswer
 
 MOTOR_HOT_C = 70.0
 PERSON_FRESH_S = 1.0
+# Three missed answers at the default 0.5 Hz: a VLM sighting stays usable much longer than a
+# detection, because nothing else is going to refresh it sooner (§4).
+TARGET_FRESH_S = 6.0
+
+
+@dataclass(frozen=True)
+class VlmRequest:
+    """The standing question the perception service asks on the runtime's behalf.
+
+    Set by the executor when a `vlm.*` step starts, cleared when the behavior ends. It
+    carries the provider the behavior opted into (§7) so the service can refuse to send a
+    frame anywhere the user did not agree to.
+    """
+
+    question: str
+    provider: str
+    behavior_id: str
 
 
 @dataclass
@@ -26,12 +48,16 @@ class Snapshot:
     tof_min_m: float | None = None
     tof_rows: list[list[float]] | None = None
     person: PersonDetection | None = None
+    target: TargetSighting | None = None
+    vlm: VlmAnswer | None = None  # the last answer, whatever it said
+    vlm_request: VlmRequest | None = None
     speech: set[str] = field(default_factory=set)  # phrases heard since the last tick
     pad_active_at: float | None = None
     # per-step context, written by the executor before evaluating
     elapsed_s: float = 0.0
     budget_s: float | None = None
-    target_distance_m: float | None = None
+    stop_distance_m: float | None = None  # how close the step wants to get
+    steering: str | None = None  # "person" | "target" | None
 
     @property
     def person_fresh(self) -> PersonDetection | None:
@@ -40,9 +66,20 @@ class Snapshot:
         return self.person
 
     @property
+    def target_fresh(self) -> TargetSighting | None:
+        if self.target is None or self.now - self.target.timestamp > TARGET_FRESH_S:
+            return None
+        return self.target
+
+    @property
     def person_distance_m(self) -> float | None:
         p = self.person_fresh
         return None if p is None else p.distance_m
+
+    @property
+    def subject(self) -> Sighting | None:
+        """What the active step steers at: its target when it asked for one, else the person."""
+        return self.target_fresh if self.steering == "target" else self.person_fresh
 
 
 def signal_value(snapshot: Snapshot, signal: str) -> float | bool | None:
@@ -64,11 +101,16 @@ def signal_value(snapshot: Snapshot, signal: str) -> float | bool | None:
             return snapshot.person_fresh is not None
         case "person_distance":
             return snapshot.person_distance_m
+        case "target_found":
+            return snapshot.target_fresh is not None
+        case "target_distance":
+            t = snapshot.target_fresh
+            return None if t is None else t.distance_m
         case "target_reached":
-            d = snapshot.person_distance_m
-            if d is None or snapshot.target_distance_m is None:
+            subject = snapshot.subject
+            if subject is None or subject.distance_m is None or snapshot.stop_distance_m is None:
                 return None
-            return d <= snapshot.target_distance_m
+            return subject.distance_m <= snapshot.stop_distance_m
         case "elapsed":
             return snapshot.elapsed_s
         case "timeout":

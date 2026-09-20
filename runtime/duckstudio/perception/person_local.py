@@ -22,7 +22,7 @@ import time
 import numpy as np
 from PIL import Image
 
-from .base import PersonDetection
+from .base import PersonDetection, Sighting
 
 # mediad's reported focal length in pixels (upstream-notes: "camera geometry"); the same
 # value holds after the quarter-turn because rotation does not change pixel size.
@@ -110,10 +110,8 @@ TOF_HALF_FOV_RAD = math.radians(22.5)  # 45° square field of view, 8x8 zones
 TOF_RANGE_M = 3.9  # zones at the sensor's limit mean "nothing there"
 
 
-def fuse_distance(
-    detection: PersonDetection, tof_rows: list[list[float]] | None
-) -> PersonDetection:
-    """Prefer a ToF range over the width estimate — from the zone the person's image position
+def fuse_distance[S: Sighting](detection: S, tof_rows: list[list[float]] | None) -> S:
+    """Prefer a ToF range over the width estimate — from the zone the sighting's image position
     points at, not the nearest zone in the column: the lower rows of an 8x8 sensor mounted
     ~0.2 m above the ground see the floor at 0.5–1.4 m, which used to win every time.
 

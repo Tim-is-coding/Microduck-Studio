@@ -5,8 +5,11 @@
   tof     → `snapshot.tof_rows` / `tof_min_m` (the sensor's rate)
   state   → `snapshot.state`, plus `snapshot.health` once a second
   pad     → any stick/button frame from padd preempts the executor (§7), when the backend has it
+  vlm     → `snapshot.target` / `snapshot.vlm`, 0.5–2 Hz, only while a behavior is asking
 
-Every task survives a backend that comes and goes: it waits and retries.
+Every task survives a backend that comes and goes: it waits and retries. The VLM task is the
+slow one and the only one that may leave the machine; it asks nothing unless the running
+behavior opted in by provider name (§7) and stops after its call budget is spent.
 """
 
 from __future__ import annotations
@@ -19,16 +22,27 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Protocol
 
 from ..backends.base import BackendError, DuckBackend, NoCamera, NotConnected
+from ..events import EventBus
 from .base import PersonDetection
 from .person_local import fuse_distance
+from .vlm import (
+    DEFAULT_HZ,
+    VlmError,
+    VlmProvider,
+    frame_size,
+    sighting_from_answer,
+)
 
 if TYPE_CHECKING:  # the executor imports perception types; keep the cycle out of runtime
-    from ..executor.conditions import Snapshot
+    from ..executor.conditions import Snapshot, VlmRequest
 
 log = logging.getLogger(__name__)
 
 RETRY_S = 1.0
 NO_CAMERA_RETRY_S = 3.0
+# How many questions one behavior run may ask. A VLM call costs money and a walk can last
+# ten minutes; 200 answers at 0.5 Hz is roughly seven minutes of looking (ADR-0004).
+DEFAULT_MAX_CALLS = 200
 
 
 class PersonDetector(Protocol):
@@ -46,6 +60,10 @@ class PerceptionService:
         frame_hz: float = 5.0,
         state_hz: float = 10.0,
         on_pad_activity: Callable[[dict[str, Any]], None] | None = None,
+        vlm: VlmProvider | None = None,
+        vlm_hz: float = DEFAULT_HZ,
+        vlm_max_calls: int = DEFAULT_MAX_CALLS,
+        bus: EventBus | None = None,
     ) -> None:
         self.backend = backend
         self.snapshot = snapshot
@@ -54,9 +72,15 @@ class PerceptionService:
         self.frame_hz = frame_hz
         self.state_hz = state_hz
         self.on_pad_activity = on_pad_activity
+        self.vlm = vlm
+        self.vlm_hz = vlm_hz
+        self.vlm_max_calls = vlm_max_calls
+        self.bus = bus
         self.camera_available: bool | None = None
         self.frames_seen = 0
         self.tof_frames_seen = 0
+        self.vlm_calls = 0
+        self._vlm_notices: set[tuple[str, str]] = set()
         self._tasks: list[asyncio.Task[None]] = []
 
     def start(self) -> None:
@@ -65,6 +89,8 @@ class PerceptionService:
         loops = [self._frames, self._tof, self._state]
         if getattr(self.backend, "pad_socket", None):
             loops.append(self._pad)
+        if self.vlm is not None:
+            loops.append(self._vlm)
         self._tasks = [asyncio.create_task(fn(), name=f"perception-{fn.__name__}") for fn in loops]
 
     async def close(self) -> None:
@@ -77,6 +103,10 @@ class PerceptionService:
 
     def _connected(self) -> bool:
         return bool(getattr(self.backend, "connected", False))
+
+    def _emit(self, kind: str, de: str, *, level: str = "info", **data: Any) -> None:
+        if self.bus is not None:
+            self.bus.emit(kind, de, level=level, **data)  # type: ignore[arg-type]
 
     async def _frames(self) -> None:
         while True:
@@ -153,3 +183,135 @@ class PerceptionService:
             except (BackendError, NotConnected) as e:
                 log.debug("pad stream ended: %s", e)
             await asyncio.sleep(RETRY_S)
+
+    # -- the slow one ------------------------------------------------------------------
+
+    def _vlm_allowed(self, request: VlmRequest) -> bool:
+        """§7: a frame leaves the runtime only for the provider the behavior named.
+
+        A provider that answers on this machine is always allowed — it cannot break a
+        promise about where pictures go — but the log says it stood in for the real one.
+        """
+        provider = self.vlm
+        assert provider is not None
+        if provider.sends_frames and provider.name != request.provider:
+            self._notice(
+                "provider_mismatch",
+                request,
+                f"„{request.provider}“ ist im Ablauf erlaubt, die Runtime sendet an "
+                f"„{provider.name}“ — es wird kein Bild gesendet.",
+                level="error",
+            )
+            return False
+        if not provider.configured:
+            hint = " (ANTHROPIC_API_KEY fehlt)" if provider.name == "anthropic" else ""
+            self._notice(
+                "not_configured",
+                request,
+                f"KI-Dienst „{provider.name}“ ist nicht eingerichtet{hint} — "
+                f"es wird kein Bild gesendet.",
+                level="warn",
+            )
+            return False
+        if not provider.sends_frames and provider.name != request.provider:
+            self._notice(
+                "stub_stands_in",
+                request,
+                f"„{request.provider}“ ist nicht eingerichtet; die lokale Attrappe antwortet. "
+                "Es verlässt kein Bild die Runtime.",
+                level="warn",
+            )
+        elif provider.sends_frames:
+            self._notice(
+                "sending",
+                request,
+                f"Bild wird an „{provider.name}“ gesendet: „{request.question}“",
+                level="warn",
+                model=provider.model,
+            )
+        return True
+
+    def _notice(
+        self, kind: str, request: VlmRequest, de: str, *, level: str = "info", **data: Any
+    ) -> None:
+        """One line per behavior run and reason, not one per question."""
+        key = (kind, f"{request.behavior_id}:{request.question}")
+        if key in self._vlm_notices:
+            return
+        self._vlm_notices.add(key)
+        self._emit(f"vlm.{kind}", de, level=level, question=request.question, **data)
+
+    async def _vlm(self) -> None:
+        provider = self.vlm
+        assert provider is not None
+        period = 1.0 / max(0.01, self.vlm_hz)
+        last_said: str | None = None
+        while True:
+            request = self.snapshot.vlm_request
+            if request is None:
+                self._vlm_notices.clear()
+                self.vlm_calls = 0
+                last_said = None
+                await asyncio.sleep(RETRY_S)
+                continue
+            if not self._connected() or not self._vlm_allowed(request):
+                await asyncio.sleep(RETRY_S)
+                continue
+            if self.vlm_calls >= self.vlm_max_calls:
+                self._notice(
+                    "budget_spent",
+                    request,
+                    f"{self.vlm_max_calls} KI-Anfragen gestellt — Schluss damit, "
+                    "bis der Ablauf neu startet.",
+                    level="warn",
+                )
+                await asyncio.sleep(RETRY_S)
+                continue
+            try:
+                frame = await self.backend.frame()
+            except NoCamera:
+                self.camera_available = False
+                await asyncio.sleep(NO_CAMERA_RETRY_S)
+                continue
+            except (BackendError, NotConnected):
+                await asyncio.sleep(RETRY_S)
+                continue
+            self.vlm_calls += 1
+            try:
+                answer = await provider.look(frame, request.question, timestamp=self.clock())
+            except VlmError as e:
+                self._emit(
+                    "vlm.failed",
+                    f"KI-Dienst konnte nicht antworten: {e}",
+                    level="warn",
+                    provider=provider.name,
+                )
+                await asyncio.sleep(period)
+                continue
+            except Exception as e:  # noqa: BLE001 - a broken provider must not kill perception
+                log.warning("vlm provider failed: %r", e)
+                await asyncio.sleep(period)
+                continue
+            self.snapshot.vlm = answer
+            if answer.found:
+                width, height = frame_size(frame)
+                sighting = sighting_from_answer(
+                    answer,
+                    width=width,
+                    height=height,
+                    label=request.question,
+                    tof_rows=self.snapshot.tof_rows,
+                )
+                if sighting is not None:
+                    self.snapshot.target = sighting
+            if answer.answer != last_said:  # only when the picture changed, not every ask
+                last_said = answer.answer
+                self._emit(
+                    "vlm.answer",
+                    answer.answer or ("Etwas gefunden." if answer.found else "Nichts gefunden."),
+                    found=answer.found,
+                    provider=answer.provider,
+                    model=answer.model,
+                    latency_s=round(answer.latency_s, 2),
+                )
+            await asyncio.sleep(period)

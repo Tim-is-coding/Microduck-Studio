@@ -27,7 +27,7 @@ from ..behaviors import (
 from ..events import EventBus
 from ..executor import Executor, ExecutorBusy
 from ..executor.safety import IntentGate
-from ..perception import PerceptionService, detector_for
+from ..perception import PerceptionService, detector_for, make_vlm, vlm_hz
 from ..skills import SkillRegistry
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -57,11 +57,18 @@ def create_app(
     gate = IntentGate(duck, bus=bus)
     label = _BACKEND_DE.get(duck.kind, duck.kind)
     executor = Executor(registry, gate, bus, packs=packs)
+    detector = detector_for(duck.kind)
+    # The VLM is the local stub unless DUCKSTUDIO_VLM says otherwise (ADR-0004): asking a
+    # paid service to look at camera frames is a switch you flip, not a default.
+    vlm = make_vlm(detector=detector)
     perception = PerceptionService(
         duck,
         gate.snapshot,
-        detector=detector_for(duck.kind),
+        detector=detector,
         on_pad_activity=lambda _frame: executor.preempt("gamepad"),
+        vlm=vlm,
+        vlm_hz=vlm_hz(),
+        bus=bus,
     )
 
     def is_connected() -> bool:
@@ -134,6 +141,13 @@ def create_app(
             "connected": is_connected(),
             "health": None,
             "unverified_upstream_methods": [m.name for m in upstream.unverified()],
+            "vlm": {
+                "provider": vlm.name,
+                "model": vlm.model,
+                "configured": vlm.configured,
+                "sends_frames": vlm.sends_frames,
+                "hz": perception.vlm_hz,
+            },
         }
         if payload["connected"]:
             try:
@@ -256,11 +270,20 @@ def create_app(
     def executor_payload() -> dict[str, Any]:
         snap = gate.snapshot
         person = snap.person_fresh if snap.now else snap.person
+        target = snap.target_fresh if snap.now else snap.target
         return {
             **executor.status(),
             "camera": perception.camera_available,
             "person": person.model_dump() if person is not None else None,
+            "target": target.model_dump() if target is not None else None,
             "tof_min_m": snap.tof_min_m,
+            "vlm": {
+                "provider": vlm.name,
+                "sends_frames": vlm.sends_frames,
+                "question": snap.vlm_request.question if snap.vlm_request else None,
+                "asked": perception.vlm_calls,
+                "answer": snap.vlm.model_dump() if snap.vlm is not None else None,
+            },
         }
 
     @app.get("/api/executor")

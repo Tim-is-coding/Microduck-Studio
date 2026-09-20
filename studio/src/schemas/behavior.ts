@@ -34,6 +34,8 @@ export const OnNone = z.strictObject({
 
 export const PerceiveStep = z.strictObject({
   perceive: z.string().regex(/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/),
+  /** What a `vlm.*` step asks the model, in the user's own words. */
+  question: Text.nullish(),
   on_none: OnNone.nullish(),
 });
 export const SkillStep = z.strictObject({

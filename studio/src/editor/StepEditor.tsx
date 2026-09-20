@@ -8,8 +8,12 @@ import {
   THEN_OPTIONS,
   conditionKind,
   formatDurationInput,
+  isVlmQuery,
   newStopCondition,
   parseDurationInput,
+  setOnNone,
+  setPerceiveQuery,
+  setQuestion,
   setUntil,
   splitPhrases,
   untilConditions,
@@ -137,15 +141,28 @@ function PerceiveBody({ step, skills, onChange }: { step: Extract<Step, { percei
     <>
       <label className="field">
         <span className="field-label">{t("editor.perceive.what")}</span>
-        <select onChange={(e) => onChange({ ...step, perceive: e.target.value })} value={step.perceive}>
+        <select onChange={(e) => onChange(setPerceiveQuery(step, e.target.value))} value={step.perceive}>
           {PERCEIVE_QUERIES.map((q) => <option key={q} value={q}>{tOr(`perceive.${q}`, q)}</option>)}
         </select>
       </label>
+      {isVlmQuery(step.perceive) && (
+        <>
+          <label className="field">
+            <span className="field-label">{t("editor.perceive.question")}</span>
+            <input
+              onChange={(e) => onChange(setQuestion(step, e.target.value))}
+              placeholder={t("editor.perceive.question.placeholder")}
+              value={step.question?.de ?? ""}
+            />
+          </label>
+          <div className="vlm">{t("editor.perceive.question.hint")}</div>
+        </>
+      )}
       <div className="branch editing">
         <label className="inline">
           <input
             checked={onNone !== null}
-            onChange={(e) => onChange(e.target.checked ? { ...step, on_none: { do: "look_around", seconds: 5, then: "retry" } } : { perceive: step.perceive })}
+            onChange={(e) => onChange(setOnNone(step, e.target.checked ? { do: "look_around", seconds: 5, then: "retry" } : null))}
             type="checkbox"
           />
           <span className="field-label">{t("editor.perceive.on_none")}</span>

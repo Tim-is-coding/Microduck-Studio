@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { t } from "../i18n";
+import { t, tOr } from "../i18n";
 import type { Event, ExecutorStatus, RobotState, RuntimeHealth } from "../schemas";
 
 interface Props {
@@ -54,10 +54,27 @@ export function LivePanel({ health, state, executor, events, onStop }: Props) {
           <span className="chip">{t("live.state.none")}</span>
         )}
         {connected && <span className="chip">{describePerson(executor)}</span>}
+        {executor?.target && <span className="chip">{describeTarget(executor)}</span>}
       </div>
+      {executor?.vlm?.question && (
+        <div className={executor.vlm.sends_frames ? "vlm" : "sub"}>
+          {executor.vlm.sends_frames
+            ? t("live.vlm.sending", { provider: tOr(`vlm.provider.${executor.vlm.provider}`, executor.vlm.provider), question: executor.vlm.question })
+            : t("live.vlm.local", { question: executor.vlm.question })}
+          {executor.vlm.answer && ` · ${executor.vlm.answer.answer}`}
+          {` · ${t("live.vlm.asked", { count: executor.vlm.asked })}`}
+        </div>
+      )}
       <div className="meta">
         <span>{t("live.backend")}: {health?.backend ?? "–"}</span>
         <span>{t("live.battery")}: {health?.health ? `${Math.round(health.health.battery * 100)} %` : "–"}</span>
+        {health?.vlm && (
+          <span title={health.vlm.model}>
+            {t("live.vlm")}: {health.vlm.configured
+              ? tOr(`vlm.provider.${health.vlm.provider}`, health.vlm.provider)
+              : t("live.vlm.off", { provider: health.vlm.provider })}
+          </span>
+        )}
       </div>
       <button className="stop" onClick={onStop} type="button">■ {t("live.stop")}</button>
       <h2>{t("live.log")}</h2>
@@ -84,6 +101,19 @@ function describeFlags(state: RobotState): string[] {
   else if (state.flags.standing) out.push(t("state.standing"));
   out.push(t(state.flags.moving ? "state.moving" : "state.idle"));
   return out;
+}
+
+function describeTarget(executor: ExecutorStatus | null): string {
+  const target = executor?.target;
+  if (!target) return t("live.target.none");
+  const degrees = Math.abs((target.bearing_rad * 180) / Math.PI).toFixed(0);
+  const distance = target.distance_m != null ? `${target.distance_m.toFixed(1)} m · ` : "";
+  return t("live.target.at", {
+    label: target.label,
+    distance,
+    degrees,
+    side: t(target.bearing_rad >= 0 ? "live.person.left" : "live.person.right"),
+  });
 }
 
 function describePerson(executor: ExecutorStatus | null): string {

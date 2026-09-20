@@ -6,7 +6,8 @@ from duckstudio.backends.mock import ManualClock, MockBackend
 from duckstudio.behaviors import BehaviorPack
 from duckstudio.events import EventBus
 from duckstudio.executor import Executor, IntentGate, Watchdog
-from duckstudio.perception.base import PersonDetection
+from duckstudio.executor.conditions import VlmRequest
+from duckstudio.perception.base import PersonDetection, TargetSighting
 from duckstudio.skills import SkillRegistry
 
 
@@ -47,6 +48,28 @@ class Harness:
 
     def see_nobody(self) -> None:
         self.executor.snapshot.person = None
+
+    def see_target(
+        self, *, bearing: float = 0.0, distance: float | None = 1.5, label: str = "roter Ball"
+    ) -> None:
+        """What the perception service writes after the VLM answered (§4: we only read it)."""
+        self.executor.snapshot.target = TargetSighting(
+            timestamp=self.clock(),
+            bearing_rad=bearing,
+            distance_m=distance,
+            pixel_x=90.0,
+            pixel_y=320.0,
+            frame_width=360,
+            frame_height=640,
+            label=label,
+            source="anthropic",
+        )
+
+    def see_nothing(self) -> None:
+        self.executor.snapshot.target = None
+
+    def standing_question(self) -> VlmRequest | None:
+        return self.executor.snapshot.vlm_request
 
     async def tick(self, n: int = 1, dt: float = 0.1) -> None:
         for _ in range(n):

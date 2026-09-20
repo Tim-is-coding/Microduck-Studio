@@ -258,9 +258,14 @@ strukturierten Daten fürs Debugging.
   der Stelle, auch mit Upstreams eigenem `drive` — offenes Upstream-Issue
   `pollen-robotics/microduck_rl#46`. Wahrnehmung, Lenkung und Ablauf sind in der Sim
   verifiziert, Vorwärtskommen nur gegen den Mock. Details in `docs/upstream-notes.md`.
-- Welches VLM/embodied-reasoning-Modell für Phase 2 (Zielpixel, Szenenfragen)? Aktuelle
-  API-Fähigkeiten vor der Entscheidung prüfen; Adapter-Interface so schneiden, dass
-  das Modell austauschbar ist.
+- ~~Welches VLM/embodied-reasoning-Modell für Phase 2 (Zielpixel, Szenenfragen)?~~
+  **Erledigt 2026-09-20, ADR-0004**: Adapter (`perception/vlm.py`) statt Modellwahl — Claude
+  über das offizielle SDK (`claude-opus-5`, JSON-Schema-Antwort, `effort: low`), daneben ein
+  lokaler Stub, der ohne Schlüssel und ohne Netz antwortet und der Standard ist. Die Frage
+  steht im Schritt (`perceive: vlm.target` + `question`), die Wahrnehmung fragt mit 0,5 Hz in
+  eigener Task, der Executor liest nur. Das Opt-in wird beim Senden gegen den im Pack
+  genannten Anbieter geprüft; 200 Fragen pro Lauf. Szenenfragen (`vlm.question`) passen in
+  denselben Adapter — gebaut werden sie, wenn ein Behavior sie braucht.
 - Name „Duck Studio“ auf Kollisionen prüfen, bevor er öffentlich wird.
 
 ## 10. Arbeitsregeln für Claude Code

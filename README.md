@@ -9,7 +9,7 @@ keep building with Claude Code.
 > Not affiliated with Pollen Robotics or Hugging Face. Apache-2.0, like upstream.
 > The UI is German first (`de`), English follows. Code, docs and commits are English.
 
-## Status: M3 — editing in the Studio (2026-09-19)
+## Status: M3 + seeing with a model (2026-09-20)
 
 | Piece | State |
 | --- | --- |
@@ -27,6 +27,8 @@ keep building with Claude Code.
 | Studio: Start / Abbrechen, „Ich sage: …“ with trigger chips, active step highlighted, person and state chips in the Live panel | done |
 | Studio editor: new behavior from empty, cards from manifest `ui` (choice/select/range/toggle), perceive/wait steps, `until` conditions, always rules, trigger, VLM opt-in with warning, live validation, Speichern / Speichern & Starten / Löschen, YAML developer view | done |
 | Runtime: `PUT`/`DELETE /api/behaviors/{id}` write `behaviors/*.behavior.yaml` atomically (ADR-0003), `POST /api/behaviors/validate`, `GET …/yaml` | done |
+| VLM perception: swappable provider (Claude or a local stub), `perceive: vlm.target` with a question, `direction: toward_target`, opt-in checked by provider name, call budget (ADR-0004) | done |
+| Studio: KI question on the perceive card, target chip and „Bild wird an … gesendet“ in the Live panel | done |
 | Real duck (M4) | next |
 
 Roadmap and rules live in [`CLAUDE.md`](CLAUDE.md); decisions in [`docs/adr/`](docs/adr/).
@@ -51,6 +53,14 @@ uv run python -m duckstudio             # http://127.0.0.1:8000/api/health
 cd studio && pnpm install && pnpm dev                        # http://localhost:5173
 ```
 
+```bash
+# optional: let a behavior ask Claude where something is (ADR-0004). Without this the
+# runtime answers KI questions with a local stub and no frame ever leaves the machine.
+cd runtime && uv sync --extra vlm
+export ANTHROPIC_API_KEY=sk-ant-…
+DUCKSTUDIO_VLM=anthropic uv run python -m duckstudio        # DUCKSTUDIO_VLM_MODEL, _HZ to tune
+```
+
 The Studio talks only to the runtime; the runtime talks to one backend
 (`DUCKSTUDIO_BACKEND=sim|mock|duck`, default `sim`). Without a running duck-sim the runtime
 says so in the log and retries; the Studio stays usable. With `mock` you get a deterministic
@@ -63,13 +73,13 @@ simulator; see `sim/README.md`.
 ```
 CLAUDE.md          handover, decisions, working rules (German)
 docs/adr/          architecture decision records
-docs/concepts/     skill manifest, behavior pack, backend interface
+docs/concepts/     skill manifest, behavior pack, backend interface, perception
 docs/schemas/      JSON Schemas (golden files, exported from pydantic)
 docs/upstream-notes.md  what we verified about the Microduck API, with commit hashes
 runtime/           Python 3.12 · uv · FastAPI · pydantic v2 — executor, backends, API
 studio/            React · TypeScript · Vite · Zustand · zod — the visual editor
 skills/            *.skill.yaml — building blocks (walk, look_around, quack, getup, ...)
-behaviors/         *.behavior.yaml — behavior packs, follow-me first
+behaviors/         *.behavior.yaml — behavior packs (follow-me, go-to-thing)
 sim/               wrapper around upstream duck-sim (pinned checkout, never vendored)
 ```
 
@@ -80,8 +90,9 @@ intent passes the `IntentGate`: clamped to the manifest's bounds (upstream clamp
 refused under 15 % battery or when a precondition fails, rate-limited. `stop()` bypasses all
 of it. The deadman lives in `robotd` (500 ms); our executor's heartbeat is simply resending
 `robot.move`. Camera frames leave the runtime only to your Studio unless a behavior opts into
-a VLM, which the Studio then shows in red. Tests for each of these are in
-`runtime/tests/safety/`.
+a VLM by name — the runtime refuses any other provider, logs every send in plain German, the
+Studio shows it in red, and a run may ask 200 questions before the asking stops. Tests for
+each of these are in `runtime/tests/safety/`.
 
 ## Upstream
 

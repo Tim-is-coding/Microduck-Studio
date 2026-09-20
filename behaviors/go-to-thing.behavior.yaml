@@ -1,0 +1,23 @@
+schema: duckstudio.behavior/v0
+id: go-to-thing
+name: { de: Geh zu dem Ding, en: Go to the thing }
+summary:
+  de: "Die Ente fragt ein KI-Modell, wo das gesuchte Ding im Bild ist, läuft hin und quakt."
+trigger:
+  kind: speech
+  phrases: { de: ["Such den roten Ball", "Geh zu dem Ding"], en: ["Go to the thing"] }
+vlm:
+  provider: anthropic
+  purpose: { de: "Sucht das Ding im Kamerabild und zeigt, wo es ist." }
+steps:
+  - perceive: vlm.target
+    question: { de: "Wo ist der rote Ball?", en: "Where is the red ball?" }
+    on_none: { do: look_around, seconds: 5, then: retry }
+  - skill: walk
+    with: { direction: toward_target, tempo: easy, distance: 50 }
+    until: { any: [speech: { de: ["Stopp"] }, elapsed: 5m] }
+  - skill: quack
+    with: { style: short }
+always:
+  - on: fallen
+    do: [getup, resume]

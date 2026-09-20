@@ -156,5 +156,20 @@
   "editor.vlm.warning": "Kamerabilder verlassen die Runtime und gehen an {provider}.",
   "editor.trigger.kind.manual": "Start-Knopf im Studio",
   "editor.trigger.kind.speech": "Wenn du sagst …",
-  "editor.vlm.toggle": "Bilder an einen KI-Dienst senden"
+  "editor.vlm.toggle": "Bilder an einen KI-Dienst senden",
+  "perceive.vlm.target": "das Ding, nach dem du fragst (KI)",
+  "editor.step.ask": "Frage die KI: „{question}“",
+  "editor.perceive.question": "Frage an die KI",
+  "editor.perceive.question.placeholder": "Wo ist der rote Ball?",
+  "editor.perceive.question.hint": "Für diese Frage geht regelmäßig ein Kamerabild an den KI-Dienst.",
+  "editor.vlm.required": "Ein Schritt fragt die KI — deshalb ist das hier an.",
+  "signal.target_found": "Ziel gefunden",
+  "live.target.none": "Kein Ziel im Bild",
+  "live.target.at": "Ziel „{label}“: {distance}{degrees}° {side}",
+  "live.vlm": "KI",
+  "live.vlm.off": "{provider} (nicht eingerichtet)",
+  "live.vlm.sending": "Bild wird an {provider} gesendet — Frage: „{question}“",
+  "live.vlm.local": "Lokale Attrappe beantwortet „{question}“ — es verlässt kein Bild die Runtime.",
+  "live.vlm.asked": "{count} Anfragen",
+  "vlm.provider.stub": "lokale Attrappe"
 }

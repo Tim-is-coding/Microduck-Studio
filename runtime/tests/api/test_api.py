@@ -26,6 +26,26 @@ async def test_health_reports_backend_and_unverified_methods(client: httpx.Async
     assert body["unverified_upstream_methods"] == []
 
 
+async def test_health_says_which_vlm_is_wired_up(client: httpx.AsyncClient) -> None:
+    """The Studio has to be able to say where pictures would go before anything is run."""
+    vlm = (await client.get("/api/health")).json()["vlm"]
+    assert vlm["provider"] == "stub"  # no DUCKSTUDIO_VLM in the test environment
+    assert vlm["sends_frames"] is False and vlm["configured"] is True
+    assert 0.1 <= vlm["hz"] <= 2.0
+
+
+async def test_executor_payload_carries_target_and_vlm_state(client: httpx.AsyncClient) -> None:
+    body = (await client.get("/api/executor")).json()
+    assert body["target"] is None
+    assert body["vlm"] == {
+        "provider": "stub",
+        "sends_frames": False,
+        "question": None,
+        "asked": 0,
+        "answer": None,
+    }
+
+
 async def test_skills_and_behaviors_are_served(client: httpx.AsyncClient) -> None:
     skills = (await client.get("/api/skills")).json()
     assert {s["id"] for s in skills} >= {"walk", "quack", "getup", "look_around"}

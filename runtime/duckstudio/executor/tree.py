@@ -44,8 +44,9 @@ from ..behaviors.schema import (
 )
 from ..common import Condition, parse_duration
 from ..events import EventBus
+from ..perception.base import Sighting
 from ..skills import SkillManifest, SkillRegistry
-from .conditions import Snapshot, evaluate
+from .conditions import Snapshot, VlmRequest, evaluate
 from .safety import GateDecision, IntentGate
 from .watchdog import Watchdog
 
@@ -70,9 +71,12 @@ TURN_GAIN = 1.5
 TURN_FIRST_RAD = 0.35
 SLOWDOWN_ZONE_M = 0.3
 FAILING_SIGNALS = frozenset({"fallen", "motor_hot"})
+# `direction` in a skill card → which sighting the step steers by (§6.1 walk.ui.direction)
+STEERING = {"toward_person": "person", "toward_target": "target"}
 
 _SIGNAL_DE = {
     "target_reached": "Ziel erreicht",
+    "target_found": "Ziel gefunden",
     "tof_distance": "Hindernis zu nah",
     "fallen": "umgefallen",
     "motor_hot": "Motor zu heiß",
@@ -169,6 +173,8 @@ class Executor:
         self.counters = _Counters()
         self._preempt_source = None
         self.snapshot.speech.clear()
+        self._clear_vlm_request()
+        self.snapshot.target = self.snapshot.vlm = None
         self.bus.emit("behavior.started", f"„{pack.name.de}“ gestartet.", behavior=pack.id)
         self._announce_step()
         self.watchdog.start()
@@ -178,6 +184,7 @@ class Executor:
         if self.state != "running":
             return
         self.state = "aborted"
+        self._clear_vlm_request()
         self.reason = reason
         self.watchdog.disarm()
         await self.gate.stop()
@@ -284,8 +291,11 @@ class Executor:
         step = self.pack.steps[self.step_index]
         n = self.step_index + 1
         if isinstance(step, PerceiveStep):
-            what = {"person.nearest": "die nächste Person"}.get(step.perceive, step.perceive)
-            text = f"Schritt {n}: Suche {what}."
+            if step.question is not None:
+                text = f"Schritt {n}: Frage die KI „{step.question.de}“"
+            else:
+                what = {"person.nearest": "die nächste Person"}.get(step.perceive, step.perceive)
+                text = f"Schritt {n}: Suche {what}."
         elif isinstance(step, SkillStep):
             skill = self.registry.get(step.skill)
             opts = ", ".join(f"{k}: {v}" for k, v in step.with_.items())
@@ -301,6 +311,7 @@ class Executor:
         self.step_started = self.clock()
         if self.step_index >= len(self.pack.steps):
             self.state = "done"
+            self._clear_vlm_request()
             self.watchdog.disarm()
             self.bus.emit("behavior.done", f"„{self.pack.name.de}“ fertig.", behavior=self.pack.id)
             return
@@ -311,6 +322,7 @@ class Executor:
             return
         self.state = "failed"
         self.reason = reason
+        self._clear_vlm_request()
         self.watchdog.disarm()
         if stop:
             await self.gate.stop()
@@ -322,6 +334,7 @@ class Executor:
     async def _preempted(self, source: str) -> None:
         self.state = "preempted"
         self.reason = source
+        self._clear_vlm_request()
         self.watchdog.disarm()
         await self.gate.stop()
         who = "Gamepad" if source == "gamepad" else source
@@ -380,6 +393,7 @@ class Executor:
                 elif action == "stop":
                     self.state = "aborted"
                     self.reason = "rule:stop"
+                    self._clear_vlm_request()
                     self.watchdog.disarm()
                     await self.gate.stop()
                     self.bus.emit("behavior.aborted", "Ablauf gestoppt (Regel).", level="warn")
@@ -433,24 +447,64 @@ class Executor:
             return status
         return Status.FAILURE
 
+    def _set_vlm_request(self, step: PerceiveStep) -> None:
+        """Publish the standing question; the perception service asks it (§4), we read answers.
+
+        It stays published after the step succeeds, so a `toward_target` walk keeps getting
+        fresh bearings, and is cleared when the behavior ends or another perceive step takes
+        over.
+        """
+        assert self.pack is not None
+        if step.question is None or self.pack.vlm is None:
+            return
+        request = VlmRequest(
+            question=step.question.de,
+            provider=self.pack.vlm.provider,
+            behavior_id=self.pack.id,
+        )
+        if self.snapshot.vlm_request != request:
+            self.snapshot.vlm_request = request
+
+    def _clear_vlm_request(self) -> None:
+        """Nobody is asking any more: the service stops asking and the sighting goes with it.
+
+        A target only ever exists for the run that asked for it — leaving it in the snapshot
+        would show the Studio a thing the duck stopped looking for minutes ago.
+        """
+        self.snapshot.vlm_request = None
+        self.snapshot.target = None
+
+    def _seen(self, step: PerceiveStep) -> Sighting | None:
+        return self.snapshot.target_fresh if step.uses_vlm else self.snapshot.person_fresh
+
     async def _tick_perceive(self, step: PerceiveStep) -> Status:
         snap = self.snapshot
-        person = snap.person_fresh
-        if step.perceive == "person.nearest" and person is not None:
-            side = "links" if person.bearing_rad >= 0 else "rechts"
-            dist = f"{person.distance_m:.1f} m, " if person.distance_m is not None else ""
+        if step.uses_vlm:
+            if self.pack is not None and self.pack.vlm is None:  # schema forbids it; be sure
+                self.reason = "Der Ablauf fragt eine KI, hat sie aber nicht erlaubt."
+                return Status.FAILURE
+            self._set_vlm_request(step)
+        else:
+            self._clear_vlm_request()
+        seen = self._seen(step)
+        if seen is not None:
+            side = "links" if seen.bearing_rad >= 0 else "rechts"
+            dist = f"{seen.distance_m:.1f} m, " if seen.distance_m is not None else ""
+            what = f"Ziel „{step.question.de}“" if step.question is not None else "Person"
             self.bus.emit(
                 "perceive.found",
-                f"Person gefunden: {dist}{abs(math.degrees(person.bearing_rad)):.0f}° {side}.",
-                bearing_rad=person.bearing_rad,
-                distance_m=person.distance_m,
+                f"{what} gefunden: {dist}{abs(math.degrees(seen.bearing_rad)):.0f}° {side}.",
+                bearing_rad=seen.bearing_rad,
+                distance_m=seen.distance_m,
+                query=step.perceive,
             )
             self.on_none_run = None
             return Status.SUCCESS
+        nothing = "Nichts gefunden" if step.uses_vlm else "Niemand zu sehen"
         if step.on_none is None:
             snap.elapsed_s = snap.now - self.step_started
             if snap.elapsed_s >= PERCEIVE_BUDGET_S:
-                self.reason = "niemand gefunden"
+                self.reason = nothing.lower()
                 return Status.FAILURE
             return Status.RUNNING
         if self.on_none_run is None:
@@ -459,15 +513,14 @@ class Executor:
             )
             self.bus.emit(
                 "perceive.none",
-                f"Niemand zu sehen: {self.on_none_run.skill.name.de}, "
-                f"{step.on_none.seconds:g} Sekunden.",
+                f"{nothing}: {self.on_none_run.skill.name.de}, {step.on_none.seconds:g} Sekunden.",
                 do=step.on_none.do,
             )
         status = await self._tick_run(self.on_none_run)
         if status == Status.RUNNING:
             return Status.RUNNING
         self.on_none_run = None
-        if snap.person_fresh is not None:
+        if self._seen(step) is not None:
             return Status.RUNNING  # found during the sweep; next tick reports it
         if status == Status.FAILURE:
             return Status.FAILURE
@@ -476,7 +529,7 @@ class Executor:
                 self.step_started = snap.now
                 return Status.RUNNING
             case "abort":
-                self.reason = "niemand gefunden"
+                self.reason = nothing.lower()
                 return Status.FAILURE
             case _:
                 return Status.SUCCESS
@@ -525,7 +578,8 @@ class Executor:
         snap.elapsed_s = snap.now - run.started
         snap.budget_s = run.budget_s
         distance_cm = run.extras.get("distance")
-        snap.target_distance_m = float(distance_cm) / 100.0 if distance_cm is not None else None
+        snap.stop_distance_m = float(distance_cm) / 100.0 if distance_cm is not None else None
+        snap.steering = STEERING.get(str(run.extras.get("direction", "")))
 
         # 1. end conditions before acting (§6.4)
         if run.until is not None:
@@ -596,20 +650,12 @@ class Executor:
         p = dict(run.params)
         if skill.intent == upstream.ROBOT_MOVE.name:
             vx = p.get("vx", 0.0)
-            direction = run.extras.get("direction", "straight")
-            if direction == "toward_person":
-                person = snap.person_fresh
-                if person is None:
+            direction = str(run.extras.get("direction", "straight"))
+            if direction in STEERING:
+                subject = snap.subject
+                if subject is None:
                     return {"vx": 0.0, "vy": 0.0, "vyaw": 0.0}  # hold still, keep the heartbeat
-                bearing = person.bearing_rad
-                vyaw = max(-1.0, min(1.0, TURN_GAIN * bearing))
-                if abs(bearing) > TURN_FIRST_RAD:
-                    vx *= max(0.0, 1.0 - (abs(bearing) - TURN_FIRST_RAD) / 0.5)
-                if person.distance_m is not None and snap.target_distance_m is not None:
-                    gap = person.distance_m - snap.target_distance_m
-                    if gap < SLOWDOWN_ZONE_M:
-                        vx *= max(0.3, gap / SLOWDOWN_ZONE_M)
-                return {"vx": vx, "vy": 0.0, "vyaw": vyaw}
+                return steer_toward(subject, vx, snap.stop_distance_m)
             return {"vx": vx, "vy": p.get("vy", 0.0), "vyaw": p.get("vyaw", 0.0)}
         if skill.intent == upstream.ROBOT_LOOK.name:
             pattern = run.extras.get("pattern", "sweep")
@@ -641,6 +687,21 @@ class Executor:
             if evaluate(c.signal, snap) is True:
                 return _SIGNAL_DE.get(Condition.parse(c.signal).signal, c.signal)
         return None
+
+
+def steer_toward(subject: Sighting, vx: float, stop_distance_m: float | None) -> dict[str, float]:
+    """Turn towards what we are following, walk slower the further off the nose it is, and
+    ease off as the gap closes. Whether a local detector or a VLM saw it makes no difference
+    here — both hand over a bearing and maybe a range."""
+    bearing = subject.bearing_rad
+    vyaw = max(-1.0, min(1.0, TURN_GAIN * bearing))
+    if abs(bearing) > TURN_FIRST_RAD:
+        vx *= max(0.0, 1.0 - (abs(bearing) - TURN_FIRST_RAD) / 0.5)
+    if subject.distance_m is not None and stop_distance_m is not None:
+        gap = subject.distance_m - stop_distance_m
+        if gap < SLOWDOWN_ZONE_M:
+            vx *= max(0.3, gap / SLOWDOWN_ZONE_M)
+    return {"vx": vx, "vy": 0.0, "vyaw": vyaw}
 
 
 def _shortest_elapsed(until: Until) -> float | None:

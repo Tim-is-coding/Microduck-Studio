@@ -6,8 +6,12 @@ from __future__ import annotations
 from ..common import Strict
 
 
-class PersonDetection(Strict):
-    """Where the nearest person is, in the duck's trunk frame."""
+class Sighting(Strict):
+    """Something perception has seen, in the duck's trunk frame.
+
+    Geometry is the same whoever looked: a bearing the executor can steer by, a range when
+    a source agreed with it, and where it sat in the camera image.
+    """
 
     timestamp: float
     bearing_rad: float  # positive = left (matches robot.move vyaw)
@@ -16,5 +20,16 @@ class PersonDetection(Strict):
     pixel_y: float
     frame_width: int
     frame_height: int
-    area_px: int
-    confidence: float  # 0..1
+    area_px: int = 0  # 0 when the source pointed at a spot instead of outlining a blob
+    confidence: float = 1.0  # 0..1
+
+
+class PersonDetection(Sighting):
+    """Where the nearest person is — local detector, every frame (§4: 10–30 Hz)."""
+
+
+class TargetSighting(Sighting):
+    """What a VLM was asked to find — 0.5–2 Hz, never in the braking loop (§4)."""
+
+    label: str  # what was asked for, in the user's words
+    source: str  # which provider answered, e.g. "anthropic" or "stub"
