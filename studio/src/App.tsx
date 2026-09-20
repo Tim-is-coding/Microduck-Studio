@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { BehaviorEditor } from "./editor/BehaviorEditor";
+import { BehaviorList } from "./editor/BehaviorList";
 import { StepList } from "./editor/StepList";
 import { t } from "./i18n";
 import { LivePanel } from "./live/LivePanel";
@@ -76,6 +77,14 @@ export function App() {
         <section className="panel">
           <h2>{t("panel.editor")}</h2>
           <div className="behavior-tabs">
+            <button
+              className={!selectedBehaviorId && !draft ? "active" : ""}
+              disabled={Boolean(draft)}
+              onClick={() => select(null)}
+              type="button"
+            >
+              {t("list.overview")}
+            </button>
             {behaviors.map((b) => (
               <button
                 className={b.id === selectedBehaviorId && !draft ? "active" : ""}
@@ -88,7 +97,7 @@ export function App() {
               </button>
             ))}
             {draft && draftIsNew && <button className="active" type="button">{draft.name.de || t("editor.new")}</button>}
-            {!draft && <button className="new" onClick={newDraft} type="button">+ {t("editor.new")}</button>}
+            {!draft && selectedBehaviorId && <button className="new" onClick={newDraft} type="button">+ {t("editor.new")}</button>}
           </div>
           {draft && (
             <BehaviorEditor
@@ -155,7 +164,16 @@ export function App() {
               </details>
             </>
           )}
-          {!selected && !draft && <div className="sub">{t("editor.empty")}</div>}
+          {!selected && !draft && (
+            <BehaviorList
+              behaviors={behaviors}
+              connected={connected}
+              onNew={newDraft}
+              onOpen={select}
+              onRun={(id) => void run(id)}
+              running={running}
+            />
+          )}
         </section>
         <LivePanel events={events} executor={executor} health={health} state={state} onStop={() => void stop()} />
       </main>

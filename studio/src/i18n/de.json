@@ -190,5 +190,13 @@
   "skill.kick": "Kicken",
   "editor.step.drag": "Ziehen, um den Schritt zu verschieben",
   "editor.insert": "Hier einen Schritt einfügen",
-  "editor.insert.cancel": "Abbrechen"
+  "editor.insert.cancel": "Abbrechen",
+  "list.open": "Öffnen",
+  "list.steps": "{count} Schritte",
+  "list.vlm": "KI: {provider}",
+  "list.problems": "{count} Problem(e)",
+  "list.new": "Neuer Ablauf",
+  "list.new.hint": "Leere Schrittliste — Bausteine anklicken, fertig.",
+  "list.overview": "Übersicht",
+  "list.title": "Deine Abläufe"
 }

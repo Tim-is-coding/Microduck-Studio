@@ -37,6 +37,7 @@ interface StudioState {
   draftProblems: string[];
   saving: boolean;
   yamlText: string | null;
+  catalogLoaded: boolean;
   refreshHealth: () => Promise<void>;
   refreshState: () => Promise<void>;
   refreshExecutor: () => Promise<void>;
@@ -52,7 +53,7 @@ interface StudioState {
   deleteBehavior: (id: string) => Promise<void>;
   loadYaml: (id: string) => Promise<void>;
   loadCatalog: () => Promise<void>;
-  select: (id: string) => void;
+  select: (id: string | null) => void;
   stop: () => Promise<void>;
   pushEvent: (e: EventT) => void;
 }
@@ -78,6 +79,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   draftProblems: [],
   saving: false,
   yamlText: null,
+  catalogLoaded: false,
 
   async refreshHealth() {
     try {
@@ -193,7 +195,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   },
 
   discardDraft() {
-    set((s) => ({ draft: null, draftDirty: false, draftIsNew: false, selectedBehaviorId: s.selectedBehaviorId ?? s.behaviors[0]?.id ?? null }));
+    set((s) => ({ draft: null, draftDirty: false, draftIsNew: false, selectedBehaviorId: s.selectedBehaviorId }));
   },
 
   async deleteBehavior(id) {
@@ -224,12 +226,14 @@ export const useStudio = create<StudioState>((set, get) => ({
       set((s) => ({
         skills,
         behaviors,
+        catalogLoaded: true,
+        // The Studio opens on the overview; after that, keep whatever is open unless it is gone.
         selectedBehaviorId:
-          s.draft && s.draftIsNew
+          !s.catalogLoaded || (s.draft && s.draftIsNew)
             ? null
             : behaviors.some((b) => b.id === s.selectedBehaviorId)
               ? s.selectedBehaviorId
-              : (behaviors[0]?.id ?? null),
+              : null,
       }));
     } catch (err) {
       console.error(err);

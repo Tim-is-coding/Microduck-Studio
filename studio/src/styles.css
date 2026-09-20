@@ -227,3 +227,21 @@ body { margin: 0; }
 /* While a step is travelling, every gap shows itself so the drop point is obvious. */
 .steps.dragging { cursor: grabbing; }
 .steps.dragging .card { pointer-events: none; }
+
+/* The overview: every behavior as a card, plus an empty one that starts a new list. */
+.behavior-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.behavior-card {
+  display: flex; flex-direction: column; gap: 8px; text-align: left;
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; background: var(--panel);
+}
+.behavior-card .open { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; display: grid; gap: 2px; }
+.behavior-card .title { font-size: 15px; font-weight: 600; color: var(--ink); }
+.behavior-card .actions { display: flex; gap: 8px; margin-top: auto; }
+.behavior-card .chip.problem { border-color: #f0c2bf; color: var(--danger); }
+.behavior-card .chip.ki { border-color: #f3c7c4; color: var(--danger); }
+.behavior-card.new {
+  align-items: center; justify-content: center; text-align: center; cursor: pointer;
+  border-style: dashed; color: var(--muted); min-height: 150px;
+}
+.behavior-card.new:hover { border-color: var(--accent); color: var(--accent-ink); }
+.behavior-card.new .plus { font-size: 26px; line-height: 1; }
