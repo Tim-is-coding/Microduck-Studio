@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { BehaviorEditor } from "./editor/BehaviorEditor";
 import { BehaviorList } from "./editor/BehaviorList";
+import { templatesFor } from "./editor/templates";
 import { StepList } from "./editor/StepList";
 import { language, phrases as phraseList, quote, t, text, useLanguage } from "./i18n";
 import { LivePanel } from "./live/LivePanel";
@@ -114,7 +115,7 @@ export function App() {
               </button>
             ))}
             {draft && draftIsNew && <button className="active" type="button">{text(draft.name) || t("editor.new")}</button>}
-            {!draft && selectedBehaviorId && <button className="new" onClick={newDraft} type="button">+ {t("editor.new")}</button>}
+            {!draft && selectedBehaviorId && <button className="new" onClick={() => newDraft()} type="button">+ {t("editor.new")}</button>}
           </div>
           {draft && (
             <BehaviorEditor
@@ -186,10 +187,12 @@ export function App() {
             <BehaviorList
               behaviors={behaviors}
               connected={connected}
-              onNew={newDraft}
+              onNew={() => newDraft()}
               onOpen={select}
               onRun={(id) => void run(id)}
+              onTemplate={(pack) => newDraft(structuredClone(pack))}
               running={running}
+              templates={templatesFor(skillMap)}
             />
           )}
         </section>

@@ -28,7 +28,14 @@ describe("slugify", () => {
     expect(slugify("Folge mir!")).toBe("folge-mir");
     expect(slugify("Begrüßung am Morgen")).toBe("begruessung-am-morgen");
     expect(slugify("42 Enten")).toBe("ablauf-42-enten");
-    expect(slugify("  ")).toBe("ablauf");
+  });
+
+  it("gives a nameless draft no id to show", () => {
+    expect(slugify("")).toBe("");
+    expect(slugify("  ")).toBe("");
+    expect(slugify("!?")).toBe("");
+    expect(newBehavior().id).toBe("");
+    expect(newBehavior().name).toEqual({ de: "" });
   });
 });
 

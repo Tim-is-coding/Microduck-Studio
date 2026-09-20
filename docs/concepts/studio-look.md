@@ -44,6 +44,20 @@ quiet at night (`live/overlay.ts`).
 - **Reduced motion is honoured**: the pulsing step number stops under
   `prefers-reduced-motion`.
 
+## Empty states
+
+An empty screen is a first lesson, so it says what to do next rather than what is missing.
+
+- **The overview with no behaviors** keeps the dashed "Neuer Ablauf" card and adds a row of
+  starter templates (`editor/templates.ts`) — complete, runnable packs that open as a draft;
+  nothing is written until Speichern. The row disappears as soon as there is one behavior.
+- **A new draft is nameless.** The name field shows its placeholder and the id line shows
+  "Gib dem Ablauf einen Namen." until there is a name — no prefilled text to delete first,
+  and no `Kennung: neuer-ablauf` before anybody named anything.
+- **Unfinished is not broken.** While the name is empty or the step list is, the schema's
+  English complaints about those fields stay hidden and Speichern stays out of reach; the
+  empty field and the empty list already say what is missing (`docs/m3-acceptance.md`).
+
 ## Layout
 
 Three columns (Bausteine · Ablauf · Live). Above 1100 px each column scrolls on its own so

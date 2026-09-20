@@ -37,10 +37,12 @@ keep building with Claude Code.
 | English as the second language: DE/EN switch, every runtime event bilingual (`runtime/duckstudio/texts.py`), data texts fall back to German, numbers and quotes follow the language | done |
 | Hub search in the building blocks panel: browse `microduck-policy` repos, see provenance and what a repo says about its commands, import one as a block that stands in for a builtin (ADR-0005), remove it again | done |
 | `duck` backend: an `IpcBackend` behind `scripts/duck-tunnel.sh` (ssh -L), contract suite green against the protocol double through the tunnel's own socket layout (ADR-0006) | prepared |
+| First run: a nameless new draft, starter templates on the empty overview, measured 21 s from empty Studio to a running behavior ([`docs/m3-acceptance.md`](docs/m3-acceptance.md)) | done |
 | Real duck on hardware (M4) | waits for the duck (December) |
 
 Roadmap and rules live in [`CLAUDE.md`](CLAUDE.md); decisions in [`docs/adr/`](docs/adr/).
 The first day with real hardware has a list: [`docs/m4-hardware-checklist.md`](docs/m4-hardware-checklist.md).
+M3's two-minute criterion is measured, not asserted: [`docs/m3-acceptance.md`](docs/m3-acceptance.md).
 
 ## Quickstart (simulation is the normal state)
 

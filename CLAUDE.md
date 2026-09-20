@@ -240,6 +240,9 @@ strukturierten Daten fürs Debugging.
 - **M3 – Studio (Woche 8–11):** Editor rendert Behavior-Packs als Schrittliste, Karten
   entstehen aus Manifest-`ui`, Ändern → Speichern → Ausführen ohne Code; Log in Sätzen;
   Notstopp. Erstes Behavior aus leerem Studio in unter zwei Minuten (Nutzertest).
+  **Stand 2026-09-20: gemessen** — 21 s von der leeren Karte, 10 s vom Beispiel, beides bis
+  „läuft“; Messung, Aufbau und die vier gefundenen Stolperstellen in `docs/m3-acceptance.md`
+  (`scripts/firstrun.mjs`). Ein Test mit einer echten Person steht aus.
 - **M4 – Echte Ente (ab Lieferung):** `duck`-Backend, Latenzmessung WebSocket-Pfad,
   Sicherheits-Checkliste auf Hardware, dann erst Hub-Sharing von Behavior-Packs.
 

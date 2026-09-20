@@ -21,7 +21,6 @@ import {
 import { z } from "zod";
 
 import { newBehavior, tidy } from "../editor/model";
-import { t } from "../i18n";
 
 export type RuntimeStatus = "loading" | "online" | "offline";
 
@@ -48,7 +47,7 @@ interface StudioState {
   abortRun: () => Promise<void>;
   say: (text: string) => Promise<void>;
   editBehavior: (id: string) => void;
-  newDraft: () => void;
+  newDraft: (pack?: PackT) => void;
   updateDraft: (fn: (draft: PackT) => PackT) => void;
   validateDraft: () => Promise<void>;
   saveDraft: (thenRun: boolean) => Promise<boolean>;
@@ -155,8 +154,8 @@ export const useStudio = create<StudioState>((set, get) => ({
     set({ draft: structuredClone(rest), draftIsNew: false, draftDirty: false, draftProblems: problems });
   },
 
-  newDraft() {
-    set({ draft: newBehavior(t("list.new")), draftIsNew: true, draftDirty: true, draftProblems: [], selectedBehaviorId: null });
+  newDraft(pack) {
+    set({ draft: pack ?? newBehavior(), draftIsNew: true, draftDirty: true, draftProblems: [], selectedBehaviorId: null });
   },
 
   updateDraft(fn) {

@@ -18,7 +18,9 @@ export const DURATION_UNITS = ["s", "m"] as const;
 
 const UMLAUTS: Record<string, string> = { ä: "ae", ö: "oe", ü: "ue", ß: "ss" };
 
-/** "Folge mir!" → "folge-mir"; ids must start with a letter and match ^[a-z][a-z0-9_-]*$. */
+/** "Folge mir!" → "folge-mir"; ids must start with a letter and match ^[a-z][a-z0-9_-]*$.
+ *  A name with nothing to slugify has no id yet — an unnamed draft says so instead of
+ *  inventing one (the editor then hides the id line and keeps Save out of reach). */
 export function slugify(name: string): string {
   let s = name
     .toLowerCase()
@@ -27,11 +29,14 @@ export function slugify(name: string): string {
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+  if (!s) return "";
   if (!/^[a-z]/.test(s)) s = `ablauf-${s}`.replace(/-$/, "");
   return s.slice(0, 64);
 }
 
-export function newBehavior(name: string): BehaviorPack {
+/** A new draft is born nameless: the name field shows its placeholder and typing just works,
+ *  instead of making somebody clear a prefilled "Neuer Ablauf" first. */
+export function newBehavior(name = ""): BehaviorPack {
   return {
     schema: BEHAVIOR_SCHEMA_ID,
     id: slugify(name),

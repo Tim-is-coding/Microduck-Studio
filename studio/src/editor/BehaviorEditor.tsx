@@ -101,9 +101,15 @@ export function BehaviorEditor({ draft, isNew, lang, skills, problems, dirty, sa
   useEffect(() => {
     if (draft.trigger.kind === "speech") setPhrases(phraseList(draft.trigger.phrases).join(", "));
   }, [draft.id, draft.trigger]);
-  // An empty step list already shows its own hint; pydantic's English "at least 1 item" is noise.
-  const shownProblems = draft.steps.length === 0 ? problems.filter((p) => !p.startsWith("steps:")) : problems;
-  const canStart = connected && problems.length === 0 && draft.steps.length > 0;
+  // A draft you have just started is not broken, it is unfinished: the empty step list and the
+  // empty name field each say so themselves, so the schema's English complaints about them are
+  // noise until you have actually filled something in.
+  const named = text(draft.name).trim().length > 0;
+  const shownProblems = problems.filter(
+    (p) => !(draft.steps.length === 0 && p.startsWith("steps:")) && !(!named && (p.startsWith("name") || p.startsWith("id:"))),
+  );
+  const canSave = named && Boolean(draft.id) && draft.steps.length > 0;
+  const canStart = connected && canSave && problems.length === 0;
   const skillList = [...skills.values()];
 
   const add = (step: Parameters<typeof addStep>[1], at: number) => {
@@ -151,7 +157,7 @@ export function BehaviorEditor({ draft, isNew, lang, skills, problems, dirty, sa
   return (
     <div className="editor">
       <div className="runbar">
-        <button className="btn primary" disabled={saving || draft.steps.length === 0} onClick={onSave} type="button">{saving ? t("editor.saving") : t("editor.save")}</button>
+        <button className="btn primary" disabled={saving || !canSave} onClick={onSave} type="button">{saving ? t("editor.saving") : t("editor.save")}</button>
         <button className="btn" disabled={saving || !canStart} onClick={onSaveAndRun} type="button"><Icon name="play" /> {t("editor.save_run")}</button>
         <button className="btn" onClick={onDiscard} type="button">{t("editor.discard")}</button>
         {!isNew && <button className="btn danger-text" onClick={onDelete} type="button">{t("editor.delete")}</button>}
@@ -169,12 +175,13 @@ export function BehaviorEditor({ draft, isNew, lang, skills, problems, dirty, sa
         <label className="field">
           <span className="field-label">{t("editor.name")}</span>
           <input
+            autoFocus={isNew && !named}
             onChange={(e) => onChange(renameBehavior(draft, e.target.value, !isNew, lang, isNew))}
-            placeholder={t("list.new")}
+            placeholder={t("editor.name.placeholder")}
             value={text(draft.name)}
           />
         </label>
-        <div className="sub">{t("editor.id")}: <code>{draft.id}</code></div>
+        {draft.id ? <div className="sub">{t("editor.id")}: <code>{draft.id}</code></div> : <div className="sub">{t("editor.name.hint")}</div>}
         <label className="field">
           <span className="field-label">{t("editor.summary")}</span>
           <input onChange={(e) => onChange(setSummary(draft, e.target.value, lang))} value={text(draft.summary)} />

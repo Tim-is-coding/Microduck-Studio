@@ -1,22 +1,26 @@
 import { phrases as phraseList, quote, t, text } from "../i18n";
-import type { BehaviorPackFromApi } from "../schemas";
+import type { BehaviorPack, BehaviorPackFromApi } from "../schemas";
 import { Icon } from "../ui/Icon";
+import type { Template } from "./templates";
 
 interface Props {
   behaviors: BehaviorPackFromApi[];
   connected: boolean;
   running: boolean;
+  templates: Template[];
   onOpen: (id: string) => void;
   onRun: (id: string) => void;
   onNew: () => void;
+  onTemplate: (pack: BehaviorPack) => void;
 }
 
 /**
  * The first thing the Studio shows: every behavior as a card you can read, open or start,
  * and an empty one that makes a new behavior. §3.1 — nobody has to know what a file is.
  */
-export function BehaviorList({ behaviors, connected, running, onOpen, onRun, onNew }: Props) {
+export function BehaviorList({ behaviors, connected, running, templates, onOpen, onRun, onNew, onTemplate }: Props) {
   return (
+    <>
     <div className="behavior-list">
       {behaviors.map((b) => (
         <article className="behavior-card" key={b.id}>
@@ -49,6 +53,18 @@ export function BehaviorList({ behaviors, connected, running, onOpen, onRun, onN
         <span className="sub">{t("list.new.hint")}</span>
       </button>
     </div>
+    {behaviors.length === 0 && templates.length > 0 && (
+      <div className="starters">
+        <span className="label">{t("list.templates")}</span>
+        {templates.map((tpl) => (
+          <button className="chip clickable" key={tpl.pack.id} onClick={() => onTemplate(tpl.pack)} type="button">
+            <Icon name="plus" size={0.9} /> {text(tpl.name)}
+          </button>
+        ))}
+        <span className="sub">{t("list.templates.hint")}</span>
+      </div>
+    )}
+    </>
   );
 }
 
