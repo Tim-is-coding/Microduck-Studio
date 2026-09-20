@@ -334,9 +334,13 @@ def emergency_stop() -> Bilingual:
 
 def watchdog_tripped() -> Bilingual:
     return (
-        "Executor meldet sich nicht mehr: Ente angehalten.",
-        "The executor went quiet: the duck was stopped.",
+        "Der Ablauf hat ausgesetzt: Ente angehalten.",
+        "The behavior went quiet: the duck was stopped.",
     )
+
+
+def went_quiet(silent_s: float) -> Bilingual:
+    return f"hat {silent_s:.1f} s ausgesetzt", f"went quiet for {silent_s:.1f} s"
 
 
 def battery_low() -> Bilingual:
