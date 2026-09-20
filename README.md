@@ -9,7 +9,7 @@ keep building with Claude Code.
 > Not affiliated with Pollen Robotics or Hugging Face. Apache-2.0, like upstream.
 > The UI is German first (`de`), English follows. Code, docs and commits are English.
 
-## Status: M3 + seeing with a model (2026-09-20)
+## Status: M3 + seeing with a model, and a Studio you can steer (2026-09-20)
 
 | Piece | State |
 | --- | --- |
@@ -29,6 +29,9 @@ keep building with Claude Code.
 | Runtime: `PUT`/`DELETE /api/behaviors/{id}` write `behaviors/*.behavior.yaml` atomically (ADR-0003), `POST /api/behaviors/validate`, `GET …/yaml` | done |
 | VLM perception: swappable provider (Claude or a local stub), `perceive: vlm.target` with a question, `direction: toward_target`, opt-in checked by provider name, call budget (ADR-0004) | done |
 | Studio: KI question on the perceive card, target chip and „Bild wird an … gesendet“ in the Live panel | done |
+| Live panel: markers for person and KI target drawn on the camera frame, 8×8 ToF proximity grid, one-line status with a step bar | done |
+| Editor: insert a step in any gap, drag a card by its grip to reorder (pointer-based, works with a finger), ↑↓ for the keyboard | done |
+| Studio opens on an overview of the behaviors (summary, trigger, steps, KI marker, problems) with Öffnen / ▶ Start per card | done |
 | Real duck (M4) | next |
 
 Roadmap and rules live in [`CLAUDE.md`](CLAUDE.md); decisions in [`docs/adr/`](docs/adr/).
