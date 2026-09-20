@@ -113,6 +113,8 @@
   "editor.save": "Speichern",
   "editor.save_run": "Speichern & Starten",
   "editor.discard": "Verwerfen",
+  "editor.undo": "Rückgängig (Strg+Z)",
+  "editor.redo": "Wiederholen (Strg+Umschalt+Z)",
   "editor.saving": "Speichert …",
   "editor.name": "Name",
   "editor.id": "Kennung",

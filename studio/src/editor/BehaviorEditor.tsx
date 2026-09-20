@@ -36,9 +36,13 @@ interface Props {
   skills: Map<string, SkillManifest>;
   problems: string[];
   dirty: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
   saving: boolean;
   connected: boolean;
   onChange: (pack: BehaviorPack) => void;
+  onUndo: () => void;
+  onRedo: () => void;
   onSave: () => void;
   onSaveAndRun: () => void;
   onDiscard: () => void;
@@ -47,7 +51,7 @@ interface Props {
 
 /** The visual editor (§3.1): every field on a card comes from the behavior schema or a
  *  skill manifest's `ui`; nothing here needs the YAML. */
-export function BehaviorEditor({ draft, isNew, lang, skills, problems, dirty, saving, connected, onChange, onSave, onSaveAndRun, onDiscard, onDelete }: Props) {
+export function BehaviorEditor({ draft, isNew, lang, skills, problems, dirty, saving, connected, canUndo, canRedo, onChange, onUndo, onRedo, onSave, onSaveAndRun, onDiscard, onDelete }: Props) {
   const [showYaml, setShowYaml] = useState(false);
   const [insertAt, setInsertAt] = useState<number | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
@@ -95,6 +99,20 @@ export function BehaviorEditor({ draft, isNew, lang, skills, problems, dirty, sa
       window.removeEventListener("pointercancel", finish);
     };
   }, [dragFrom, draft, gapNear, onChange]);
+  // Strg+Z / Strg+Umschalt+Z for the draft. Inside a text field the browser's own text undo
+  // is the better one, so leave that alone and let it handle the keys.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "z") return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      e.preventDefault();
+      if (e.shiftKey) onRedo();
+      else onUndo();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onRedo, onUndo]);
   const [phrases, setPhrases] = useState(
     draft.trigger.kind === "speech" ? phraseList(draft.trigger.phrases).join(", ") : "",
   );
@@ -159,6 +177,8 @@ export function BehaviorEditor({ draft, isNew, lang, skills, problems, dirty, sa
       <div className="runbar">
         <button className="btn primary" disabled={saving || !canSave} onClick={onSave} type="button">{saving ? t("editor.saving") : t("editor.save")}</button>
         <button className="btn" disabled={saving || !canStart} onClick={onSaveAndRun} type="button"><Icon name="play" /> {t("editor.save_run")}</button>
+        <button className="btn icon-only" disabled={!canUndo} onClick={onUndo} title={t("editor.undo")} type="button"><Icon name="undo" title={t("editor.undo")} /></button>
+        <button className="btn icon-only" disabled={!canRedo} onClick={onRedo} title={t("editor.redo")} type="button"><Icon name="redo" title={t("editor.redo")} /></button>
         <button className="btn" onClick={onDiscard} type="button">{t("editor.discard")}</button>
         {!isNew && <button className="btn danger-text" onClick={onDelete} type="button">{t("editor.delete")}</button>}
         {dirty && <span className="runstate">{t("editor.unsaved")}</span>}

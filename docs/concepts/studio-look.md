@@ -44,6 +44,16 @@ quiet at night (`live/overlay.ts`).
 - **Reduced motion is honoured**: the pulsing step number stops under
   `prefers-reduced-motion`.
 
+## Undo
+
+Strg+Z is the first reflex after a wrong click, so the editor has it (`editor/history.ts`,
+buttons in the run bar). The unit of undo is a *move*, not a keystroke: edits that follow
+each other closely and leave the shape of the behavior alone — typing a name, dragging a
+slider — fold into one entry, while adding, removing, moving or retyping a step always
+starts a new one, so a single undo never swallows two structural changes. Inside a text
+field the browser's own text undo is the better one and keeps the keys; the buttons still
+undo the draft. Opening another behavior, saving or discarding clears the history.
+
 ## Empty states
 
 An empty screen is a first lesson, so it says what to do next rather than what is missing.

@@ -21,6 +21,7 @@ import {
 import { z } from "zod";
 
 import { newBehavior, tidy } from "../editor/model";
+import { NO_HISTORY, record, redo, undo, type History } from "../editor/history";
 
 export type RuntimeStatus = "loading" | "online" | "offline";
 
@@ -37,6 +38,8 @@ interface StudioState {
   draftIsNew: boolean;
   draftDirty: boolean;
   draftProblems: string[];
+  /** Undo for the draft; reset whenever a different draft is opened (`editor/history.ts`). */
+  history: History;
   saving: boolean;
   yamlText: string | null;
   catalogLoaded: boolean;
@@ -49,6 +52,8 @@ interface StudioState {
   editBehavior: (id: string) => void;
   newDraft: (pack?: PackT) => void;
   updateDraft: (fn: (draft: PackT) => PackT) => void;
+  undoDraft: () => void;
+  redoDraft: () => void;
   validateDraft: () => Promise<void>;
   saveDraft: (thenRun: boolean) => Promise<boolean>;
   discardDraft: () => void;
@@ -87,6 +92,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   draftIsNew: false,
   draftDirty: false,
   draftProblems: [],
+  history: NO_HISTORY,
   saving: false,
   yamlText: null,
   catalogLoaded: false,
@@ -151,17 +157,30 @@ export const useStudio = create<StudioState>((set, get) => ({
     const pack = get().behaviors.find((b) => b.id === id);
     if (!pack) return;
     const { problems, ...rest } = pack;
-    set({ draft: structuredClone(rest), draftIsNew: false, draftDirty: false, draftProblems: problems });
+    set({ draft: structuredClone(rest), draftIsNew: false, draftDirty: false, draftProblems: problems, history: NO_HISTORY });
   },
 
   newDraft(pack) {
-    set({ draft: pack ?? newBehavior(), draftIsNew: true, draftDirty: true, draftProblems: [], selectedBehaviorId: null });
+    set({ draft: pack ?? newBehavior(), draftIsNew: true, draftDirty: true, draftProblems: [], history: NO_HISTORY, selectedBehaviorId: null });
   },
 
   updateDraft(fn) {
     const draft = get().draft;
     if (!draft) return;
-    set({ draft: fn(draft), draftDirty: true });
+    const next = fn(draft);
+    set((s) => ({ draft: next, draftDirty: true, history: record(s.history, draft, next, Date.now()) }));
+  },
+
+  undoDraft() {
+    const { draft, history } = get();
+    const step = draft && undo(history, draft);
+    if (step) set({ draft: step.draft, history: step.history, draftDirty: true });
+  },
+
+  redoDraft() {
+    const { draft, history } = get();
+    const step = draft && redo(history, draft);
+    if (step) set({ draft: step.draft, history: step.history, draftDirty: true });
   },
 
   async validateDraft() {
@@ -199,7 +218,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         return false;
       }
       await get().loadCatalog();
-      set({ draft: null, draftDirty: false, draftIsNew: false, selectedBehaviorId: draft.id, yamlText: null });
+      set({ draft: null, draftDirty: false, draftIsNew: false, history: NO_HISTORY, selectedBehaviorId: draft.id, yamlText: null });
       if (thenRun) await get().run(draft.id);
       return true;
     } finally {
@@ -208,7 +227,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   },
 
   discardDraft() {
-    set((s) => ({ draft: null, draftDirty: false, draftIsNew: false, selectedBehaviorId: s.selectedBehaviorId }));
+    set((s) => ({ draft: null, draftDirty: false, draftIsNew: false, history: NO_HISTORY, selectedBehaviorId: s.selectedBehaviorId }));
   },
 
   async deleteBehavior(id) {
@@ -217,7 +236,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       console.error(await res.text());
       return;
     }
-    set({ draft: null, draftDirty: false, selectedBehaviorId: null });
+    set({ draft: null, draftDirty: false, history: NO_HISTORY, selectedBehaviorId: null });
     await get().loadCatalog();
   },
 

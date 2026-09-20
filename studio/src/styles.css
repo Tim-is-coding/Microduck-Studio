@@ -229,6 +229,7 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 .btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--muted); }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.icon-only { padding: 0 10px; color: var(--ink-2); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.primary:hover:not(:disabled) {
   background: var(--accent-hover); border-color: var(--accent-hover); color: #fff;

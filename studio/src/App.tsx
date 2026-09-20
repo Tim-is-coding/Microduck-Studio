@@ -18,9 +18,9 @@ const STATE_INTERVAL_MS = 500;
 export function App() {
   const {
     runtime, health, state, executor, skills, behaviors, selectedBehaviorId, events,
-    draft, draftIsNew, draftDirty, draftProblems, saving, yamlText, hubResults, hubBusy, hubError,
+    draft, draftIsNew, draftDirty, draftProblems, history, saving, yamlText, hubResults, hubBusy, hubError,
     refreshHealth, refreshState, refreshExecutor, loadCatalog, select, stop, run, abortRun, say,
-    editBehavior, newDraft, updateDraft, validateDraft, saveDraft, discardDraft, deleteBehavior, loadYaml,
+    editBehavior, newDraft, updateDraft, undoDraft, redoDraft, validateDraft, saveDraft, discardDraft, deleteBehavior, loadYaml,
     searchHub, clearHub, policyDetails, importPolicy, removeSkill,
   } = useStudio();
   const [phrase, setPhrase] = useState("");
@@ -119,6 +119,8 @@ export function App() {
           </div>
           {draft && (
             <BehaviorEditor
+              canRedo={history.future.length > 0}
+              canUndo={history.past.length > 0}
               connected={connected}
               dirty={draftDirty}
               draft={draft}
@@ -129,8 +131,10 @@ export function App() {
                 if (window.confirm(t("editor.delete.confirm", { name: text(draft.name) }))) void deleteBehavior(draft.id);
               }}
               onDiscard={discardDraft}
+              onRedo={redoDraft}
               onSave={() => void saveDraft(false)}
               onSaveAndRun={() => void saveDraft(true)}
+              onUndo={undoDraft}
               problems={draftProblems}
               saving={saving}
               skills={skillMap}
