@@ -14,6 +14,8 @@ surprise in the UI.
 Numbers, times and quotation marks follow the language too (`number()`, `formatTime()`,
 `quote()`): 2,0 m and „so“ in German, 2.0 m and “so” in English.
 
+![The Studio in English and dark mode: the same overview with English labels](../images/english-dark.png)
+
 ## 2. What the runtime says
 
 Every event carries both languages: `EventBus.emit(kind, de, en)`, and the sentences live in

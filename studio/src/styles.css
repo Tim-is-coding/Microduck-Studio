@@ -175,13 +175,13 @@ body { margin: 0; background: var(--bg); color: var(--ink); }
 .status.online .dot { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
 .status.offline .dot { background: var(--danger); }
 
-.theme-switch { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-pill); overflow: hidden; background: var(--surface-2); }
-.theme-switch button {
+.switch { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-pill); overflow: hidden; background: var(--surface-2); }
+.switch button {
   border: 0; background: none; color: var(--muted); cursor: pointer;
   padding: 5px 9px; display: grid; place-items: center; line-height: 1;
 }
-.theme-switch button:hover { color: var(--ink); background: var(--surface-3); }
-.theme-switch button[aria-pressed="true"] { background: var(--accent-weak); color: var(--accent-ink); }
+.switch button:hover { color: var(--ink); background: var(--surface-3); }
+.switch button[aria-pressed="true"] { background: var(--accent-weak); color: var(--accent-ink); }
 
 .columns {
   display: grid; grid-template-columns: 250px minmax(0, 1fr) 360px;

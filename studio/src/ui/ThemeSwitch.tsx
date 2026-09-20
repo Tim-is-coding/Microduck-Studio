@@ -23,7 +23,7 @@ export function ThemeSwitch() {
   }, [choice]);
 
   return (
-    <div aria-label={t("theme")} className="theme-switch" role="group">
+    <div aria-label={t("theme")} className="switch theme" role="group">
       {THEME_CHOICES.map((option) => (
         <button
           aria-pressed={choice === option}

@@ -5,7 +5,7 @@ import { LANGUAGES, setLanguage, t, useLanguage } from "../i18n";
 export function LanguageSwitch() {
   const current = useLanguage();
   return (
-    <div aria-label={t("language")} className="theme-switch lang" role="group">
+    <div aria-label={t("language")} className="switch lang" role="group">
       {LANGUAGES.map((lang) => (
         <button
           aria-pressed={current === lang}

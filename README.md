@@ -10,6 +10,27 @@ keep building with Claude Code.
 > The UI speaks German and English (switch in the top bar; `docs/concepts/languages.md`).
 > Code, docs and commits are English.
 
+## What it looks like
+
+The overview: every behavior as a card you can read, open, start, copy or save to a file.
+Building blocks on the left, the duck on the right — camera, state, log and Notstopp.
+
+![The Duck Studio overview: behavior cards in the middle, skill blocks on the left, the live panel with camera and emergency stop on the right](docs/images/overview.png)
+
+The editor renders a behavior pack as a step list. Every control on a card comes from the
+skill manifest's `ui`, so nothing in the editor knows YAML — and the developer view with the
+YAML sits below, never in front.
+
+![The editor: name, trigger, and the steps of follow-me as cards with their own controls](docs/images/editor.png)
+
+Running, in dark mode: the active step is marked, the log speaks in sentences, and the
+Notstopp stays within reach.
+
+![Follow-me running: step 2 of 3 highlighted, the log showing what the duck is doing](docs/images/running.png)
+
+The screenshots come from a real Studio against a real runtime — regenerate them with
+`node scripts/screenshots.mjs`.
+
 ## Status: M3 + seeing with a model, and a Studio you can steer (2026-09-20)
 
 | Piece | State |
