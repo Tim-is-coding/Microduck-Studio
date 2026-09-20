@@ -122,7 +122,26 @@ studio/            React · TypeScript · Vite · Zustand · zod — the visual 
 skills/            *.skill.yaml — building blocks (walk, look_around, quack, getup, ...)
 behaviors/         *.behavior.yaml — behavior packs (follow-me, go-to-thing)
 sim/               wrapper around upstream duck-sim (pinned checkout, never vendored)
-scripts/           duck-tunnel.sh — ssh -L forwards for a real duck (ADR-0006)
+scripts/           duck-tunnel.sh (ssh -L for a real duck), smoke.mjs, firstrun.mjs, screenshots.mjs
+```
+
+## Tests
+
+```bash
+cd runtime && uv run ruff check . && uv run pytest -q     # 200 tests: contract, safety, executor, API
+cd studio  && pnpm typecheck && pnpm test && pnpm build   # 76 tests: schemas, editor model, i18n, transfer
+```
+
+Both run in CI on every push. What unit tests cannot see — the clicks between the browser
+and the runtime — is covered by `scripts/smoke.mjs`: a real browser against a real runtime,
+walking the overview, the editor with undo/redo, copy, file export and import, saving and
+running a behavior, the Notstopp, and the language and theme switches. It needs playwright
+and a runtime with a scratch workspace:
+
+```bash
+cd runtime && DUCKSTUDIO_BACKEND=mock DUCKSTUDIO_ROOT=/tmp/ds-smoke uv run python -m duckstudio
+cd studio  && pnpm dev
+node scripts/smoke.mjs        # also: firstrun.mjs (the M3 measurement), screenshots.mjs
 ```
 
 ## Safety, in one paragraph
