@@ -30,7 +30,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from PIL import Image
 
-from ..common import Strict
+from ..common import Strict, Text
 from .base import TargetSighting
 from .person_local import FX, UPRIGHT_WIDTH, fuse_distance
 
@@ -102,7 +102,7 @@ def sighting_from_answer(
     *,
     width: int,
     height: int,
-    label: str,
+    label: Text,
     tof_rows: list[list[float]] | None = None,
 ) -> TargetSighting | None:
     """Turn a target pixel into something the executor can steer by.
@@ -310,7 +310,7 @@ class StubVlm:
                 timestamp=now,
                 question=question,
                 found=False,
-                answer="Attrappe: nichts Auffälliges im Bild.",
+                answer="",  # the sentence for the log is written in `texts.py`, in both languages
                 provider=self.name,
                 model=self.model,
                 latency_s=time.monotonic() - started,
@@ -319,7 +319,7 @@ class StubVlm:
             timestamp=now,
             question=question,
             found=True,
-            answer="Attrappe: etwas Auffälliges im Bild — kein echtes Modell, nur ein Fleck.",
+            answer="",
             pixel_x=seen.pixel_x,
             pixel_y=seen.pixel_y,
             provider=self.name,

@@ -3,7 +3,7 @@ rate (10–30 Hz local, 0.5–2 Hz VLM); the executor reads last-value-wins (§4
 
 from __future__ import annotations
 
-from ..common import Strict
+from ..common import Strict, Text
 
 
 class Sighting(Strict):
@@ -31,5 +31,5 @@ class PersonDetection(Sighting):
 class TargetSighting(Sighting):
     """What a VLM was asked to find — 0.5–2 Hz, never in the braking loop (§4)."""
 
-    label: str  # what was asked for, in the user's words
+    label: Text  # the question, in the languages the behavior wrote it in (§3.7)
     source: str  # which provider answered, e.g. "anthropic" or "stub"

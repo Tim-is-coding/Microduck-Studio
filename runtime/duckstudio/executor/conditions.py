@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ..backends.base import Health, RobotState
-from ..common import Condition
+from ..common import Condition, Text
 from ..perception.base import PersonDetection, Sighting, TargetSighting
 from ..perception.vlm import VlmAnswer
 
@@ -35,7 +35,8 @@ class VlmRequest:
     frame anywhere the user did not agree to.
     """
 
-    question: str
+    question: str  # what is sent to the model, in the behavior's first language
+    text: Text  # the same question for the Studio, in every language the step has
     provider: str
     behavior_id: str
 

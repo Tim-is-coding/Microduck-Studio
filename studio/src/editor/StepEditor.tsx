@@ -1,6 +1,6 @@
 import type React from "react";
 
-import { t, tOr } from "../i18n";
+import { phrases as phraseList, t, text, tOr, type Language } from "../i18n";
 import { isPerceive, isSkill, isWait, type SkillManifest, type Step, type StopCondition } from "../schemas";
 import {
   AFTER_ACTIONS as _AFTER,
@@ -26,6 +26,7 @@ import { UiControl } from "./UiControl";
 interface Props {
   index: number;
   step: Step;
+  lang: Language;
   skills: Map<string, SkillManifest>;
   count: number;
   dragging?: boolean;
@@ -35,7 +36,7 @@ interface Props {
   onDragStart?: (e: React.PointerEvent<HTMLSpanElement>) => void;
 }
 
-export function StepEditor({ index, step, skills, count, dragging = false, onChange, onMove, onRemove, onDragStart }: Props) {
+export function StepEditor({ index, step, lang, skills, count, dragging = false, onChange, onMove, onRemove, onDragStart }: Props) {
   return (
     <div className={`step editing${dragging ? " dragging" : ""}`}>
       <div className="num">{index + 1}</div>
@@ -55,7 +56,7 @@ export function StepEditor({ index, step, skills, count, dragging = false, onCha
           </button>
         </div>
         {isSkill(step) && <SkillBody onChange={onChange} skill={skills.get(step.skill)} step={step} />}
-        {isPerceive(step) && <PerceiveBody onChange={onChange} skills={skills} step={step} />}
+        {isPerceive(step) && <PerceiveBody lang={lang} onChange={onChange} skills={skills} step={step} />}
         {isWait(step) && <WaitBody onChange={onChange} step={step} />}
       </div>
     </div>
@@ -67,8 +68,8 @@ function SkillBody({ step, skill, onChange }: { step: Extract<Step, { skill: str
   const conditions = untilConditions(step);
   return (
     <>
-      <div className="title">{skill.name.de}</div>
-      {skill.summary && <div className="sub">{skill.summary.de}</div>}
+      <div className="title">{text(skill.name)}</div>
+      {skill.summary && <div className="sub">{text(skill.summary)}</div>}
       <div className="fields">
         {Object.entries(skill.ui).map(([key, spec]) => (
           <UiControl key={key} name={key} onChange={(v) => onChange({ ...step, with: { ...step.with, [key]: v } })} spec={spec} value={step.with[key]} />
@@ -106,7 +107,7 @@ function ConditionEditor({ condition, onChange }: { condition: StopCondition; on
         <span>{t("editor.until.speech")}</span>
         <input
           onChange={(e) => onChange({ speech: { de: splitPhrases(e.target.value).length ? splitPhrases(e.target.value) : [e.target.value] } })}
-          value={condition.speech.de.join(", ")}
+          value={phraseList(condition.speech).join(", ")}
         />
       </label>
     );
@@ -151,13 +152,13 @@ function ConditionEditor({ condition, onChange }: { condition: StopCondition; on
   return null;
 }
 
-function PerceiveBody({ step, skills, onChange }: { step: Extract<Step, { perceive: string }>; skills: Map<string, SkillManifest>; onChange: (s: Step) => void }) {
+function PerceiveBody({ step, lang, skills, onChange }: { step: Extract<Step, { perceive: string }>; lang: Language; skills: Map<string, SkillManifest>; onChange: (s: Step) => void }) {
   const onNone = step.on_none ?? null;
   return (
     <>
       <label className="field">
         <span className="field-label">{t("editor.perceive.what")}</span>
-        <select onChange={(e) => onChange(setPerceiveQuery(step, e.target.value))} value={step.perceive}>
+        <select onChange={(e) => onChange(setPerceiveQuery(step, e.target.value, lang))} value={step.perceive}>
           {PERCEIVE_QUERIES.map((q) => <option key={q} value={q}>{tOr(`perceive.${q}`, q)}</option>)}
         </select>
       </label>
@@ -166,9 +167,9 @@ function PerceiveBody({ step, skills, onChange }: { step: Extract<Step, { percei
           <label className="field">
             <span className="field-label">{t("editor.perceive.question")}</span>
             <input
-              onChange={(e) => onChange(setQuestion(step, e.target.value))}
+              onChange={(e) => onChange(setQuestion(step, e.target.value, lang))}
               placeholder={t("editor.perceive.question.placeholder")}
-              value={step.question?.de ?? ""}
+              value={text(step.question)}
             />
           </label>
           <div className="vlm">{t("editor.perceive.question.hint")}</div>
@@ -187,7 +188,7 @@ function PerceiveBody({ step, skills, onChange }: { step: Extract<Step, { percei
           <span className="inline wrap">
             <span>{t("editor.perceive.on_none.do")}</span>
             <select onChange={(e) => onChange({ ...step, on_none: { ...onNone, do: e.target.value } })} value={onNone.do}>
-              {[...skills.values()].map((s) => <option key={s.id} value={s.id}>{s.name.de}</option>)}
+              {[...skills.values()].map((s) => <option key={s.id} value={s.id}>{text(s.name)}</option>)}
             </select>
             <input max={600} min={1} onChange={(e) => onChange({ ...step, on_none: { ...onNone, seconds: Number(e.target.value) } })} type="number" value={onNone.seconds} />
             <span>{t("editor.perceive.on_none.seconds")}, {t("editor.perceive.on_none.then")}</span>

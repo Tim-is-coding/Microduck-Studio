@@ -16,6 +16,7 @@ from collections import deque
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
+from .. import texts
 from ..backends.base import DuckBackend, Health, RobotState
 from ..common import Condition
 from ..events import EventBus
@@ -102,7 +103,7 @@ class IntentGate:
             desc = ", ".join(f"{k} {req:g}→{got:g}" for k, (req, got) in clamped.items())
             self.bus.emit(
                 "intent.clamped",
-                f"{skill.name.de}: Werte begrenzt ({desc}).",
+                *texts.intent_clamped(skill.name, desc),
                 level="warn",
                 skill=skill.id,
                 clamped={k: list(v) for k, v in clamped.items()},
@@ -120,13 +121,13 @@ class IntentGate:
             return self._refuse(skill, "rate_limited")
         await self.backend.behavior(skill.behavior)
         self._sent_at.append(self.clock())
-        self.bus.emit("behavior.sent", f"{skill.name.de} gestartet.", skill=skill.id)
+        self.bus.emit("behavior.sent", *texts.behavior_sent(skill.name), skill=skill.id)
         return GateDecision(accepted=True)
 
     async def stop(self) -> None:
         """Emergency stop: no battery check, no preconditions, no rate limit. Ever."""
         await self.backend.stop()
-        self.bus.emit("stop", "Notstopp: Ente angehalten.", level="warn")
+        self.bus.emit("stop", *texts.emergency_stop(), level="warn")
 
     # -- internals ----------------------------------------------------------------------
 
@@ -139,7 +140,9 @@ class IntentGate:
             return
         self._last_logged[skill.id] = (now, key)
         desc = ", ".join(f"{k} {v:g}" for k, v in sent.items())
-        self.bus.emit("intent.sent", f"{skill.name.de}: {desc}.", skill=skill.id, params=sent)
+        self.bus.emit(
+            "intent.sent", *texts.intent_sent(skill.name, desc), skill=skill.id, params=sent
+        )
 
     def _common_checks(self, skill: SkillManifest) -> GateDecision | None:
         health = self.snapshot.health

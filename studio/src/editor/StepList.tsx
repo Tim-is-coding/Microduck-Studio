@@ -1,4 +1,4 @@
-import { formatDuration, t, tOr } from "../i18n";
+import { formatDuration, phrases as phraseList, quoteJoin, t, text, tOr } from "../i18n";
 import {
   isPerceive,
   isSkill,
@@ -42,14 +42,14 @@ export function StepList({ behavior, skills, activeStep = null, interrupt = null
             {isPerceive(step) && (
               <>
                 <div className="title">
-                  {step.question?.de
-                    ? t("editor.step.ask", { question: step.question.de })
+                  {step.question
+                    ? t("editor.step.ask", { question: text(step.question) })
                     : t("editor.step.perceive", { what: tOr(`perceive.${step.perceive}`, step.perceive) })}
                 </div>
                 {step.on_none && (
                   <div className="branch">
                     {t("editor.step.on_none", {
-                      do: skills.get(step.on_none.do)?.name.de ?? step.on_none.do,
+                      do: text(skills.get(step.on_none.do)?.name, step.on_none.do),
                       seconds: step.on_none.seconds,
                       then: t(`then.${step.on_none.then}`),
                     })}
@@ -70,7 +70,7 @@ export function StepList({ behavior, skills, activeStep = null, interrupt = null
             <div className="title">
               {t("editor.always", {
                 on: describeSignal(rule.on),
-                do: rule.do.map((a) => skills.get(a)?.name.de ?? tOr(`action.${a}`, a)).join(", "),
+                do: rule.do.map((a) => text(skills.get(a)?.name, tOr(`action.${a}`, a))).join(", "),
               })}
             </div>
           </div>
@@ -84,8 +84,8 @@ function SkillCard({ step, skill }: { step: SkillStep; skill: SkillManifest | un
   if (!skill) return <div className="title problems">{t("editor.step.unknown_skill", { id: step.skill })}</div>;
   return (
     <>
-      <div className="title">{skill.name.de}</div>
-      {skill.summary && <div className="sub">{skill.summary.de}</div>}
+      <div className="title">{text(skill.name)}</div>
+      {skill.summary && <div className="sub">{text(skill.summary)}</div>}
       <div className="chips">
         {Object.entries(step.with).map(([key, value]) => {
           const control = skill.ui[key];
@@ -112,12 +112,13 @@ function SkillCard({ step, skill }: { step: SkillStep; skill: SkillManifest | un
 }
 
 function describeTrigger(trigger: Trigger): string {
-  if (trigger.kind === "speech") return t("editor.trigger.speech", { phrases: trigger.phrases.de.map((p) => `„${p}“`).join(", ") });
+  if (trigger.kind === "speech")
+    return t("editor.trigger.speech", { phrases: quoteJoin(phraseList(trigger.phrases), ", ") });
   return t("editor.trigger.manual");
 }
 
 function describeStopCondition(c: StopCondition): string {
-  if ("speech" in c) return t("cond.speech", { phrases: c.speech.de.join("“ / „") });
+  if ("speech" in c) return t("cond.speech", { phrases: quoteJoin(phraseList(c.speech)) });
   if ("elapsed" in c) return t("cond.elapsed", { duration: formatDuration(c.elapsed) });
   return describeSignal(c.signal);
 }

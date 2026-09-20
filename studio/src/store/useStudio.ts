@@ -19,6 +19,7 @@ import {
 import { z } from "zod";
 
 import { newBehavior, tidy } from "../editor/model";
+import { t } from "../i18n";
 
 export type RuntimeStatus = "loading" | "online" | "offline";
 
@@ -142,7 +143,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   },
 
   newDraft() {
-    set({ draft: newBehavior(), draftIsNew: true, draftDirty: true, draftProblems: [], selectedBehaviorId: null });
+    set({ draft: newBehavior(t("list.new")), draftIsNew: true, draftDirty: true, draftProblems: [], selectedBehaviorId: null });
   },
 
   updateDraft(fn) {

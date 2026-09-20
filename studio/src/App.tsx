@@ -3,10 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { BehaviorEditor } from "./editor/BehaviorEditor";
 import { BehaviorList } from "./editor/BehaviorList";
 import { StepList } from "./editor/StepList";
-import { t } from "./i18n";
+import { language, phrases as phraseList, quote, t, text, useLanguage } from "./i18n";
 import { LivePanel } from "./live/LivePanel";
 import { SkillPanel } from "./skills/SkillPanel";
 import { Icon } from "./ui/Icon";
+import { LanguageSwitch } from "./ui/LanguageSwitch";
 import { ThemeSwitch } from "./ui/ThemeSwitch";
 import { connectEvents, useStudio } from "./store/useStudio";
 
@@ -21,6 +22,7 @@ export function App() {
     editBehavior, newDraft, updateDraft, validateDraft, saveDraft, discardDraft, deleteBehavior, loadYaml,
   } = useStudio();
   const [phrase, setPhrase] = useState("");
+  useLanguage(); // re-render the whole Studio when the language changes
 
   // live validation while editing, debounced
   useEffect(() => {
@@ -55,7 +57,7 @@ export function App() {
   const connected = health?.connected ?? false;
   const running = executor?.state === "running";
   const runningSelected = running && executor?.behavior === selected?.id;
-  const triggerPhrases = selected?.trigger.kind === "speech" ? selected.trigger.phrases.de : [];
+  const triggerPhrases = selected?.trigger.kind === "speech" ? phraseList(selected.trigger.phrases) : [];
   const submitPhrase = (text: string) => {
     const t = text.trim();
     if (!t) return;
@@ -68,6 +70,7 @@ export function App() {
       <header className="topbar">
         <h1>{t("app.title")}</h1>
         <div className="spacer" />
+        <LanguageSwitch />
         <ThemeSwitch />
         <div className={`status ${runtime}`}>
           <span className="dot" />
@@ -96,10 +99,10 @@ export function App() {
                 onClick={() => select(b.id)}
                 type="button"
               >
-                {b.name.de}
+                {text(b.name)}
               </button>
             ))}
-            {draft && draftIsNew && <button className="active" type="button">{draft.name.de || t("editor.new")}</button>}
+            {draft && draftIsNew && <button className="active" type="button">{text(draft.name) || t("editor.new")}</button>}
             {!draft && selectedBehaviorId && <button className="new" onClick={newDraft} type="button">+ {t("editor.new")}</button>}
           </div>
           {draft && (
@@ -108,9 +111,10 @@ export function App() {
               dirty={draftDirty}
               draft={draft}
               isNew={draftIsNew}
+              lang={language()}
               onChange={(pack) => updateDraft(() => pack)}
               onDelete={() => {
-                if (window.confirm(t("editor.delete.confirm", { name: draft.name.de }))) void deleteBehavior(draft.id);
+                if (window.confirm(t("editor.delete.confirm", { name: text(draft.name) }))) void deleteBehavior(draft.id);
               }}
               onDiscard={discardDraft}
               onSave={() => void saveDraft(false)}
@@ -147,8 +151,8 @@ export function App() {
               <input id="say" onChange={(e) => setPhrase(e.target.value)} placeholder={t("run.say.placeholder")} value={phrase} />
               <button className="btn" disabled={!connected} type="submit">{t("run.say.button")}</button>
               <div className="chips">
-                {[...triggerPhrases, "Stopp"].map((p) => (
-                  <button className="chip clickable" disabled={!connected} key={p} onClick={() => submitPhrase(p)} type="button">„{p}“</button>
+                {[...triggerPhrases, t("run.say.stop")].map((p) => (
+                  <button className="chip clickable" disabled={!connected} key={p} onClick={() => submitPhrase(p)} type="button">{quote(p)}</button>
                 ))}
               </div>
             </form>

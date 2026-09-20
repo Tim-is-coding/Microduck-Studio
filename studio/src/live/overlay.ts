@@ -3,6 +3,7 @@
  * the world can be unit-tested: a marker sits where the runtime says the thing was, and a
  * ToF zone is coloured by how close it is.
  */
+import { number } from "../i18n";
 import type { PersonDetection, TargetSighting } from "../schemas";
 
 export const TOF_NEAR_M = 0.25; // the walk manifest stops here (skills/walk.skill.yaml)
@@ -50,7 +51,7 @@ export function degrees(bearingRad: number): number {
 
 export function formatDistance(distanceM: number | null | undefined): string {
   if (distanceM == null) return "";
-  return `${distanceM.toFixed(distanceM < 10 ? 1 : 0).replace(".", ",")} m`;
+  return `${number(distanceM, distanceM < 10 ? 1 : 0)} m`;
 }
 
 /** Where a sighting sits in the frame, as a fraction — the image may be scaled anywhere. */

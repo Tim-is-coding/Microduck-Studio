@@ -11,6 +11,7 @@ import {
   tagBox,
   zoneColor,
 } from "../src/live/overlay";
+import { setLanguage } from "../src/i18n";
 import type { PersonDetection } from "../src/schemas";
 
 const seen = (over: Partial<PersonDetection> = {}): PersonDetection => ({
@@ -114,9 +115,13 @@ describe("ToF zones", () => {
   });
 });
 
-describe("distances read like German", () => {
-  it("uses a comma and one decimal", () => {
+describe("distances read like the language they are shown in", () => {
+  it("uses a comma in German and a dot in English", () => {
+    setLanguage("de");
     expect(formatDistance(1.25)).toBe("1,3 m");
+    setLanguage("en");
+    expect(formatDistance(1.25)).toBe("1.3 m");
     expect(formatDistance(null)).toBe("");
+    setLanguage("de");
   });
 });

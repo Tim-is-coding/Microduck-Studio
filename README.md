@@ -7,7 +7,8 @@ Underneath sits a small, documented Python runtime that developers can clone, ex
 keep building with Claude Code.
 
 > Not affiliated with Pollen Robotics or Hugging Face. Apache-2.0, like upstream.
-> The UI is German first (`de`), English follows. Code, docs and commits are English.
+> The UI speaks German and English (switch in the top bar; `docs/concepts/languages.md`).
+> Code, docs and commits are English.
 
 ## Status: M3 + seeing with a model, and a Studio you can steer (2026-09-20)
 
@@ -33,6 +34,7 @@ keep building with Claude Code.
 | Editor: insert a step in any gap, drag a card by its grip to reorder (pointer-based, works with a finger), ↑↓ for the keyboard | done |
 | Studio opens on an overview of the behaviors (summary, trigger, steps, KI marker, problems) with Öffnen / ▶ Start per card | done |
 | Design pass: one token set (`docs/concepts/studio-look.md`), dark mode with a switch, drawn icons instead of emoji, focus rings, columns that scroll on their own | done |
+| English as the second language: DE/EN switch, every runtime event bilingual (`runtime/duckstudio/texts.py`), data texts fall back to German, numbers and quotes follow the language | done |
 | Real duck (M4) | next |
 
 Roadmap and rules live in [`CLAUDE.md`](CLAUDE.md); decisions in [`docs/adr/`](docs/adr/).
@@ -77,7 +79,7 @@ simulator; see `sim/README.md`.
 ```
 CLAUDE.md          handover, decisions, working rules (German)
 docs/adr/          architecture decision records
-docs/concepts/     skill manifest, behavior pack, backend interface, perception, the Studio's look
+docs/concepts/     skill manifest, behavior pack, backend interface, perception, look, languages
 docs/schemas/      JSON Schemas (golden files, exported from pydantic)
 docs/upstream-notes.md  what we verified about the Microduck API, with commit hashes
 runtime/           Python 3.12 · uv · FastAPI · pydantic v2 — executor, backends, API

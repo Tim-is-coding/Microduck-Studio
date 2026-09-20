@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from .. import upstream
+from .. import texts, upstream
 from ..backends.base import BackendError, BehaviorRefused
 from ..behaviors.schema import (
     RESERVED_ACTIONS,
@@ -42,7 +42,7 @@ from ..behaviors.schema import (
     Until,
     WaitStep,
 )
-from ..common import Condition, parse_duration
+from ..common import Condition, Text, parse_duration
 from ..events import EventBus
 from ..perception.base import Sighting
 from ..skills import SkillManifest, SkillRegistry
@@ -74,20 +74,6 @@ FAILING_SIGNALS = frozenset({"fallen", "motor_hot"})
 # `direction` in a skill card → which sighting the step steers by (§6.1 walk.ui.direction)
 STEERING = {"toward_person": "person", "toward_target": "target"}
 
-_SIGNAL_DE = {
-    "target_reached": "Ziel erreicht",
-    "target_found": "Ziel gefunden",
-    "tof_distance": "Hindernis zu nah",
-    "fallen": "umgefallen",
-    "motor_hot": "Motor zu heiß",
-    "timeout": "Zeit abgelaufen",
-    "standing": "steht wieder",
-    "sitting": "sitzt",
-    "person_found": "Person gefunden",
-    "object_grasped": "Gegenstand gegriffen",
-    "battery": "Akku",
-}
-
 
 def normalize_phrase(text: str) -> str:
     return " ".join(text.casefold().strip().strip(".!?,;:").split())
@@ -105,7 +91,7 @@ class SkillRun:
     sent_behavior: bool = False
     refused_since: float | None = None
     last_decision: GateDecision | None = None
-    end_reason: str | None = None
+    end_reason: texts.Bilingual | None = None
 
 
 @dataclass
@@ -152,7 +138,7 @@ class Executor:
         self.run: SkillRun | None = None
         self.on_none_run: SkillRun | None = None
         self.interrupt: InterruptRun | None = None
-        self.reason: str | None = None
+        self.reason: texts.Bilingual | None = None
         self._announced_none = False  # "nothing found" is worth saying once, not every sweep
         self.counters = _Counters()
         self._preempt_source: str | None = None
@@ -177,7 +163,7 @@ class Executor:
         self.snapshot.speech.clear()
         self._clear_vlm_request()
         self.snapshot.target = self.snapshot.vlm = None
-        self.bus.emit("behavior.started", f"„{pack.name.de}“ gestartet.", behavior=pack.id)
+        self.bus.emit("behavior.started", *texts.behavior_started(pack.name), behavior=pack.id)
         self._announce_step()
         self.watchdog.start()
         self._task = asyncio.create_task(self._loop(), name=f"executor-{pack.id}")
@@ -187,10 +173,10 @@ class Executor:
             return
         self.state = "aborted"
         self._clear_vlm_request()
-        self.reason = reason
+        self.reason = texts.stopped_from(reason)
         self.watchdog.disarm()
         await self.gate.stop()
-        self.bus.emit("behavior.aborted", "Ablauf gestoppt.", level="warn", reason=reason)
+        self.bus.emit("behavior.aborted", *texts.behavior_aborted(), level="warn", reason=reason)
         await self._cancel_loop()
 
     def preempt(self, source: str = "gamepad") -> None:
@@ -206,11 +192,11 @@ class Executor:
             return None
         if self.state == "running":
             self.snapshot.speech.add(phrase)
-            self.bus.emit("speech.heard", f"Gehört: „{text.strip()}“", text=text)
+            self.bus.emit("speech.heard", *texts.speech_heard(text), text=text)
             return None
         for pack in self.packs.values():
             if isinstance(pack.trigger, SpeechTrigger) and any(
-                normalize_phrase(p) == phrase for p in pack.trigger.phrases.de
+                normalize_phrase(p) == phrase for p in pack.trigger.phrases.all()
             ):
                 return pack.id
         return None
@@ -227,7 +213,7 @@ class Executor:
             if (interrupt_run or active)
             else None,
             "interrupt": self.interrupt.rule.on if self.interrupt else None,
-            "reason": self.reason,
+            "reason": {"de": self.reason[0], "en": self.reason[1]} if self.reason else None,
             "ticks": self.counters.ticks,
             "intents_sent": self.counters.intents_sent,
         }
@@ -245,10 +231,10 @@ class Executor:
             try:
                 await self.tick()
             except BackendError as e:
-                await self._fail(f"Verbindung zur Ente verloren ({e})", stop=True)
+                await self._fail(texts.connection_lost(str(e)), stop=True)
                 break
             except Exception as e:  # noqa: BLE001 - the loop must not die silently
-                await self._fail(f"Fehler im Executor: {e!r}", stop=True)
+                await self._fail(texts.executor_crashed(repr(e)), stop=True)
                 break
             await asyncio.sleep(max(0.0, period - (self.clock() - t0)))
 
@@ -281,7 +267,7 @@ class Executor:
             if status == Status.SUCCESS:
                 await self._advance()
             elif status == Status.FAILURE:
-                await self._fail(self.reason or "Schritt fehlgeschlagen", stop=True)
+                await self._fail(self.reason or texts.step_failed_plain(), stop=True)
         finally:
             snap.speech.clear()
             self.watchdog.pet(driving=self._driving_this_tick)
@@ -293,18 +279,17 @@ class Executor:
         step = self.pack.steps[self.step_index]
         n = self.step_index + 1
         if isinstance(step, PerceiveStep):
-            if step.question is not None:
-                text = f"Schritt {n}: Frage die KI „{step.question.de}“"
-            else:
-                what = {"person.nearest": "die nächste Person"}.get(step.perceive, step.perceive)
-                text = f"Schritt {n}: Suche {what}."
+            text = (
+                texts.step_ask(n, step.question)
+                if step.question is not None
+                else texts.step_look_for(n, step.perceive)
+            )
         elif isinstance(step, SkillStep):
-            skill = self.registry.get(step.skill)
             opts = ", ".join(f"{k}: {v}" for k, v in step.with_.items())
-            text = f"Schritt {n}: {skill.name.de}" + (f" ({opts})." if opts else ".")
+            text = texts.step_skill(n, self.registry.get(step.skill).name, opts)
         else:
-            text = f"Schritt {n}: Warte {step.wait}."
-        self.bus.emit("step.started", text, step=self.step_index, behavior=self.pack.id)
+            text = texts.step_wait(n, step.wait)
+        self.bus.emit("step.started", *text, step=self.step_index, behavior=self.pack.id)
 
     async def _advance(self) -> None:
         assert self.pack is not None
@@ -316,11 +301,13 @@ class Executor:
             self.state = "done"
             self._clear_vlm_request()
             self.watchdog.disarm()
-            self.bus.emit("behavior.done", f"„{self.pack.name.de}“ fertig.", behavior=self.pack.id)
+            self.bus.emit(
+                "behavior.done", *texts.behavior_done(self.pack.name), behavior=self.pack.id
+            )
             return
         self._announce_step()
 
-    async def _fail(self, reason: str, *, stop: bool) -> None:
+    async def _fail(self, reason: texts.Bilingual, *, stop: bool) -> None:
         if self.state != "running":
             return
         self.state = "failed"
@@ -329,20 +316,22 @@ class Executor:
         self.watchdog.disarm()
         if stop:
             await self.gate.stop()
-        name = self.pack.name.de if self.pack else "Ablauf"
+        name = self.pack.name if self.pack else Text(de="Ablauf", en="Behavior")
         self.bus.emit(
-            "behavior.failed", f"„{name}“ abgebrochen: {reason}", level="error", reason=reason
+            "behavior.failed",
+            *texts.behavior_failed(name, reason),
+            level="error",
+            reason=reason[1],
         )
 
     async def _preempted(self, source: str) -> None:
         self.state = "preempted"
-        self.reason = source
+        self.reason = texts.preempted_reason(source)
         self._clear_vlm_request()
         self.watchdog.disarm()
         await self.gate.stop()
-        who = "Gamepad" if source == "gamepad" else source
         self.bus.emit(
-            "executor.preempted", f"{who} übernimmt: Ablauf gestoppt.", level="warn", source=source
+            "executor.preempted", *texts.preempted_by(source), level="warn", source=source
         )
 
     # -- interrupts (always rules) ---------------------------------------------------------
@@ -360,10 +349,9 @@ class Executor:
                 self.interrupt = InterruptRun(
                     rule=rule, actions=list(rule.do), started=self.clock()
                 )
-                actions = ", ".join(self._action_name(a) for a in rule.do)
                 self.bus.emit(
                     "interrupt.started",
-                    f"Unterbrechung: {_SIGNAL_DE.get(signal, signal)} → {actions}.",
+                    *texts.interrupt_started(signal, [self._action_name(a) for a in rule.do]),
                     level="warn",
                     on=rule.on,
                     do=list(rule.do),
@@ -375,9 +363,7 @@ class Executor:
         assert it is not None
         if self.counters.same_interrupt > MAX_SAME_INTERRUPT:
             self.interrupt = None
-            await self._fail(
-                f"{_SIGNAL_DE.get(it.rule.on, it.rule.on)} — Erholung klappt nicht.", stop=True
-            )
+            await self._fail(texts.recovery_failed(it.rule.on), stop=True)
             return
         while it.index < len(it.actions):
             action = it.actions[it.index]
@@ -388,18 +374,20 @@ class Executor:
                         self.run.last_sent = None
                     self.bus.emit(
                         "interrupt.resumed",
-                        f"Weiter mit Schritt {self.step_index + 1}.",
+                        *texts.resumed(self.step_index + 1),
                         step=self.step_index,
                     )
                 elif action == "abort":
-                    await self._fail("abgebrochen durch Regel", stop=True)
+                    await self._fail(texts.aborted_by_rule(), stop=True)
                 elif action == "stop":
                     self.state = "aborted"
-                    self.reason = "rule:stop"
+                    self.reason = texts.behavior_aborted(by_rule=True)
                     self._clear_vlm_request()
                     self.watchdog.disarm()
                     await self.gate.stop()
-                    self.bus.emit("behavior.aborted", "Ablauf gestoppt (Regel).", level="warn")
+                    self.bus.emit(
+                        "behavior.aborted", *texts.behavior_aborted(by_rule=True), level="warn"
+                    )
                 return
             if it.run is None:
                 it.run = self._make_run(action, {}, None)
@@ -412,18 +400,20 @@ class Executor:
                     pass  # e.g. `getup` while already standing: skip the action
                 else:
                     self.interrupt = None
-                    await self._fail(self.reason or f"{action} fehlgeschlagen", stop=True)
+                    await self._fail(
+                        self.reason or texts.action_failed(self._action_name(action)), stop=True
+                    )
                     return
             it.run = None
             it.index += 1
         self.interrupt = None  # exhausted without a reserved word: carry on with the step
 
-    def _action_name(self, action: str) -> str:
+    def _action_name(self, action: str) -> texts.Bilingual:
         if action in RESERVED_ACTIONS:
-            return {"resume": "weitermachen", "abort": "abbrechen", "stop": "anhalten"}.get(
-                action, action
-            )
-        return self.registry.get(action).name.de if action in self.registry else action
+            return texts.action(action)
+        if action in self.registry:
+            return texts.name_of(self.registry.get(action).name)
+        return action, action
 
     # -- steps -----------------------------------------------------------------------------
 
@@ -442,8 +432,7 @@ class Executor:
                 ok = status == Status.SUCCESS
                 self.bus.emit(
                     "step.done" if ok else "step.failed",
-                    f"Schritt {self.step_index + 1} {'fertig' if ok else 'gescheitert'}: "
-                    f"{self.run.end_reason}",
+                    *texts.step_ended(self.step_index + 1, ok, self.run.end_reason),
                     level="info" if ok else "warn",
                     step=self.step_index,
                 )
@@ -462,6 +451,7 @@ class Executor:
             return
         request = VlmRequest(
             question=step.question.de,
+            text=step.question,
             provider=self.pack.vlm.provider,
             behavior_id=self.pack.id,
         )
@@ -484,7 +474,7 @@ class Executor:
         snap = self.snapshot
         if step.uses_vlm:
             if self.pack is not None and self.pack.vlm is None:  # schema forbids it; be sure
-                self.reason = "Der Ablauf fragt eine KI, hat sie aber nicht erlaubt."
+                self.reason = texts.vlm_not_allowed()
                 return Status.FAILURE
             self._set_vlm_request(step)
         else:
@@ -492,23 +482,30 @@ class Executor:
         seen = self._seen(step)
         if seen is not None:
             self._announced_none = False
-            side = "links" if seen.bearing_rad >= 0 else "rechts"
-            dist = f"{seen.distance_m:.1f} m, " if seen.distance_m is not None else ""
-            what = f"Ziel „{step.question.de}“" if step.question is not None else "Person"
+            what = (
+                texts.target_label(step.question)
+                if step.question is not None
+                else texts.person_label()
+            )
             self.bus.emit(
                 "perceive.found",
-                f"{what} gefunden: {dist}{abs(math.degrees(seen.bearing_rad)):.0f}° {side}.",
+                *texts.perceive_found(
+                    what,
+                    seen.distance_m,
+                    abs(math.degrees(seen.bearing_rad)),
+                    left=seen.bearing_rad >= 0,
+                ),
                 bearing_rad=seen.bearing_rad,
                 distance_m=seen.distance_m,
                 query=step.perceive,
             )
             self.on_none_run = None
             return Status.SUCCESS
-        nothing = "Nichts gefunden" if step.uses_vlm else "Niemand zu sehen"
+        nothing = texts.nothing_found(step.uses_vlm)
         if step.on_none is None:
             snap.elapsed_s = snap.now - self.step_started
             if snap.elapsed_s >= PERCEIVE_BUDGET_S:
-                self.reason = nothing.lower()
+                self.reason = (nothing[0].lower(), nothing[1].lower())
                 return Status.FAILURE
             return Status.RUNNING
         if self.on_none_run is None:
@@ -519,8 +516,7 @@ class Executor:
                 self._announced_none = True
                 self.bus.emit(
                     "perceive.none",
-                    f"{nothing}: {self.on_none_run.skill.name.de}, "
-                    f"{step.on_none.seconds:g} Sekunden.",
+                    *texts.searching(nothing, self.on_none_run.skill.name, step.on_none.seconds),
                     do=step.on_none.do,
                 )
         status = await self._tick_run(self.on_none_run)
@@ -536,7 +532,7 @@ class Executor:
                 self.step_started = snap.now
                 return Status.RUNNING
             case "abort":
-                self.reason = nothing.lower()
+                self.reason = (nothing[0].lower(), nothing[1].lower())
                 return Status.FAILURE
             case _:
                 return Status.SUCCESS
@@ -597,7 +593,7 @@ class Executor:
         for text in run.skill.terminates_on:
             if evaluate(text, snap) is True:
                 signal = Condition.parse(text).signal
-                run.end_reason = _SIGNAL_DE.get(signal, signal)
+                run.end_reason = texts.signal(signal)
                 return Status.FAILURE if signal in FAILING_SIGNALS else Status.SUCCESS
 
         # 2. act: at most one intent or behavior
@@ -623,7 +619,7 @@ class Executor:
                 if run.skill.is_movement:
                     self._driving_this_tick = True
         except BehaviorRefused as e:
-            run.end_reason = f"Ente lehnt ab ({e})"
+            run.end_reason = texts.duck_refused(str(e))
             self.reason = run.end_reason
             return Status.FAILURE
         return Status.RUNNING
@@ -636,9 +632,8 @@ class Executor:
             "skill_has_no_intent",
             "skill_has_no_behavior",
         ):
-            run.end_reason = {"battery_low": "Akku zu niedrig"}.get(
-                decision.reason or "", decision.reason or "abgelehnt"
-            )
+            refused = decision.reason or "refused"
+            run.end_reason = texts.battery_low() if refused == "battery_low" else (refused, refused)
             self.reason = run.end_reason
             return Status.FAILURE
         if decision.reason == "rate_limited":
@@ -646,7 +641,7 @@ class Executor:
         if run.refused_since is None:
             run.refused_since = snap.now
         if snap.now - run.refused_since > PRECONDITION_PATIENCE_S:
-            run.end_reason = "Voraussetzung nicht erfüllt: " + ", ".join(decision.failed)
+            run.end_reason = texts.precondition_failed(decision.failed)
             self.reason = run.end_reason
             return Status.FAILURE
         return Status.RUNNING
@@ -672,27 +667,29 @@ class Executor:
             return {"x": 1.0, "y": y, "z": 0.1}
         return p
 
-    def _until_reason(self, until: Until) -> str | None:
+    def _until_reason(self, until: Until) -> texts.Bilingual | None:
         conds = until.any if until.any is not None else (until.all or [])
         reasons = [self._stop_condition(c) for c in conds]
         if until.any is not None:
             return next((r for r in reasons if r is not None), None)
         if reasons and all(r is not None for r in reasons):
-            return " und ".join(r for r in reasons if r)
+            return texts.joined([r for r in reasons if r], separator=(" und ", " and "))
         return None
 
-    def _stop_condition(self, c: StopCondition) -> str | None:
+    def _stop_condition(self, c: StopCondition) -> texts.Bilingual | None:
         snap = self.snapshot
         if isinstance(c, SpeechCondition):
-            for phrase in c.speech.de:
+            for phrase in c.speech.all():
                 if normalize_phrase(phrase) in snap.speech:
-                    return f"du hast „{phrase}“ gesagt"
+                    return f"du hast „{phrase}“ gesagt", f"you said “{phrase}”"
             return None
         if isinstance(c, ElapsedCondition):
-            return "Zeit vorbei" if snap.elapsed_s >= parse_duration(c.elapsed) else None
+            if snap.elapsed_s >= parse_duration(c.elapsed):
+                return "Zeit vorbei", "time is up"
+            return None
         if isinstance(c, SignalCondition):
             if evaluate(c.signal, snap) is True:
-                return _SIGNAL_DE.get(Condition.parse(c.signal).signal, c.signal)
+                return texts.signal(Condition.parse(c.signal).signal)
         return None
 
 

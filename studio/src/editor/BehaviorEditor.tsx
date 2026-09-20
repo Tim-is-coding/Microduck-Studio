@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { stringify } from "yaml";
 
-import { t, tOr } from "../i18n";
+import { phrases as phraseList, t, text, tOr, type Language } from "../i18n";
 import type { BehaviorPack, SkillManifest } from "../schemas";
 import {
   AFTER_ACTIONS,
@@ -17,6 +17,7 @@ import {
   removeStep,
   renameBehavior,
   replaceStep,
+  setSummary,
   asksVlm,
   setAlwaysRule,
   setTrigger,
@@ -31,6 +32,7 @@ import { StepEditor } from "./StepEditor";
 interface Props {
   draft: BehaviorPack;
   isNew: boolean;
+  lang: Language;
   skills: Map<string, SkillManifest>;
   problems: string[];
   dirty: boolean;
@@ -45,7 +47,7 @@ interface Props {
 
 /** The visual editor (§3.1): every field on a card comes from the behavior schema or a
  *  skill manifest's `ui`; nothing here needs the YAML. */
-export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, connected, onChange, onSave, onSaveAndRun, onDiscard, onDelete }: Props) {
+export function BehaviorEditor({ draft, isNew, lang, skills, problems, dirty, saving, connected, onChange, onSave, onSaveAndRun, onDiscard, onDelete }: Props) {
   const [showYaml, setShowYaml] = useState(false);
   const [insertAt, setInsertAt] = useState<number | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
@@ -93,9 +95,11 @@ export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, 
       window.removeEventListener("pointercancel", finish);
     };
   }, [dragFrom, draft, gapNear, onChange]);
-  const [phrases, setPhrases] = useState(draft.trigger.kind === "speech" ? draft.trigger.phrases.de.join(", ") : "");
+  const [phrases, setPhrases] = useState(
+    draft.trigger.kind === "speech" ? phraseList(draft.trigger.phrases).join(", ") : "",
+  );
   useEffect(() => {
-    if (draft.trigger.kind === "speech") setPhrases(draft.trigger.phrases.de.join(", "));
+    if (draft.trigger.kind === "speech") setPhrases(phraseList(draft.trigger.phrases).join(", "));
   }, [draft.id, draft.trigger]);
   // An empty step list already shows its own hint; pydantic's English "at least 1 item" is noise.
   const shownProblems = draft.steps.length === 0 ? problems.filter((p) => !p.startsWith("steps:")) : problems;
@@ -113,7 +117,7 @@ export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, 
       <>
         <button className="chip clickable" onClick={() => add(newPerceiveStep(), at)} type="button"><Icon name="eye" /> {t("editor.add.perceive")}</button>
         {skillList.map((s) => (
-          <button className="chip clickable" key={s.id} onClick={() => add(newSkillStep(s), at)} type="button">+ {s.name.de}</button>
+          <button className="chip clickable" key={s.id} onClick={() => add(newSkillStep(s), at)} type="button">+ {text(s.name)}</button>
         ))}
         <button className="chip clickable" onClick={() => add(newWaitStep(), at)} type="button"><Icon name="clock" /> {t("editor.add.wait")}</button>
       </>
@@ -164,12 +168,16 @@ export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, 
       <div className="card">
         <label className="field">
           <span className="field-label">{t("editor.name")}</span>
-          <input onChange={(e) => onChange(renameBehavior(draft, e.target.value, !isNew))} value={draft.name.de} />
+          <input
+            onChange={(e) => onChange(renameBehavior(draft, e.target.value, !isNew, lang, isNew))}
+            placeholder={t("list.new")}
+            value={text(draft.name)}
+          />
         </label>
         <div className="sub">{t("editor.id")}: <code>{draft.id}</code></div>
         <label className="field">
           <span className="field-label">{t("editor.summary")}</span>
-          <input onChange={(e) => onChange({ ...draft, summary: e.target.value ? { de: e.target.value } : undefined })} value={draft.summary?.de ?? ""} />
+          <input onChange={(e) => onChange(setSummary(draft, e.target.value, lang))} value={text(draft.summary)} />
         </label>
       </div>
 
@@ -201,6 +209,7 @@ export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, 
           <InsertRow at={i} />
           <StepEditor
             count={draft.steps.length}
+            lang={lang}
             dragging={dragFrom === i}
             index={i}
             onChange={(s) => onChange(withVlmIfNeeded(replaceStep(draft, i, s)))}
@@ -239,7 +248,7 @@ export function BehaviorEditor({ draft, isNew, skills, problems, dirty, saving, 
                 <span>{t("editor.always.do")}</span>
                 <select onChange={(e) => onChange(setAlwaysRule(draft, i, rule.on, e.target.value || null, after))} value={skill ?? ""}>
                   <option value="">–</option>
-                  {skillList.map((s) => <option key={s.id} value={s.id}>{s.name.de}</option>)}
+                  {skillList.map((s) => <option key={s.id} value={s.id}>{text(s.name)}</option>)}
                 </select>
                 <span>{t("editor.always.after")}</span>
                 <select onChange={(e) => onChange(setAlwaysRule(draft, i, rule.on, skill, e.target.value))} value={after}>

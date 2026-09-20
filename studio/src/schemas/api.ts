@@ -52,7 +52,7 @@ export const PersonDetection = z.object({
 export type PersonDetection = z.infer<typeof PersonDetection>;
 
 /** The same geometry, seen by a VLM instead of the local detector. */
-export const TargetSighting = PersonDetection.extend({ label: z.string(), source: z.string() });
+export const TargetSighting = PersonDetection.extend({ label: Text, source: z.string() });
 export type TargetSighting = z.infer<typeof TargetSighting>;
 
 export const VlmAnswer = z.object({
@@ -69,7 +69,7 @@ export type VlmAnswer = z.infer<typeof VlmAnswer>;
 export const VlmActivity = z.object({
   provider: z.string(),
   sends_frames: z.boolean(),
-  question: z.string().nullable(),
+  question: Text.nullable(),
   asked: z.number(),
   answer: VlmAnswer.nullable(),
 });

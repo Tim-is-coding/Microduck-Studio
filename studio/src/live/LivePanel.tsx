@@ -1,4 +1,4 @@
-import { t, tOr } from "../i18n";
+import { formatTime, number, t, text, tOr } from "../i18n";
 import type { Event, ExecutorStatus, RobotState, RuntimeHealth } from "../schemas";
 import { Icon } from "../ui/Icon";
 import { CameraView } from "./CameraView";
@@ -42,7 +42,7 @@ export function LivePanel({ health, state, executor, events, onStop }: Props) {
             ))}
             {state.pose && (
               <span className="chip">
-                {t("live.pose")}: <b>{state.pose.x.toFixed(2)} / {state.pose.y.toFixed(2)} m</b>
+                {t("live.pose")}: <b>{number(state.pose.x, 2)} / {number(state.pose.y, 2)} m</b>
               </span>
             )}
           </>
@@ -56,9 +56,12 @@ export function LivePanel({ health, state, executor, events, onStop }: Props) {
       {executor?.vlm?.question && (
         <div className={executor.vlm.sends_frames ? "vlm" : "sub vlm-line"}>
           {executor.vlm.sends_frames
-            ? t("live.vlm.sending", { provider: tOr(`vlm.provider.${executor.vlm.provider}`, executor.vlm.provider), question: executor.vlm.question })
-            : t("live.vlm.local", { question: executor.vlm.question })}
-          {executor.vlm.answer && ` · ${executor.vlm.answer.answer}`}
+            ? t("live.vlm.sending", {
+                provider: tOr(`vlm.provider.${executor.vlm.provider}`, executor.vlm.provider),
+                question: text(executor.vlm.question),
+              })
+            : t("live.vlm.local", { question: text(executor.vlm.question) })}
+          {executor.vlm.answer?.answer ? ` · ${executor.vlm.answer.answer}` : ""}
           {` · ${t("live.vlm.asked", { count: executor.vlm.asked })}`}
         </div>
       )}
@@ -88,8 +91,8 @@ export function LivePanel({ health, state, executor, events, onStop }: Props) {
         <ul className="log">
           {[...events].reverse().slice(0, 50).map((e, i) => (
             <li className={e.level} key={`${e.ts}-${i}`}>
-              <time>{new Date(e.ts * 1000).toLocaleTimeString("de-DE")}</time>
-              {e.text.de}
+              <time>{formatTime(e.ts * 1000)}</time>
+              {text(e.text)}
             </li>
           ))}
         </ul>
@@ -131,7 +134,7 @@ function describeTarget(executor: ExecutorStatus | null): string {
   if (!target) return t("live.target.none");
   const distance = target.distance_m != null ? `${formatDistance(target.distance_m)} · ` : "";
   return t("live.target.at", {
-    label: target.label,
+    label: text(target.label),
     distance,
     degrees: degrees(target.bearing_rad),
     side: t(target.bearing_rad >= 0 ? "live.person.left" : "live.person.right"),

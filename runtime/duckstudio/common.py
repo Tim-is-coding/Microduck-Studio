@@ -37,6 +37,10 @@ class Phrases(Strict):
     de: list[str] = Field(min_length=1)
     en: list[str] | None = None
 
+    def all(self) -> list[str]:
+        """Every phrase in every language: someone saying the English one means it (§3.7)."""
+        return [*self.de, *(self.en or [])]
+
 
 ID_PATTERN = r"^[a-z][a-z0-9_-]*$"
 Identifier = Annotated[str, Field(pattern=ID_PATTERN, max_length=64)]

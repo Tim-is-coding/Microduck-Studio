@@ -16,6 +16,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
+from duckstudio.common import Text
 from duckstudio.perception import MagentaPersonDetector, StubVlm
 from duckstudio.perception.vlm import (
     ANSWER_SCHEMA,
@@ -146,27 +147,30 @@ def target(x: float, y: float = 300.0, found: bool = True) -> VlmAnswer:
 
 
 def test_pixel_becomes_a_bearing_like_the_local_detector() -> None:
-    left = sighting_from_answer(target(90.0), width=360, height=640, label="Ball")
-    right = sighting_from_answer(target(270.0), width=360, height=640, label="Ball")
-    centre = sighting_from_answer(target(180.0), width=360, height=640, label="Ball")
+    left = sighting_from_answer(target(90.0), width=360, height=640, label=Text(de="Ball"))
+    right = sighting_from_answer(target(270.0), width=360, height=640, label=Text(de="Ball"))
+    centre = sighting_from_answer(target(180.0), width=360, height=640, label=Text(de="Ball"))
     assert left is not None and right is not None and centre is not None
     assert left.bearing_rad > 0.15  # left of centre = positive, like robot.move vyaw
     assert right.bearing_rad < -0.15
     assert math.isclose(centre.bearing_rad, 0.0, abs_tol=1e-6)
-    assert left.label == "Ball" and left.source == "anthropic"
+    assert left.label.de == "Ball" and left.source == "anthropic"
 
 
 def test_nothing_found_or_off_frame_is_no_sighting() -> None:
-    assert sighting_from_answer(target(90.0, found=False), width=360, height=640, label="x") is None
-    assert sighting_from_answer(target(900.0), width=360, height=640, label="x") is None
-    assert sighting_from_answer(target(-5.0), width=360, height=640, label="x") is None
+    assert (
+        sighting_from_answer(target(90.0, found=False), width=360, height=640, label=Text(de="x"))
+        is None
+    )
+    assert sighting_from_answer(target(900.0), width=360, height=640, label=Text(de="x")) is None
+    assert sighting_from_answer(target(-5.0), width=360, height=640, label=Text(de="x")) is None
 
 
 def test_tof_supplies_the_range_for_a_vlm_target() -> None:
     rows = [[3.9] * 8 for _ in range(8)]
     rows[4][4] = 1.2  # centre of the image, a bit below the horizon → middle zone
     sighting = sighting_from_answer(
-        target(180.0, y=320.0), width=360, height=640, label="Ball", tof_rows=rows
+        target(180.0, y=320.0), width=360, height=640, label=Text(de="Ball"), tof_rows=rows
     )
     assert sighting is not None and sighting.distance_m == 1.2
 

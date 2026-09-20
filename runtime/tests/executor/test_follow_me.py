@@ -178,3 +178,26 @@ async def test_status_is_reportable(h: Harness) -> None:
         "intents_sent": s["intents_sent"],
     }
     assert math.isclose(s["intents_sent"], 1)
+
+
+async def test_every_event_speaks_both_languages(h: Harness) -> None:
+    """§3.7: the runtime sends German and English; the Studio picks. A missing translation
+    would leave an English user reading German in the log."""
+    h.see_person(bearing=0.3, distance=2.0)
+    await h.start()
+    await h.tick(6)
+    h.see_nobody()
+    await h.tick(4)
+    h.executor.say("Stopp")
+    await h.tick(3)
+    assert len(h.bus.history) > 6
+    missing = [e.kind for e in h.bus.history if not e.text.en]
+    assert missing == [], f"events without an English text: {missing}"
+    started = next(e for e in h.bus.history if e.kind == "behavior.started")
+    assert started.text.de == "„Folge mir“ gestartet." and started.text.en == "“Follow me” started."
+
+
+async def test_an_english_trigger_phrase_starts_the_behavior(h: Harness) -> None:
+    assert h.executor.say("Follow me") == "follow-me"  # phrases.en, not just phrases.de
+    assert h.executor.say("Folge mir") == "follow-me"
+    assert h.executor.say("Tanz") is None

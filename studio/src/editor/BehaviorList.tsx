@@ -1,4 +1,4 @@
-import { t } from "../i18n";
+import { phrases as phraseList, quote, t, text } from "../i18n";
 import type { BehaviorPackFromApi } from "../schemas";
 import { Icon } from "../ui/Icon";
 
@@ -21,8 +21,8 @@ export function BehaviorList({ behaviors, connected, running, onOpen, onRun, onN
       {behaviors.map((b) => (
         <article className="behavior-card" key={b.id}>
           <button className="open" onClick={() => onOpen(b.id)} type="button">
-            <span className="title">{b.name.de}</span>
-            {b.summary?.de && <span className="sub">{b.summary.de}</span>}
+            <span className="title">{text(b.name)}</span>
+            {b.summary && <span className="sub">{text(b.summary)}</span>}
           </button>
           <div className="chips">
             <span className="chip">{describeTrigger(b)}</span>
@@ -53,6 +53,6 @@ export function BehaviorList({ behaviors, connected, running, onOpen, onRun, onN
 }
 
 function describeTrigger(behavior: BehaviorPackFromApi): string {
-  if (behavior.trigger.kind === "speech") return `„${behavior.trigger.phrases.de[0]}“`;
+  if (behavior.trigger.kind === "speech") return quote(phraseList(behavior.trigger.phrases)[0] ?? "");
   return t("editor.trigger.kind.manual");
 }

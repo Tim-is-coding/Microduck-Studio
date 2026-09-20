@@ -204,5 +204,9 @@
   "theme.light": "Hell",
   "theme.dark": "Dunkel",
   "editor.until.remove": "Bedingung entfernen",
-  "editor.always.remove": "Regel entfernen"
+  "editor.always.remove": "Regel entfernen",
+  "language": "Sprache",
+  "language.de": "Deutsch",
+  "language.en": "English",
+  "run.say.stop": "Stopp"
 }

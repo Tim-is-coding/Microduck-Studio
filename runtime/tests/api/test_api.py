@@ -40,7 +40,7 @@ async def test_executor_payload_carries_target_and_vlm_state(client: httpx.Async
     assert body["vlm"] == {
         "provider": "stub",
         "sends_frames": False,
-        "question": None,
+        "question": None,  # {"de": …, "en": …} while a behavior is asking
         "asked": 0,
         "answer": None,
     }

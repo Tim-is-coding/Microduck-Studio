@@ -9,6 +9,7 @@ import contextlib
 import time
 from collections.abc import Awaitable, Callable
 
+from .. import texts
 from ..events import EventBus
 
 
@@ -52,7 +53,7 @@ class Watchdog:
             await self._stop()
             self.bus.emit(
                 "watchdog.tripped",
-                "Executor meldet sich nicht mehr: Ente angehalten.",
+                *texts.watchdog_tripped(),
                 level="error",
                 silent_for_s=round(self.clock() - self._last_pet, 3),
             )

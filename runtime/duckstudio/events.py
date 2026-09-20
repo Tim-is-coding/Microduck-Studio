@@ -40,8 +40,10 @@ class EventBus:
                 pass
 
     def emit(
-        self, kind: str, de: str, *, level: Level = "info", en: str | None = None, **data: Any
+        self, kind: str, de: str, en: str | None = None, *, level: Level = "info", **data: Any
     ) -> Event:
+        """`emit(kind, *texts.something(...))`: German and English come from one place
+        (`duckstudio/texts.py`); the Studio picks the language (§3.7)."""
         event = Event(ts=time.time(), level=level, kind=kind, text=Text(de=de, en=en), data=data)
         self.publish(event)
         return event

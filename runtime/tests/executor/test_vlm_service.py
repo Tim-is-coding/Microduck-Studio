@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 
 from duckstudio.backends.mock import MockBackend
+from duckstudio.common import Text
 from duckstudio.events import EventBus
 from duckstudio.executor.conditions import Snapshot, VlmRequest
 from duckstudio.perception import MockBarDetector, PerceptionService
@@ -13,7 +14,12 @@ from duckstudio.perception.vlm import VlmError
 
 from ..conftest import RecordingVlm
 
-REQUEST = VlmRequest(question="Wo ist der rote Ball?", provider="anthropic", behavior_id="demo")
+REQUEST = VlmRequest(
+    question="Wo ist der rote Ball?",
+    text=Text(de="Wo ist der rote Ball?", en="Where is the red ball?"),
+    provider="anthropic",
+    behavior_id="demo",
+)
 
 
 async def service(

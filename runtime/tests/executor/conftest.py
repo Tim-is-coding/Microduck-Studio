@@ -4,6 +4,7 @@ import pytest
 
 from duckstudio.backends.mock import ManualClock, MockBackend
 from duckstudio.behaviors import BehaviorPack
+from duckstudio.common import Text
 from duckstudio.events import EventBus
 from duckstudio.executor import Executor, IntentGate, Watchdog
 from duckstudio.executor.conditions import VlmRequest
@@ -61,7 +62,7 @@ class Harness:
             pixel_y=320.0,
             frame_width=360,
             frame_height=640,
-            label=label,
+            label=Text(de=label),
             source="anthropic",
         )
 

@@ -10,13 +10,19 @@ from pydantic import ValidationError
 
 from duckstudio.backends.mock import MockBackend
 from duckstudio.behaviors import BehaviorPack
+from duckstudio.common import Text
 from duckstudio.events import EventBus
 from duckstudio.executor.conditions import Snapshot, VlmRequest
 from duckstudio.perception import MockBarDetector, PerceptionService
 
 from ..conftest import RecordingVlm
 
-ASKS_FOR_ANTHROPIC = VlmRequest(question="Wo ist der Ball?", provider="anthropic", behavior_id="b")
+ASKS_FOR_ANTHROPIC = VlmRequest(
+    question="Wo ist der Ball?",
+    text=Text(de="Wo ist der Ball?"),
+    provider="anthropic",
+    behavior_id="b",
+)
 
 
 async def run_service(vlm: RecordingVlm, request: VlmRequest | None) -> tuple[EventBus, Snapshot]:

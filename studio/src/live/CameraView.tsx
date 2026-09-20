@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 
-import { t } from "../i18n";
+import { t, text } from "../i18n";
 import type { ExecutorStatus } from "../schemas";
 import { layoutMarkers, marker, tagBox, type Marker } from "./overlay";
 
@@ -41,7 +41,7 @@ export function CameraView({ connected, executor }: Props) {
   const markers = layoutMarkers(
     [
       marker(executor?.person, "person", t("live.person")),
-      marker(executor?.target, "target", executor?.target?.label ?? t("live.target")),
+      marker(executor?.target, "target", text(executor?.target?.label, t("live.target"))),
     ].filter((m): m is Marker => m !== null),
   );
 

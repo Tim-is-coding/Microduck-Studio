@@ -83,7 +83,10 @@ Community (alles pre-hardware, Sim-only):
 6. **Hierarchisch, kein End-to-End-VLA.** VLM/LLM planen und parametrisieren Skills;
    RL-Policies führen aus. VLAs für Manipulatoren passen nicht auf einen RL-Biped.
 7. **Sprache:** UI-Texte Deutsch (i18n-fähig anlegen, `de` zuerst, `en` folgt),
-   Code, Identifier, Commits, ADRs Englisch.
+   Code, Identifier, Commits, ADRs Englisch. **Stand 2026-09-20: `en` ist da.** Umschalter
+   im Studio (DE/EN), jedes Runtime-Event zweisprachig (`runtime/duckstudio/texts.py`),
+   Daten-Texte (Skills, Behaviors) fallen auf `de` zurück; Details und was bewusst nicht
+   übersetzt wird: `docs/concepts/languages.md`.
 
 ## 4. Topologie
 

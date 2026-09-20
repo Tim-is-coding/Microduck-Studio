@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, ValidationError
 
-from .. import __version__, behaviors_dir, skills_dir, upstream
+from .. import __version__, behaviors_dir, skills_dir, texts, upstream
 from ..backends import make_backend
 from ..backends.base import BackendError, DuckBackend, NoCamera
 from ..behaviors import (
@@ -32,8 +32,6 @@ from ..skills import SkillRegistry
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 RECONNECT_EVERY_S = 3.0
-
-_BACKEND_DE = {"mock": "Attrappe (Mock)", "sim": "Simulation (MuJoCo)", "duck": "Ente"}
 
 
 class SayBody(BaseModel):
@@ -55,7 +53,6 @@ def create_app(
     bus = EventBus()
     duck = backend or make_backend()
     gate = IntentGate(duck, bus=bus)
-    label = _BACKEND_DE.get(duck.kind, duck.kind)
     executor = Executor(registry, gate, bus, packs=packs)
     detector = detector_for(duck.kind)
     # The VLM is the local stub unless DUCKSTUDIO_VLM says otherwise (ADR-0004): asking a
@@ -82,7 +79,7 @@ def create_app(
             return f"not implemented: {e}"
         except BackendError as e:
             return str(e)
-        bus.emit("backend.connected", f"{label} verbunden.", backend=duck.kind)
+        bus.emit("backend.connected", *texts.backend_connected(duck.kind), backend=duck.kind)
         return None
 
     async def reconnect_loop() -> None:
@@ -91,10 +88,9 @@ def create_app(
             if not is_connected():
                 error = await try_connect()
                 if error is not None and error != last_error:
-                    hint = " Starte sie mit sim/up.sh." if duck.kind == "sim" else ""
                     bus.emit(
                         "backend.unavailable",
-                        f"{label} nicht erreichbar.{hint}",
+                        *texts.backend_unavailable(duck.kind),
                         level="warn",
                         backend=duck.kind,
                         error=error,
@@ -130,7 +126,7 @@ def create_app(
 
     def lost(e: Exception) -> None:
         bus.emit(
-            "backend.lost", f"{label}: Verbindung verloren ({e}).", level="error", backend=duck.kind
+            "backend.lost", *texts.backend_lost(duck.kind, str(e)), level="error", backend=duck.kind
         )
 
     @app.get("/api/health")
@@ -217,7 +213,7 @@ def create_app(
         path = save_behavior_pack(pack, behaviors_root)
         packs[pack.id] = pack
         bus.emit(
-            "behavior.saved", f"„{pack.name.de}“ gespeichert.", behavior=pack.id, path=str(path)
+            "behavior.saved", *texts.behavior_saved(pack.name), behavior=pack.id, path=str(path)
         )
         return _pack_payload(pack, registry)
 
@@ -235,7 +231,10 @@ def create_app(
         delete_behavior_pack(behavior_id, behaviors_root)
         del packs[behavior_id]
         bus.emit(
-            "behavior.deleted", f"„{pack.name.de}“ gelöscht.", level="warn", behavior=behavior_id
+            "behavior.deleted",
+            *texts.behavior_deleted(pack.name),
+            level="warn",
+            behavior=behavior_id,
         )
         return {"ok": True}
 
@@ -281,7 +280,7 @@ def create_app(
             "vlm": {
                 "provider": vlm.name,
                 "sends_frames": vlm.sends_frames,
-                "question": snap.vlm_request.question if snap.vlm_request else None,
+                "question": snap.vlm_request.text.model_dump() if snap.vlm_request else None,
                 "asked": perception.vlm_calls,
                 "answer": snap.vlm.model_dump() if snap.vlm is not None else None,
             },

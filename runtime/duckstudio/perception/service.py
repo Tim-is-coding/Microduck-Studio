@@ -21,6 +21,7 @@ import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Protocol
 
+from .. import texts
 from ..backends.base import BackendError, DuckBackend, NoCamera, NotConnected
 from ..events import EventBus
 from .base import PersonDetection
@@ -104,9 +105,9 @@ class PerceptionService:
     def _connected(self) -> bool:
         return bool(getattr(self.backend, "connected", False))
 
-    def _emit(self, kind: str, de: str, *, level: str = "info", **data: Any) -> None:
+    def _emit(self, kind: str, text: texts.Bilingual, *, level: str = "info", **data: Any) -> None:
         if self.bus is not None:
-            self.bus.emit(kind, de, level=level, **data)  # type: ignore[arg-type]
+            self.bus.emit(kind, *text, level=level, **data)  # type: ignore[arg-type]
 
     async def _frames(self) -> None:
         while True:
@@ -198,48 +199,44 @@ class PerceptionService:
             self._notice(
                 "provider_mismatch",
                 request,
-                f"„{request.provider}“ ist im Ablauf erlaubt, die Runtime sendet an "
-                f"„{provider.name}“ — es wird kein Bild gesendet.",
+                texts.vlm_provider_mismatch(request.provider, provider.name),
                 level="error",
             )
             return False
         if not provider.configured:
-            hint = " (ANTHROPIC_API_KEY fehlt)" if provider.name == "anthropic" else ""
             self._notice(
-                "not_configured",
-                request,
-                f"KI-Dienst „{provider.name}“ ist nicht eingerichtet{hint} — "
-                f"es wird kein Bild gesendet.",
-                level="warn",
+                "not_configured", request, texts.vlm_not_configured(provider.name), level="warn"
             )
             return False
         if not provider.sends_frames and provider.name != request.provider:
             self._notice(
-                "stub_stands_in",
-                request,
-                f"„{request.provider}“ ist nicht eingerichtet; die lokale Attrappe antwortet. "
-                "Es verlässt kein Bild die Runtime.",
-                level="warn",
+                "stub_stands_in", request, texts.vlm_stub_stands_in(request.provider), level="warn"
             )
         elif provider.sends_frames:
             self._notice(
                 "sending",
                 request,
-                f"Bild wird an „{provider.name}“ gesendet: „{request.question}“",
+                texts.vlm_sending(provider.name, request.question),
                 level="warn",
                 model=provider.model,
             )
         return True
 
     def _notice(
-        self, kind: str, request: VlmRequest, de: str, *, level: str = "info", **data: Any
+        self,
+        kind: str,
+        request: VlmRequest,
+        text: texts.Bilingual,
+        *,
+        level: str = "info",
+        **data: Any,
     ) -> None:
         """One line per behavior run and reason, not one per question."""
         key = (kind, f"{request.behavior_id}:{request.question}")
         if key in self._vlm_notices:
             return
         self._vlm_notices.add(key)
-        self._emit(f"vlm.{kind}", de, level=level, question=request.question, **data)
+        self._emit(f"vlm.{kind}", text, level=level, question=request.question, **data)
 
     async def _vlm(self) -> None:
         provider = self.vlm
@@ -261,8 +258,7 @@ class PerceptionService:
                 self._notice(
                     "budget_spent",
                     request,
-                    f"{self.vlm_max_calls} KI-Anfragen gestellt — Schluss damit, "
-                    "bis der Ablauf neu startet.",
+                    texts.vlm_budget_spent(self.vlm_max_calls),
                     level="warn",
                 )
                 await asyncio.sleep(RETRY_S)
@@ -281,10 +277,7 @@ class PerceptionService:
                 answer = await provider.look(frame, request.question, timestamp=self.clock())
             except VlmError as e:
                 self._emit(
-                    "vlm.failed",
-                    f"KI-Dienst konnte nicht antworten: {e}",
-                    level="warn",
-                    provider=provider.name,
+                    "vlm.failed", texts.vlm_failed(str(e)), level="warn", provider=provider.name
                 )
                 await asyncio.sleep(period)
                 continue
@@ -299,7 +292,7 @@ class PerceptionService:
                     answer,
                     width=width,
                     height=height,
-                    label=request.question,
+                    label=request.text,
                     tof_rows=self.snapshot.tof_rows,
                 )
                 if sighting is not None:
@@ -308,7 +301,7 @@ class PerceptionService:
                 last_said = answer.answer
                 self._emit(
                     "vlm.answer",
-                    answer.answer or ("Etwas gefunden." if answer.found else "Nichts gefunden."),
+                    texts.vlm_answer(answer.answer, answer.found, stub=not provider.sends_frames),
                     found=answer.found,
                     provider=answer.provider,
                     model=answer.model,

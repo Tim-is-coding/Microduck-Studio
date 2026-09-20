@@ -3,6 +3,7 @@ id: follow-me
 name: { de: Folge mir, en: Follow me }
 summary:
   de: "Die Ente sucht die nächste Person, läuft ihr in Abstand nach und quakt, wenn du „Stopp“ sagst."
+  en: "The duck finds the nearest person, follows at a distance and quacks when you say stop."
 trigger:
   kind: speech
   phrases: { de: ["Folge mir", "Komm mit"], en: ["Follow me"] }
@@ -11,7 +12,7 @@ steps:
     on_none: { do: look_around, seconds: 5, then: retry }
   - skill: walk
     with: { direction: toward_person, tempo: easy, distance: 60 }
-    until: { any: [speech: { de: ["Stopp"] }, elapsed: 10m] }
+    until: { any: [speech: { de: ["Stopp"], en: ["Stop"] }, elapsed: 10m] }
   - skill: quack
     with: { style: short }
 always:
