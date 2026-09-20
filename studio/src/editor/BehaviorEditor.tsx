@@ -35,6 +35,7 @@ interface Props {
   lang: Language;
   skills: Map<string, SkillManifest>;
   problems: string[];
+  notice: string | null;
   dirty: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -51,7 +52,7 @@ interface Props {
 
 /** The visual editor (§3.1): every field on a card comes from the behavior schema or a
  *  skill manifest's `ui`; nothing here needs the YAML. */
-export function BehaviorEditor({ draft, isNew, lang, skills, problems, dirty, saving, connected, canUndo, canRedo, onChange, onUndo, onRedo, onSave, onSaveAndRun, onDiscard, onDelete }: Props) {
+export function BehaviorEditor({ draft, isNew, lang, skills, problems, notice, dirty, saving, connected, canUndo, canRedo, onChange, onUndo, onRedo, onSave, onSaveAndRun, onDiscard, onDelete }: Props) {
   const [showYaml, setShowYaml] = useState(false);
   const [insertAt, setInsertAt] = useState<number | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
@@ -183,6 +184,8 @@ export function BehaviorEditor({ draft, isNew, lang, skills, problems, dirty, sa
         {!isNew && <button className="btn danger-text" onClick={onDelete} type="button">{t("editor.delete")}</button>}
         {dirty && <span className="runstate">{t("editor.unsaved")}</span>}
       </div>
+
+      {notice && <div className="card notice">{notice}</div>}
 
       {shownProblems.length > 0 && (
         <div className="card problems">

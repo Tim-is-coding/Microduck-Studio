@@ -40,6 +40,8 @@ interface StudioState {
   draftProblems: string[];
   /** Undo for the draft; reset whenever a different draft is opened (`editor/history.ts`). */
   history: History;
+  /** One sentence about how this draft came to be — an imported file that had to be renamed. */
+  draftNotice: string | null;
   saving: boolean;
   yamlText: string | null;
   catalogLoaded: boolean;
@@ -50,7 +52,7 @@ interface StudioState {
   abortRun: () => Promise<void>;
   say: (text: string) => Promise<void>;
   editBehavior: (id: string) => void;
-  newDraft: (pack?: PackT) => void;
+  newDraft: (pack?: PackT, notice?: string) => void;
   updateDraft: (fn: (draft: PackT) => PackT) => void;
   undoDraft: () => void;
   redoDraft: () => void;
@@ -93,6 +95,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   draftDirty: false,
   draftProblems: [],
   history: NO_HISTORY,
+  draftNotice: null,
   saving: false,
   yamlText: null,
   catalogLoaded: false,
@@ -157,11 +160,19 @@ export const useStudio = create<StudioState>((set, get) => ({
     const pack = get().behaviors.find((b) => b.id === id);
     if (!pack) return;
     const { problems, ...rest } = pack;
-    set({ draft: structuredClone(rest), draftIsNew: false, draftDirty: false, draftProblems: problems, history: NO_HISTORY });
+    set({ draft: structuredClone(rest), draftIsNew: false, draftDirty: false, draftProblems: problems, history: NO_HISTORY, draftNotice: null });
   },
 
-  newDraft(pack) {
-    set({ draft: pack ?? newBehavior(), draftIsNew: true, draftDirty: true, draftProblems: [], history: NO_HISTORY, selectedBehaviorId: null });
+  newDraft(pack, notice) {
+    set({
+      draft: pack ?? newBehavior(),
+      draftIsNew: true,
+      draftDirty: true,
+      draftProblems: [],
+      history: NO_HISTORY,
+      draftNotice: notice ?? null,
+      selectedBehaviorId: null,
+    });
   },
 
   updateDraft(fn) {
@@ -218,7 +229,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         return false;
       }
       await get().loadCatalog();
-      set({ draft: null, draftDirty: false, draftIsNew: false, history: NO_HISTORY, selectedBehaviorId: draft.id, yamlText: null });
+      set({ draft: null, draftDirty: false, draftIsNew: false, history: NO_HISTORY, draftNotice: null, selectedBehaviorId: draft.id, yamlText: null });
       if (thenRun) await get().run(draft.id);
       return true;
     } finally {
@@ -227,7 +238,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   },
 
   discardDraft() {
-    set((s) => ({ draft: null, draftDirty: false, draftIsNew: false, history: NO_HISTORY, selectedBehaviorId: s.selectedBehaviorId }));
+    set((s) => ({ draft: null, draftDirty: false, draftIsNew: false, history: NO_HISTORY, draftNotice: null, selectedBehaviorId: s.selectedBehaviorId }));
   },
 
   async deleteBehavior(id) {
@@ -236,7 +247,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       console.error(await res.text());
       return;
     }
-    set({ draft: null, draftDirty: false, history: NO_HISTORY, selectedBehaviorId: null });
+    set({ draft: null, draftDirty: false, history: NO_HISTORY, draftNotice: null, selectedBehaviorId: null });
     await get().loadCatalog();
   },
 

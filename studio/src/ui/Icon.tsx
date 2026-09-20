@@ -15,6 +15,9 @@ export type IconName =
   | "plus"
   | "pencil"
   | "undo"
+  | "copy"
+  | "download"
+  | "upload"
   | "redo"
   | "sun"
   | "moon"
@@ -32,6 +35,9 @@ const PATHS: Record<IconName, string> = {
   down: "m12 18-6-7h4V7h4v4h4z",
   plus: "M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z",
   pencil: "m4 16.6 8.9-8.9 3.4 3.4L7.4 20H4zM14.4 6.2l1.5-1.5a1.2 1.2 0 0 1 1.7 0l1.7 1.7a1.2 1.2 0 0 1 0 1.7l-1.5 1.5z",
+  copy: "M9 3h8a2 2 0 0 1 2 2v10h-2V5H9zm-4 4h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm0 2v10h8V9z",
+  download: "M11 3h2v9h3l-4 5-4-5h3zm-6 15h14v2H5z",
+  upload: "M12 3l4 5h-3v9h-2V8H8zm-7 15h14v2H5z",
   undo: "M8 8h4a6 6 0 1 1 0 12h-4v-2h4a4 4 0 0 0 0-8H8v4L2 9l6-5z",
   redo: "M16 8h-4a6 6 0 1 0 0 12h4v-2h-4a4 4 0 0 1 0-8h4v4l6-5-6-5z",
   sun: "M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM11 2h2v3h-2zm0 17h2v3h-2zM2 11h3v2H2zm17 0h3v2h-3zM4.2 5.6l1.4-1.4 2.1 2.1-1.4 1.4zm12.1 12.1 1.4-1.4 2.1 2.1-1.4 1.4zM4.2 18.4l2.1-2.1 1.4 1.4-2.1 2.1zM16.3 6.3l2.1-2.1 1.4 1.4-2.1 2.1z",

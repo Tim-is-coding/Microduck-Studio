@@ -18,7 +18,7 @@ const STATE_INTERVAL_MS = 500;
 export function App() {
   const {
     runtime, health, state, executor, skills, behaviors, selectedBehaviorId, events,
-    draft, draftIsNew, draftDirty, draftProblems, history, saving, yamlText, hubResults, hubBusy, hubError,
+    draft, draftIsNew, draftDirty, draftProblems, draftNotice, history, saving, yamlText, hubResults, hubBusy, hubError,
     refreshHealth, refreshState, refreshExecutor, loadCatalog, select, stop, run, abortRun, say,
     editBehavior, newDraft, updateDraft, undoDraft, redoDraft, validateDraft, saveDraft, discardDraft, deleteBehavior, loadYaml,
     searchHub, clearHub, policyDetails, importPolicy, removeSkill,
@@ -135,6 +135,7 @@ export function App() {
               onSave={() => void saveDraft(false)}
               onSaveAndRun={() => void saveDraft(true)}
               onUndo={undoDraft}
+              notice={draftNotice}
               problems={draftProblems}
               saving={saving}
               skills={skillMap}
@@ -194,7 +195,7 @@ export function App() {
               onNew={() => newDraft()}
               onOpen={select}
               onRun={(id) => void run(id)}
-              onTemplate={(pack) => newDraft(structuredClone(pack))}
+              onDraft={(pack, notice) => newDraft(pack, notice)}
               running={running}
               templates={templatesFor(skillMap)}
             />

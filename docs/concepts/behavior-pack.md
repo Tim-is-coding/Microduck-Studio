@@ -58,3 +58,23 @@ The Studio edits packs through the runtime (ADR-0003): `PUT /api/behaviors/{id}`
 `GET /api/behaviors/{id}/yaml` is the developer view. The runtime writes YAML the way it
 reads it (block style, bare `on:`, defaults omitted), so hand-written and saved files look
 alike. Card controls come from the skill manifests' `ui`; nothing in the editor knows YAML.
+
+## Copies and files
+
+Hub sharing waits for hardware (`CLAUDE.md` §8, M4), but a behavior still has to be able to
+leave the machine it was built on, so the overview can copy one and write it to a file, and
+load one back (`studio/src/editor/transfer.ts`):
+
+- **Kopie anlegen** suffixes the name in every language the pack carries — "Folge mir
+  (Kopie)", "Follow me (copy)" — and takes the first free id (`follow-me-copy`,
+  `follow-me-copy-2`, …). Ids stay English, names follow the content (§3.7).
+- **Als Datei speichern** downloads exactly the YAML the runtime writes (`tidy()` then
+  dump), named `<id>.behavior.yaml`. It is a local download; nothing is uploaded anywhere.
+- **Aus Datei laden** parses the file, checks it against the pack schema and gives it a free
+  id if that id is taken — the draft then says so. A file is data, never an instruction: it
+  becomes a *draft*, so it goes through the editor, the live validation and Speichern like
+  anything else, and an unreadable file gets a sentence saying what is wrong with it rather
+  than a stack trace.
+
+A copy and an import both stop short of the disk; nothing is written until somebody presses
+Speichern.
