@@ -74,7 +74,8 @@ body { margin: 0; }
   background: #fff;
 }
 .card .title { font-weight: 600; }
-.card .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.sub { color: var(--muted); font-size: 13px; }
+.card .sub { margin-top: 2px; }
 .card .tag {
   float: right; font-size: 11px; padding: 2px 8px; border-radius: 999px;
   background: var(--bg); color: var(--muted); border: 1px solid var(--line);
@@ -97,6 +98,7 @@ body { margin: 0; }
 .chip { font-size: 12px; padding: 3px 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); }
 .chip b { font-weight: 600; }
 .problems { color: var(--danger); font-size: 13px; }
+.live .vlm, .live .sub.vlm-line { font-size: 12px; line-height: 1.4; }
 .vlm { background: #fff3f2; border: 1px solid #f3c7c4; color: var(--danger); padding: 8px 10px; border-radius: 8px; font-size: 13px; margin-bottom: 10px; }
 
 .behavior-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -107,9 +109,38 @@ body { margin: 0; }
 
 /* The head camera is mounted a quarter turn off: frames arrive portrait (360x640). Show the
    whole frame letterboxed rather than cropping the floor away. */
-.live .camera { width: 100%; aspect-ratio: 4 / 3; background: #222; border-radius: 8px; overflow: hidden; display: grid; place-items: center; color: #aaa; font-size: 13px; }
+.live .camera { position: relative; width: 100%; aspect-ratio: 4 / 3; background: #222; border-radius: 8px; overflow: hidden; display: grid; place-items: center; color: #aaa; font-size: 13px; }
 .live .camera img { width: 100%; height: 100%; object-fit: contain; }
-.live .meta { display: flex; gap: 12px; margin: 10px 0; font-size: 13px; color: var(--muted); }
+
+/* The overlay shares the picture's box and fit rule, so frame pixels land where they belong. */
+.live .camera .overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.live .camera .overlay .axis { stroke: rgba(255, 255, 255, 0.18); stroke-width: 1; stroke-dasharray: 6 8; }
+.live .camera .overlay .mark line { stroke: currentColor; stroke-linecap: round; }
+.live .camera .overlay .mark .halo { fill: none; stroke: currentColor; opacity: 0.85; }
+.live .camera .overlay .mark .dot { fill: currentColor; stroke: none; }
+.live .camera .overlay .mark .tag { fill: rgba(17, 17, 17, 0.72); stroke: currentColor; stroke-width: 0.5; }
+.live .camera .overlay .mark text { fill: #fff; stroke: none; font-weight: 600; }
+.live .camera .overlay .mark.person { color: #6ec1ff; }
+.live .camera .overlay .mark.target { color: #ffb02e; }
+
+.live .doing { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; background: var(--bg); }
+.live .doing.running { border-color: var(--accent); background: #fff8e8; }
+.live .doing-line { font-size: 13px; font-weight: 600; }
+.live .progress { display: flex; gap: 4px; margin-top: 8px; }
+.live .progress span { height: 4px; flex: 1; border-radius: 2px; background: var(--line); }
+.live .progress span.done { background: var(--accent); opacity: 0.45; }
+.live .progress span.now { background: var(--accent); }
+
+.live .chip.person { border-color: #9fd3ff; }
+.live .chip.target { border-color: #ffd79a; }
+
+.tof { margin: 10px 0; display: flex; align-items: center; gap: 10px; }
+.tof-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; width: 120px; flex: none; }
+.tof-grid .zone { aspect-ratio: 1; border-radius: 2px; display: block; }
+.tof-grid .zone.closest { outline: 2px solid var(--ink); outline-offset: -2px; }
+.tof-legend { font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
+.live .meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 10px 0; font-size: 12px; color: var(--muted); }
+.live .meta span { white-space: nowrap; }
 .stop {
   width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border: 0; border-radius: var(--radius);
   background: var(--danger); color: #fff; cursor: pointer; margin: 6px 0 12px;

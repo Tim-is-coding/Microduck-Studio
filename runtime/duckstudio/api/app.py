@@ -277,6 +277,7 @@ def create_app(
             "person": person.model_dump() if person is not None else None,
             "target": target.model_dump() if target is not None else None,
             "tof_min_m": snap.tof_min_m,
+            "tof_rows": snap.tof_rows,  # 8x8 metres, for the Studio's proximity grid
             "vlm": {
                 "provider": vlm.name,
                 "sends_frames": vlm.sends_frames,

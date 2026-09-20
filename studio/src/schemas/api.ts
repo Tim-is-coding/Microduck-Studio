@@ -44,6 +44,8 @@ export const PersonDetection = z.object({
   distance_m: z.number().nullable(),
   pixel_x: z.number(),
   pixel_y: z.number(),
+  frame_width: z.number(),
+  frame_height: z.number(),
   area_px: z.number(),
   confidence: z.number(),
 });
@@ -89,6 +91,8 @@ export const ExecutorStatus = z.object({
   person: PersonDetection.nullable(),
   target: TargetSighting.nullable(),
   tof_min_m: z.number().nullable(),
+  /** 8x8 zones in metres, as the head sensor sees them (row 0 = up). */
+  tof_rows: z.array(z.array(z.number())).nullish(),
   vlm: VlmActivity.nullish(),
 });
 export type ExecutorStatus = z.infer<typeof ExecutorStatus>;
