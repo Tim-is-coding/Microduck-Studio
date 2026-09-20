@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "runtime",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": ["DUCKSTUDIO_BACKEND=mock", "uv", "--directory", "runtime", "run", "python", "-m", "duckstudio"],
+      "port": 8000
+    },
+    {
       "name": "studio",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "studio", "dev", "--port", "5173", "--strictPort"],

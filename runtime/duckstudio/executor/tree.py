@@ -140,7 +140,7 @@ class Executor:
         self.clock = clock
         self.tick_hz = tick_hz
         self.snapshot: Snapshot = gate.snapshot
-        self.watchdog = watchdog or Watchdog(gate.stop, bus, clock=clock)
+        self.watchdog = watchdog or Watchdog(gate.stop, bus, clock=clock, on_trip=self._on_watchdog)
         self.state = "idle"  # idle | running | done | failed | aborted | preempted
         self.pack: BehaviorPack | None = None
         self.step_index = -1
@@ -318,6 +318,19 @@ class Executor:
         self.bus.emit(
             "behavior.failed", f"„{name}“ abgebrochen: {reason}", level="error", reason=reason
         )
+
+    async def _on_watchdog(self, silent_s: float) -> None:
+        """The watchdog already stopped the duck; end the behavior so nothing resumes."""
+        if self.state == "running":
+            self.state = "failed"
+            self.reason = f"Ablauf hat {silent_s:.1f} s ausgesetzt"
+            name = self.pack.name.de if self.pack else "Ablauf"
+            self.bus.emit(
+                "behavior.failed",
+                f"„{name}“ abgebrochen: {self.reason}.",
+                level="error",
+                reason=self.reason,
+            )
 
     async def _preempted(self, source: str) -> None:
         self.state = "preempted"

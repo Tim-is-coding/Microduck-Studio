@@ -33,7 +33,7 @@ from ..skills import SkillRegistry
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 RECONNECT_EVERY_S = 3.0
 
-_BACKEND_DE = {"mock": "Attrappe (Mock)", "sim": "Simulation (MuJoCo)", "duck": "Ente"}
+_BACKEND_DE = {"mock": "Übungsente", "sim": "Simulation", "duck": "Ente"}
 
 
 class SayBody(BaseModel):

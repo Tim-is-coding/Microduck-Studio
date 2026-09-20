@@ -14,11 +14,11 @@ async def test_trips_when_ticks_stop_while_driving() -> None:
     mock = MockBackend(clock=clock)
     await mock.connect()
     bus = EventBus()
-    dog = Watchdog(mock.stop, bus, clock=clock, timeout_s=0.35)
+    dog = Watchdog(mock.stop, bus, clock=clock, timeout_s=1.0)
     dog.pet(driving=True)
-    clock.tick(0.2)
+    clock.tick(0.6)  # a hiccup robotd's own 500 ms deadman already covers: not our alarm
     assert await dog.check() is False
-    clock.tick(0.2)  # 0.4 s of silence
+    clock.tick(0.6)  # 1.2 s of silence
     assert await dog.check() is True
     assert mock.stopped and bus.history[-1].kind == "watchdog.tripped"
 
@@ -42,3 +42,27 @@ async def test_runs_as_its_own_task() -> None:
     await asyncio.sleep(0.15)
     assert dog.tripped and mock.stopped
     await dog.close()
+
+
+async def test_trip_ends_the_running_behavior() -> None:
+    from duckstudio import behaviors_dir, skills_dir
+    from duckstudio.behaviors import load_behavior_packs
+    from duckstudio.executor import Executor, IntentGate
+    from duckstudio.skills import SkillRegistry
+
+    clock = ManualClock(10.0)
+    mock = MockBackend(clock=clock)
+    await mock.connect()
+    bus = EventBus()
+    gate = IntentGate(mock, clock=clock, bus=bus)
+    gate.observe(health=await mock.health(), state=await mock.state())
+    packs = load_behavior_packs(behaviors_dir())
+    ex = Executor(SkillRegistry.load(skills_dir()), gate, bus, packs=packs, clock=clock)
+    await ex.start(packs["follow-me"])
+    await ex._cancel_loop()
+    ex.watchdog.pet(driving=True)
+    clock.tick(1.5)
+    assert await ex.watchdog.check() is True
+    assert ex.state == "failed" and "ausgesetzt" in (ex.reason or "")
+    assert mock.stopped
+    await ex.close()
