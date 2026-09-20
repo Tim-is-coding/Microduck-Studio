@@ -1,7 +1,9 @@
 """One contract for all backends (§6.3).
 
 `sim` runs against the fake daemon in CI and against real duck-sim with `DUCKSTUDIO_SIM=1`
-(start it with `sim/up.sh`). `duck` skips until hardware and an M4 transport exist.
+(start it with `sim/up.sh`). `duck` runs against the same fake daemon through the socket
+layout `scripts/duck-tunnel.sh` creates (ADR-0006) — everything but the ssh hop — and against
+a real duck when `DUCKSTUDIO_DUCK_TUNNEL` points at a live tunnel.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from duckstudio.backends.base import (
     UnknownBehavior,
     UnknownIntent,
 )
+from duckstudio.backends.duck import LOCAL_SOCKETS, RealDuckBackend
 from duckstudio.backends.sim import SimBackend
 
 from .fake_robotd import FakeDuck, short_tmp_dir
@@ -41,8 +44,18 @@ async def backend(request: pytest.FixtureRequest):
         fake = FakeDuck(short_tmp_dir())
         await fake.start()
         b: DuckBackend = SimBackend(socket_dir=str(fake.dir), console_url=None)
-    elif kind == "duck" and not os.environ.get("DUCKSTUDIO_DUCK_URL"):
-        pytest.skip("set DUCKSTUDIO_DUCK_URL to a reachable duck (M4)")
+    elif kind == "duck" and not os.environ.get("DUCKSTUDIO_DUCK_TUNNEL"):
+        # The duck backend is an IpcBackend pointed at the far end of an ssh tunnel. Give it
+        # the same socket names the tunnel script creates, with the double behind them: the
+        # only untested step is ssh itself.
+        fake = FakeDuck(short_tmp_dir(), duck="tunnel")
+        await fake.start()
+        for name, target in (
+            (LOCAL_SOCKETS["robot"], fake.robot_socket),
+            (LOCAL_SOCKETS["tof"], fake.tof_socket),
+        ):
+            (fake.dir / name).symlink_to(target)
+        b = RealDuckBackend(tunnel_dir=str(fake.dir), console_url=None)
     else:
         b = make_backend(kind)
     try:

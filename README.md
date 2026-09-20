@@ -36,9 +36,11 @@ keep building with Claude Code.
 | Design pass: one token set (`docs/concepts/studio-look.md`), dark mode with a switch, drawn icons instead of emoji, focus rings, columns that scroll on their own | done |
 | English as the second language: DE/EN switch, every runtime event bilingual (`runtime/duckstudio/texts.py`), data texts fall back to German, numbers and quotes follow the language | done |
 | Hub search in the building blocks panel: browse `microduck-policy` repos, see provenance and what a repo says about its commands, import one as a block that stands in for a builtin (ADR-0005), remove it again | done |
-| Real duck (M4) | next |
+| `duck` backend: an `IpcBackend` behind `scripts/duck-tunnel.sh` (ssh -L), contract suite green against the protocol double through the tunnel's own socket layout (ADR-0006) | prepared |
+| Real duck on hardware (M4) | waits for the duck (December) |
 
 Roadmap and rules live in [`CLAUDE.md`](CLAUDE.md); decisions in [`docs/adr/`](docs/adr/).
+The first day with real hardware has a list: [`docs/m4-hardware-checklist.md`](docs/m4-hardware-checklist.md).
 
 ## Quickstart (simulation is the normal state)
 
@@ -58,6 +60,12 @@ uv run python -m duckstudio             # http://127.0.0.1:8000/api/health
 ```bash
 # studio (second terminal)
 cd studio && pnpm install && pnpm dev                        # http://localhost:5173
+```
+
+```bash
+# a real duck (M4, ADR-0006): one terminal holds the tunnel, the runtime talks to its local end
+./scripts/duck-tunnel.sh duck.local
+DUCKSTUDIO_BACKEND=duck DUCKSTUDIO_DUCK_HOST=duck.local uv run python -m duckstudio
 ```
 
 ```bash
@@ -88,6 +96,7 @@ studio/            React · TypeScript · Vite · Zustand · zod — the visual 
 skills/            *.skill.yaml — building blocks (walk, look_around, quack, getup, ...)
 behaviors/         *.behavior.yaml — behavior packs (follow-me, go-to-thing)
 sim/               wrapper around upstream duck-sim (pinned checkout, never vendored)
+scripts/           duck-tunnel.sh — ssh -L forwards for a real duck (ADR-0006)
 ```
 
 ## Safety, in one paragraph

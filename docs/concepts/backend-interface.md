@@ -8,7 +8,7 @@ touches a duck. Three implementations, one contract test suite
 | --- | --- | --- |
 | `mock` | nothing; deterministic world model, injectable clock | M0, done |
 | `sim` | upstream daemons from `duck-sim` over Unix sockets | M1 |
-| `duck` | the robot over the WebSocket agent path | M4 |
+| `duck` | the robot's own sockets, forwarded by `ssh -L` (ADR-0006) | M4: code and contract tests done, hardware pending |
 
 ```python
 class DuckBackend(Protocol):

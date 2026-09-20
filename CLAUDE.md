@@ -251,16 +251,21 @@ strukturierten Daten fürs Debugging.
   500 ms), keine Geschwindigkeits-Clamps upstream (unsere sind die einzigen), `robotd` hat
   keine Autoritäts-Arbitrierung (Gamepad-Vorrang bauen wir selbst).
 - ~~Ist der WebSocket-Pfad für Agenten implementiert?~~ **Nein, nur Design** (Stand
-  0.14.1). Sim: lokale Unix-Sockets. Echte Ente: SSH-Tunnel (wie `microduck-mcp`) oder
-  WebRTC-Datachannel – Entscheidung als ADR in M4.
+  0.14.1). ~~Echte Ente: SSH-Tunnel oder WebRTC-Datachannel – Entscheidung als ADR in M4.~~
+  **Entschieden 2026-09-20, ADR-0006:** `ssh -L` leitet die Sockets der Ente weiter
+  (`scripts/duck-tunnel.sh`), das `duck`-Backend ist damit dasselbe `IpcBackend` wie die Sim.
+  Die Contract-Tests laufen bereits dagegen — alles außer dem ssh-Sprung. WebRTC bleibt
+  Rückfallweg, nicht gewählt.
 - Spracherkennung: läuft auf der Runtime (Mikro der Ente → Audio-Stream) oder lokal
   im Browser? Für v1 ist ein Studio-Button „Ich sage: …“ als Simulation des Triggers ok.
   **Stand M2:** genau so gebaut (`POST /api/say`, Studio-Zeile „Ich sage:“). Echte
   Erkennung wird ein weiteres Backend für denselben Aufruf.
-- **Die simulierte Ente geht nicht (Stand 2026-09-19):** Gehpolicies treten in duck-sim auf
-  der Stelle, auch mit Upstreams eigenem `drive` — offenes Upstream-Issue
-  `pollen-robotics/microduck_rl#46`. Wahrnehmung, Lenkung und Ablauf sind in der Sim
-  verifiziert, Vorwärtskommen nur gegen den Mock. Details in `docs/upstream-notes.md`.
+- **Die simulierte Ente geht nicht (Stand 2026-09-19, erneut geprüft 2026-09-20):**
+  Gehpolicies treten in duck-sim auf der Stelle, auch mit Upstreams eigenem `drive` — offenes
+  Upstream-Issue `pollen-robotics/microduck_rl#46` („Velocity-family training converges to
+  standing-in-place“), weiterhin **offen und ohne Antwort**. Wahrnehmung, Lenkung und Ablauf
+  sind in der Sim verifiziert, Vorwärtskommen nur gegen den Mock. Details in
+  `docs/upstream-notes.md`.
 - ~~Welches VLM/embodied-reasoning-Modell für Phase 2 (Zielpixel, Szenenfragen)?~~
   **Erledigt 2026-09-20, ADR-0004**: Adapter (`perception/vlm.py`) statt Modellwahl — Claude
   über das offizielle SDK (`claude-opus-5`, JSON-Schema-Antwort, `effort: low`), daneben ein
@@ -269,7 +274,14 @@ strukturierten Daten fürs Debugging.
   eigener Task, der Executor liest nur. Das Opt-in wird beim Senden gegen den im Pack
   genannten Anbieter geprüft; 200 Fragen pro Lauf. Szenenfragen (`vlm.question`) passen in
   denselben Adapter — gebaut werden sie, wenn ein Behavior sie braucht.
-- Name „Duck Studio“ auf Kollisionen prüfen, bevor er öffentlich wird.
+- Name „Duck Studio“ auf Kollisionen prüfen, bevor er öffentlich wird. **Stand 2026-09-20:**
+  In der Robotik nichts gefunden; in Software und Design dagegen gut besetzt —
+  `duckstudio.design`, `duck.design`, `7duckstudios.com`, „Duck Studios“ (Agentur),
+  „Duck Software“, dazu das bekannte „Black Duck Software“. Paketnamen sind frei (PyPI und
+  npm: `duckstudio`, `duck-studio`). Nachbarschaft im Enten-Ökosystem: `Open_Duck_Mini`,
+  `quackd` (LLM-Steuerung für Microduck — lesenswert für Phase 2). Entscheidung liegt bei
+  Tim: Name behalten (Kollisionen liegen außerhalb unserer Domäne) oder etwas
+  Unverwechselbares wählen.
 
 ## 10. Arbeitsregeln für Claude Code
 

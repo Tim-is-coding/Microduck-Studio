@@ -1,5 +1,5 @@
 """Backend factory. `sim` is the normal state (CLAUDE.md §3.3); `mock` is deterministic;
-`duck` (M4) waits for hardware."""
+`duck` speaks to a real duck through an SSH tunnel (M4, ADR-0006)."""
 
 from __future__ import annotations
 
@@ -29,6 +29,5 @@ def make_backend(kind: str | None = None, **options: object) -> DuckBackend:
     if kind == "duck":
         from .duck import RealDuckBackend
 
-        options.setdefault("url", os.environ.get("DUCKSTUDIO_DUCK_URL", ""))
         return RealDuckBackend(**options)  # type: ignore[arg-type]
     raise ValueError(f"unknown backend kind {kind!r}; expected one of {KINDS}")
