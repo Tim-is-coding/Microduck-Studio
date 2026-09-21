@@ -68,7 +68,7 @@ export function StepList({ behavior, skills, activeStep = null, interrupt = null
           <div className="num always">!</div>
           <div className="card">
             <div className="title">
-              {t("editor.always", {
+              {t("editor.always.rule", {
                 on: describeSignal(rule.on),
                 do: rule.do.map((a) => text(skills.get(a)?.name, tOr(`action.${a}`, a))).join(", "),
               })}

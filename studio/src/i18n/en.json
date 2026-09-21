@@ -43,7 +43,7 @@
   "action.stop": "stop",
   "action.retry": "retry",
   "action.continue": "continue",
-  "cond.speech": "you say “{phrases}”",
+  "cond.speech": "you say {phrases}",
   "cond.elapsed": "{duration} have passed",
   "cond.or": " or ",
   "cond.and": " and ",
@@ -245,5 +245,6 @@
   "hub.downloads": "{count} downloads",
   "hub.loading": "Loading …",
   "hub.import.start": "Add …",
-  "hub.cancel": "Cancel"
+  "hub.cancel": "Cancel",
+  "editor.always.rule": "Always: when {on}, then {do}"
 }

@@ -43,7 +43,7 @@
   "action.stop": "anhalten",
   "action.retry": "noch einmal",
   "action.continue": "weiter",
-  "cond.speech": "du „{phrases}“ sagst",
+  "cond.speech": "du {phrases} sagst",
   "cond.elapsed": "{duration} vorbei sind",
   "cond.or": " oder ",
   "cond.and": " und ",
@@ -245,5 +245,6 @@
   "hub.downloads": "{count}× geladen",
   "hub.loading": "Lädt …",
   "hub.import.start": "Hinzufügen …",
-  "hub.cancel": "Abbrechen"
+  "hub.cancel": "Abbrechen",
+  "editor.always.rule": "Immer: wenn {on}, dann {do}"
 }
