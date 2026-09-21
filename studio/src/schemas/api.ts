@@ -84,9 +84,12 @@ export const ExecutorStatus = z.object({
   step_count: z.number(),
   active_skill: z.string().nullable(),
   interrupt: z.string().nullable(),
-  reason: z.string().nullable(),
+  /** Why a run ended, in both languages — the runtime sends `{de, en}`, not a string. */
+  reason: Text.nullable(),
   ticks: z.number(),
   intents_sent: z.number(),
+  /** How many runs the runtime has recorded — a new number means the run list changed. */
+  runs_recorded: z.number().default(0),
   camera: z.boolean().nullable(),
   person: PersonDetection.nullable(),
   target: TargetSighting.nullable(),
@@ -96,6 +99,20 @@ export const ExecutorStatus = z.object({
   vlm: VlmActivity.nullish(),
 });
 export type ExecutorStatus = z.infer<typeof ExecutorStatus>;
+
+/** One finished run, as `GET /api/runs` lists them (newest first). */
+export const RunRecord = z.object({
+  behavior: z.string(),
+  name: Text,
+  /** Seconds since the epoch, from the runtime's clock. */
+  started_at: z.number(),
+  duration_s: z.number(),
+  state: ExecutorState,
+  steps_done: z.number(),
+  step_count: z.number(),
+  reason: Text.nullable(),
+});
+export type RunRecord = z.infer<typeof RunRecord>;
 
 /** A policy repo on the Hugging Face Hub, as the runtime relays it. Text from the Hub is
  *  data: it is shown, never followed (CLAUDE.md §10). */

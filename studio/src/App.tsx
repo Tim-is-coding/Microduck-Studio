@@ -10,7 +10,7 @@ const HEALTH_INTERVAL_MS = 2000;
 const STATE_INTERVAL_MS = 500;
 
 export function App() {
-  const { runtime, health, state, executor, events, draft, selectedBehaviorId, behaviors, refreshHealth, refreshState, refreshExecutor, stop, validateDraft, loadYaml } = useStudio();
+  const { runtime, health, state, executor, runs, events, draft, selectedBehaviorId, behaviors, refreshHealth, refreshState, refreshExecutor, stop, validateDraft, loadYaml } = useStudio();
   useLanguage(); // re-render the whole Studio when the language changes
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export function App() {
       <TopBar health={health} runtime={runtime} />
       <main className="workspace">
         <Route />
-        <LivePane events={events} executor={executor} health={health} offline={runtime === "offline"} onStop={() => void stop()} state={state} />
+        <LivePane events={events} executor={executor} health={health} offline={runtime === "offline"} onStop={() => void stop()} runs={runs} state={state} />
       </main>
       <footer className="footer">{t("app.disclaimer")}</footer>
     </div>

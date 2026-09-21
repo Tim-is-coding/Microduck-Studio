@@ -21,6 +21,7 @@ import asyncio
 import contextlib
 import math
 import time
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -61,6 +62,7 @@ class ExecutorBusy(RuntimeError):
     pass
 
 
+HISTORY_DEPTH = 10  # what the Studio lists under „Letzte Läufe"
 DEFAULT_INTENT_BUDGET_S = 120.0
 DEFAULT_BEHAVIOR_BUDGET_S = 10.0
 QUICK_BEHAVIOR_BUDGET_S = 1.5  # behaviors whose only end is `timeout` (quack)
@@ -77,6 +79,33 @@ STEERING = {"toward_person": "person", "toward_target": "target"}
 
 def normalize_phrase(text: str) -> str:
     return " ".join(text.casefold().strip().strip(".!?,;:").split())
+
+
+@dataclass
+class RunRecord:
+    """What a finished run looked like, for the Studio's „Letzte Läufe" (§6.4: a run is only
+    useful if you can tell afterwards what it did)."""
+
+    behavior: str
+    name: Text
+    started_at: float  # wall clock, for the Studio's list
+    duration_s: float  # monotonic, so a clock change cannot bend it
+    state: str
+    steps_done: int
+    step_count: int
+    reason: texts.Bilingual | None
+
+    def payload(self) -> dict[str, Any]:
+        return {
+            "behavior": self.behavior,
+            "name": self.name.model_dump(mode="json"),
+            "started_at": self.started_at,
+            "duration_s": round(self.duration_s, 3),
+            "state": self.state,
+            "steps_done": self.steps_done,
+            "step_count": self.step_count,
+            "reason": {"de": self.reason[0], "en": self.reason[1]} if self.reason else None,
+        }
 
 
 @dataclass
@@ -120,6 +149,7 @@ class Executor:
         *,
         packs: dict[str, BehaviorPack] | None = None,
         clock: Callable[[], float] = time.monotonic,
+        now: Callable[[], float] = time.time,
         tick_hz: float = 10.0,
         watchdog: Watchdog | None = None,
     ) -> None:
@@ -141,6 +171,11 @@ class Executor:
         self.reason: texts.Bilingual | None = None
         self._announced_none = False  # "nothing found" is worth saying once, not every sweep
         self.counters = _Counters()
+        self.history: deque[RunRecord] = deque(maxlen=HISTORY_DEPTH)
+        self.runs_recorded = 0  # ever, so the Studio can tell a new record from a poll it missed
+        self._started_at = 0.0
+        self._started_mono = 0.0
+        self.now = now
         self._preempt_source: str | None = None
         self._driving_this_tick = False
         self._task: asyncio.Task[None] | None = None
@@ -159,6 +194,8 @@ class Executor:
         self.interrupt = None
         self._announced_none = False
         self.counters = _Counters()
+        self._started_at = self.now()
+        self._started_mono = self.clock()
         self._preempt_source = None
         self.snapshot.speech.clear()
         self._clear_vlm_request()
@@ -174,6 +211,7 @@ class Executor:
         self.state = "aborted"
         self._clear_vlm_request()
         self.reason = texts.stopped_from(reason)
+        self._record_run()
         self.watchdog.disarm()
         await self.gate.stop()
         self.bus.emit("behavior.aborted", *texts.behavior_aborted(), level="warn", reason=reason)
@@ -201,6 +239,28 @@ class Executor:
                 return pack.id
         return None
 
+    def _record_run(self) -> None:
+        """Called wherever a run leaves `running` — done, failed, aborted, preempted."""
+        if self.pack is None:
+            return
+        self.runs_recorded += 1
+        self.history.appendleft(
+            RunRecord(
+                behavior=self.pack.id,
+                name=self.pack.name,
+                started_at=self._started_at,
+                duration_s=max(0.0, self.clock() - self._started_mono),
+                state=self.state,
+                steps_done=min(max(self.step_index, 0), len(self.pack.steps)),
+                step_count=len(self.pack.steps),
+                reason=self.reason,
+            )
+        )
+
+    def runs(self) -> list[dict[str, Any]]:
+        """Newest first."""
+        return [r.payload() for r in self.history]
+
     def status(self) -> dict[str, Any]:
         active = self.run or self.on_none_run
         interrupt_run = self.interrupt.run if self.interrupt else None
@@ -216,6 +276,7 @@ class Executor:
             "reason": {"de": self.reason[0], "en": self.reason[1]} if self.reason else None,
             "ticks": self.counters.ticks,
             "intents_sent": self.counters.intents_sent,
+            "runs_recorded": self.runs_recorded,
         }
 
     async def close(self) -> None:
@@ -300,6 +361,7 @@ class Executor:
         if self.step_index >= len(self.pack.steps):
             self.state = "done"
             self._clear_vlm_request()
+            self._record_run()
             self.watchdog.disarm()
             self.bus.emit(
                 "behavior.done", *texts.behavior_done(self.pack.name), behavior=self.pack.id
@@ -312,6 +374,7 @@ class Executor:
             return
         self.state = "failed"
         self.reason = reason
+        self._record_run()
         self._clear_vlm_request()
         self.watchdog.disarm()
         if stop:
@@ -331,6 +394,7 @@ class Executor:
     async def _preempted(self, source: str) -> None:
         self.state = "preempted"
         self.reason = texts.preempted_reason(source)
+        self._record_run()
         self._clear_vlm_request()
         self.watchdog.disarm()
         await self.gate.stop()

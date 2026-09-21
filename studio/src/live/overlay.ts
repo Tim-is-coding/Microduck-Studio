@@ -54,6 +54,14 @@ export function formatDistance(distanceM: number | null | undefined): string {
   return `${number(distanceM, distanceM < 10 ? 1 : 0)} m`;
 }
 
+/** How long a run took, read aloud: seconds while that is short enough, then m:ss. */
+export function formatDuration(seconds: number): string {
+  const total = Math.max(0, seconds);
+  if (total < 60) return `${number(total, total < 10 ? 1 : 0)} s`;
+  const minutes = Math.floor(total / 60);
+  return `${minutes}:${String(Math.round(total - minutes * 60)).padStart(2, "0")} min`;
+}
+
 /** Where a sighting sits in the frame, as a fraction — the image may be scaled anywhere. */
 export function marker(
   sighting: (PersonDetection | TargetSighting) | null | undefined,

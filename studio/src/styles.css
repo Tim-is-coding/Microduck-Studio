@@ -378,7 +378,7 @@ details.file pre { background: var(--surface); border: 1px solid var(--line); bo
 .tof-legend .field-label { color: var(--stage-soft); }
 
 @media (max-width: 960px) {
-  .live { position: static; display: grid; grid-template-columns: 140px 1fr; grid-template-areas: "cam text" "cam vlm" "cam stop" "tof tof" "log log" "meta meta"; gap: 10px 14px; padding: 12px; }
+  .live { position: static; display: grid; grid-template-columns: 140px 1fr; grid-template-areas: "cam text" "cam vlm" "cam stop" "tof tof" "log log" "runs runs" "meta meta"; gap: 10px 14px; padding: 12px; }
   .live > h2 { display: none; }
   .live .camera { grid-area: cam; aspect-ratio: 3 / 4; max-height: none; }
   .live .sentence { grid-area: text; font-size: 14px; }
@@ -386,6 +386,19 @@ details.file pre { background: var(--surface); border: 1px solid var(--line); bo
   .live .estop { grid-area: stop; padding: 10px; font-size: 16px; }
   .live .tof { grid-area: tof; }
   .live .logwrap { grid-area: log; }
+  .live .runswrap { grid-area: runs; }
   .live .meta { grid-area: meta; }
   .live .log { max-height: 140px; }
 }
+/* Letzte Läufe: what the duck did, after it did it. Same rhythm as the log above it —
+   44px for the time, the sentence underneath spanning the full width. */
+.live .runswrap { display: grid; gap: 6px; }
+.live .runs { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 13.5px; }
+.live .runs li { display: grid; grid-template-columns: 44px 1fr auto; gap: 2px 8px; align-items: baseline; padding: 5px 0; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.live .runs time { color: var(--stage-muted); font-variant-numeric: tabular-nums; }
+.live .runs .what { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live .runs .outcome { font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--stage-soft); }
+.live .runs .outcome.done { color: #a9e6b8; }
+.live .runs .outcome.failed { color: #ffb3bf; }
+.live .runs .outcome.aborted, .live .runs .outcome.preempted { color: #ffd66b; }
+.live .runs .detail { grid-column: 1 / -1; font-size: var(--t-xs); color: var(--stage-muted); }

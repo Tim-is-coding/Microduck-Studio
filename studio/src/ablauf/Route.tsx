@@ -505,5 +505,5 @@ function executorLabel(executor: ExecutorStatus | null, behaviorId: string): str
     return executor.interrupt ? `${base} — ${t("run.interrupt", { on: describeSignal(executor.interrupt) })}` : base;
   }
   const label = t(`run.state.${executor.state}`);
-  return executor.reason ? `${label}: ${executor.reason}` : label;
+  return executor.reason ? `${label}: ${text(executor.reason)}` : label;
 }

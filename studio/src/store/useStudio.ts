@@ -6,6 +6,7 @@ import {
   Event,
   ExecutorStatus,
   RobotState,
+  RunRecord,
   RuntimeHealth,
   HubPolicy,
   SkillManifest,
@@ -14,6 +15,7 @@ import {
   type Event as EventT,
   type ExecutorStatus as ExecutorStatusT,
   type RobotState as RobotStateT,
+  type RunRecord as Run,
   type RuntimeHealth as RuntimeHealthT,
   type HubPolicy as Policy,
   type SkillManifest as Skill,
@@ -30,6 +32,8 @@ interface StudioState {
   health: RuntimeHealthT | null;
   state: RobotStateT | null;
   executor: ExecutorStatusT | null;
+  /** The last few runs, newest first — reloaded whenever one ends. */
+  runs: Run[];
   skills: Skill[];
   behaviors: Pack[];
   selectedBehaviorId: string | null;
@@ -48,6 +52,7 @@ interface StudioState {
   refreshHealth: () => Promise<void>;
   refreshState: () => Promise<void>;
   refreshExecutor: () => Promise<void>;
+  loadRuns: () => Promise<void>;
   run: (behaviorId: string) => Promise<void>;
   abortRun: () => Promise<void>;
   say: (text: string) => Promise<void>;
@@ -86,6 +91,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   health: null,
   state: null,
   executor: null,
+  runs: [],
   skills: [],
   behaviors: [],
   selectedBehaviorId: null,
@@ -110,7 +116,10 @@ export const useStudio = create<StudioState>((set, get) => ({
       set({ runtime: "online", health });
       // A Studio opened before the runtime was up would otherwise stay empty forever: the
       // catalog is loaded once, and that one attempt failed. Load it when we can.
-      if (before !== "online" || !get().catalogLoaded) void get().loadCatalog();
+      if (before !== "online" || !get().catalogLoaded) {
+        void get().loadCatalog();
+        void get().loadRuns();
+      }
     } catch {
       set({ runtime: "offline", health: null });
     }
@@ -130,10 +139,24 @@ export const useStudio = create<StudioState>((set, get) => ({
 
   async refreshExecutor() {
     if (get().runtime !== "online") return;
+    const before = get().executor;
     try {
-      set({ executor: await getJson("/api/executor", ExecutorStatus) });
+      const executor = await getJson("/api/executor", ExecutorStatus);
+      set({ executor });
+      // A run ended. Comparing the runtime's own counter rather than the state catches a run
+      // that started and finished between two polls, which a state change would miss.
+      if (executor.runs_recorded !== before?.runs_recorded) void get().loadRuns();
     } catch {
       set({ executor: null });
+    }
+  },
+
+  async loadRuns() {
+    if (get().runtime !== "online") return;
+    try {
+      set({ runs: await getJson("/api/runs", z.array(RunRecord)) });
+    } catch {
+      /* the list is a convenience: keep the last one we had */
     }
   },
 

@@ -60,6 +60,7 @@ The screenshots come from a real Studio against a real runtime — regenerate th
 | Hub search in the building blocks panel: browse `microduck-policy` repos, see provenance and what a repo says about its commands, import one as a block that stands in for a builtin (ADR-0005), remove it again | done |
 | `duck` backend: an `IpcBackend` behind `scripts/duck-tunnel.sh` (ssh -L), contract suite green against the protocol double through the tunnel's own socket layout (ADR-0006) | prepared |
 | Overview: copy a behavior, save it as a file, load one back — schema-checked, renamed if the id is taken, opened as a draft | done |
+| Live panel: „Letzte Läufe“ — the last ten runs with duration, how far they got and why they ended (`GET /api/runs`) | done |
 | Editor: undo and redo for the draft (Strg+Z / Strg+Umschalt+Z), one entry per move rather than per keystroke | done |
 | First run: a nameless new draft, starter templates on the empty overview, measured 21 s from empty Studio to a running behavior ([`docs/m3-acceptance.md`](docs/m3-acceptance.md)) | done |
 | Real duck on hardware (M4) | waits for the duck (December) |

@@ -176,6 +176,7 @@ async def test_status_is_reportable(h: Harness) -> None:
         "reason": None,
         "ticks": 2,
         "intents_sent": s["intents_sent"],
+        "runs_recorded": 0,
     }
     assert math.isclose(s["intents_sent"], 1)
 

@@ -4,6 +4,7 @@ import {
   TOF_NEAR_M,
   closestZone,
   formatDistance,
+  formatDuration,
   layoutMarkers,
   marker,
   proximity,
@@ -123,5 +124,15 @@ describe("distances read like the language they are shown in", () => {
     expect(formatDistance(1.25)).toBe("1.3 m");
     expect(formatDistance(null)).toBe("");
     setLanguage("de");
+  });
+});
+
+describe("formatDuration", () => {
+  it("reads a run's length aloud", () => {
+    setLanguage("de");
+    expect(formatDuration(3.42)).toBe("3,4 s");
+    expect(formatDuration(65)).toBe("1:05 min");
+    setLanguage("en");
+    expect(formatDuration(3.42)).toBe("3.4 s");
   });
 });

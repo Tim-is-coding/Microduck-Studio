@@ -68,10 +68,14 @@ async function until(what, fn, timeout = TIMEOUT) {
 /** Only saved behaviors have an `open` button; the dashed "new" card is a `.behavior-card` too,
  *  so counting cards alone would call an empty, still-loading Studio ready. */
 const behaviorCards = () => page.locator(".behavior-card .open").count();
-const editorOpen = () => page.locator(".editor").isVisible();
-const editorGone = async () => !(await page.locator(".editor").isVisible());
-const steps = () => page.locator(".steps > div > .step").count();
-const nameField = () => page.locator(".editor .card input").first();
+/** The name card exists only while a behavior is editable — that is what "the editor is open"
+ *  means on the route: the same stations, with their controls switched on. */
+const editorOpen = () => page.locator(".card.namecard").isVisible();
+const editorGone = async () => !(await page.locator(".card.namecard").isVisible());
+/** Steps are the stations the rail wraps in a div of their own; trigger, "add", the always
+ *  rules and the VLM switch are direct children of `.rail` and must not be counted. */
+const steps = () => page.locator(".rail > div > .station").count();
+const nameField = () => page.locator(".card.namecard input.name");
 const packs = async () => (await (await fetch(`${API}/api/behaviors`)).json()).map((b) => b.id);
 
 async function backToOverview() {
@@ -84,6 +88,15 @@ async function openFirstForEditing() {
   await page.getByRole("button", { name: /Bearbeiten/ }).click();
   await until("Editor", editorOpen);
 }
+/** The picker opens in a gap of the route; every block in it is an `.option` with a name. */
+async function addStep(name) {
+  const before = await steps();
+  await page.locator(".station.add .addbtn").click();
+  await until("Bausteine-Auswahl", () => page.locator(".picker .option").first().isVisible());
+  await page.locator(".picker .option", { has: page.locator(".name", { hasText: name }) }).first().click();
+  await until(`${name} kam dazu`, async () => (await steps()) === before + 1);
+  return before;
+}
 async function discard() {
   await page.getByRole("button", { name: /^(Verwerfen|Discard)$/ }).click();
   await until("Editor geschlossen", editorGone);
@@ -95,20 +108,24 @@ try {
   await until("geladene Abläufe", async () => (await behaviorCards()) >= 2, 30_000);
   console.log("Studio-Rauchtest\n");
 
-  await check("Übersicht zeigt Abläufe und Bausteine", async () => {
+  await check("Übersicht zeigt die Abläufe und die verbundene Ente", async () => {
     ok((await behaviorCards()) >= 2, "keine Ablauf-Karten");
-    ok((await page.locator(".panel").first().locator(".card").count()) >= 8, "keine Bausteine");
-    is(await page.locator(".status").innerText(), "Attrappe (Mock) · verbunden", "Status");
+    is(await page.locator(".duckstatus").innerText(), "Übungsente verbunden", "Status");
+  });
+
+  await check("Bausteine liegen hinter ihrem Tab", async () => {
+    await page.getByRole("button", { name: /^(Bausteine|Building blocks)$/ }).click();
+    const blocks = await until("Bausteine", async () => (await page.locator(".card.block").count()) || false);
+    ok(blocks >= 8, `nur ${blocks} Bausteine`);
+    await backToOverview();
   });
 
   await check("Editor: Schritt hinzufügen, rückgängig, wiederholen", async () => {
     await openFirstForEditing();
-    const before = await steps();
-    await page.locator(".add-menu .chip", { hasText: "Quaken" }).first().click();
-    await until("Schritt kam dazu", async () => (await steps()) === before + 1);
-    await page.locator(".runbar .btn.icon-only").first().click();
+    const before = await addStep("Quaken");
+    await page.locator(".toolbar .iconbtn").first().click();
     await until("rückgängig", async () => (await steps()) === before);
-    await page.locator(".runbar .btn.icon-only").nth(1).click();
+    await page.locator(".toolbar .iconbtn").nth(1).click();
     await until("wiederholt", async () => (await steps()) === before + 1);
     await discard();
     await backToOverview(); // discarding an edit keeps that behavior open; the list is one click away
@@ -117,7 +134,7 @@ try {
   await check("Kopie anlegen", async () => {
     await page.locator(".behavior-card").first().locator("button[title='Kopie anlegen']").click();
     await until("Editor mit Kopie", async () => (await editorOpen()) && (await nameField().inputValue()).includes("(Kopie)"));
-    ok((await page.locator(".editor .sub").first().innerText()).includes("-copy"), "Kennung ohne -copy");
+    ok((await page.locator(".card.namecard .sub").innerText()).includes("-copy"), "Kennung ohne -copy");
     await discard();
     await backToOverview();
   });
@@ -137,7 +154,7 @@ try {
 
   await check("Aus Datei laden: belegte Kennung wird umbenannt", async () => {
     await page.locator(".starters input[type=file]").setInputFiles(exported);
-    await until("Hinweis zur Umbenennung", () => page.locator(".editor .card.notice").isVisible());
+    await until("Hinweis zur Umbenennung", () => page.locator(".route .card.notice").isVisible());
     await discard();
     await backToOverview();
   });
@@ -153,31 +170,38 @@ try {
     await until("leerer Entwurf", async () => (await editorOpen()) && (await nameField().inputValue()) === "");
     ok(!(await page.getByRole("button", { name: /^Speichern$/ }).isEnabled()), "Speichern war klickbar");
     await nameField().fill("Rauchtest");
-    await page.locator(".add-menu .chip", { hasText: "Quaken" }).first().click();
+    await addStep("Quaken");
     await until("Speichern wird klickbar", () => page.getByRole("button", { name: /^Speichern$/ }).isEnabled());
   });
 
   await check("Speichern & Starten: die Runtime führt aus", async () => {
     await page.getByRole("button", { name: /^Speichern & Starten$/ }).click();
     await until(`${SMOKE_ID} gespeichert`, async () => (await packs()).includes(SMOKE_ID));
-    await until("Lauf beendet", async () => (await page.locator(".panel.live .doing").innerText()) === "fertig");
-    ok((await page.locator(".panel.live .log li").count()) > 1, "kein Protokoll");
+    await until("Lauf beendet", async () => (await page.locator(".route .toolbar .hint").first().innerText()) === "fertig");
+    ok((await page.locator(".live .log li").count()) > 1, "kein Protokoll");
+  });
+
+  await check("Letzte Läufe zeigt den gerade beendeten Lauf", async () => {
+    const first = await until("Eintrag in der Lauf-Liste", async () => await page.locator(".runs li").first().innerText());
+    ok(first.includes("Rauchtest"), `unerwarteter Eintrag: ${first.replace(/\n/g, " · ")}`);
+    ok(/FERTIG|GESTOPPT|ABGEBROCHEN/i.test(first), "kein Ergebnis im Eintrag");
   });
 
   await check("Notstopp", async () => {
-    await page.locator(".stop").click();
-    await until("Notstopp im Protokoll", async () => /Notstopp|Stopp/i.test(await page.locator(".panel.live .log").innerText()));
+    await page.locator(".live .estop").click();
+    await until("Notstopp im Protokoll", async () => /Notstopp|Stopp/i.test(await page.locator(".live .log").innerText()));
   });
 
   await check("Sprache und Thema schalten", async () => {
+    const logHeading = () => page.locator(".live .logwrap h2").innerText();
     await page.locator(".switch.lang button", { hasText: "EN" }).click();
-    await until("englische Panel-Titel", async () => (await page.locator(".panel").nth(1).locator("h2").innerText()) === "BEHAVIOR");
+    await until("englische Überschrift", async () => (await logHeading()) === "What is happening");
     await page.locator(".switch.theme button").nth(2).click();
     await until("dunkles Thema", async () => (await page.locator("html").getAttribute("data-theme")) === "dark");
     await page.locator(".switch.theme button").nth(1).click();
     await page.locator(".switch.lang button", { hasText: "DE" }).click();
     await until("wieder deutsch und hell", async () =>
-      (await page.locator(".panel").nth(1).locator("h2").innerText()) === "ABLAUF" &&
+      (await logHeading()) === "Was passiert" &&
       (await page.locator("html").getAttribute("data-theme")) === "light");
   });
 

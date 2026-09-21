@@ -65,3 +65,16 @@ stands still and the deadman stays fed.
 `POST /api/say` is the Studio's „Ich sage: …“ button (`CLAUDE.md` §9). Idle: a phrase that
 matches a pack's `trigger.phrases.de` starts it. Running: the phrase feeds `until: speech`
 conditions for one tick. Real speech recognition is a later backend for the same call.
+
+## What a run leaves behind
+
+A run nobody can look back at is hard to trust, so the executor keeps the last ten
+(`RunRecord`, `HISTORY_DEPTH`): which behavior, when it started, how long it took, how it
+ended, how far it got, and the reason in both languages. `GET /api/runs` serves them newest
+first, and the Studio lists them under „Letzte Läufe“; the list is reloaded when a run
+leaves `running`, not polled.
+
+The record is written in the four places a run can end — done, failed, aborted, preempted —
+and nowhere else, so a run that never started leaves no trace. The duration comes from the
+monotonic clock (a clock change cannot bend it), the timestamp from the wall clock, because
+the Studio prints it next to the log.

@@ -374,6 +374,11 @@ def create_app(
     async def executor_status() -> dict[str, Any]:
         return executor_payload()
 
+    @app.get("/api/runs")
+    async def recent_runs() -> list[dict[str, Any]]:
+        """The last few runs, newest first: what the Studio lists under „Letzte Läufe"."""
+        return executor.runs()
+
     async def start_behavior(behavior_id: str) -> dict[str, Any]:
         pack = packs.get(behavior_id)
         if pack is None:
