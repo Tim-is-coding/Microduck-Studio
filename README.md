@@ -12,21 +12,22 @@ keep building with Claude Code.
 
 ## What it looks like
 
-The overview: every behavior as a card you can read, open, start, copy or save to a file.
-Building blocks on the left, the duck on the right — camera, state, log and Notstopp.
+Two panes. On the left the route: the overview with every behavior as a card you can read,
+open, start, copy or save to a file, then each behavior as one vertical rail of stations. On
+the right the stage: what the duck sees and does, and the Notstopp.
 
-![The Duck Studio overview: behavior cards in the middle, skill blocks on the left, the live panel with camera and emergency stop on the right](docs/images/overview.png)
+![The Duck Studio overview: behavior cards on the left, the live stage with camera, state and emergency stop on the right](docs/images/overview.png)
 
-The editor renders a behavior pack as a step list. Every control on a card comes from the
-skill manifest's `ui`, so nothing in the editor knows YAML — and the developer view with the
-YAML sits below, never in front.
+Editing happens on the same cards: "Bearbeiten" turns their controls on. Every control comes
+from the skill manifest's `ui`, so nothing in the editor knows YAML — the file view sits
+below, never in front. Building blocks appear when you add a step, and have their own tab.
 
-![The editor: name, trigger, and the steps of follow-me as cards with their own controls](docs/images/editor.png)
+![Editing follow-me: name and trigger, then the steps as stations on the rail with their own controls](docs/images/editor.png)
 
-Running, in dark mode: the active step is marked, the log speaks in sentences, and the
-Notstopp stays within reach.
+Running, in dark mode: the active station glows, finished ones get a tick, the log speaks in
+sentences, and the Notstopp stays within reach.
 
-![Follow-me running: step 2 of 3 highlighted, the log showing what the duck is doing](docs/images/running.png)
+![Follow-me running: station 2 of 3 lit on the rail, the log showing what the duck is doing](docs/images/running.png)
 
 The screenshots come from a real Studio against a real runtime — regenerate them with
 `node scripts/screenshots.mjs`.

@@ -52,7 +52,9 @@ await theme("dark");
 await page.getByRole("button", { name: /^Übersicht$/ }).click();
 await page.waitForTimeout(400);
 await page.locator(".behavior-card .btn.primary").first().click();
-await page.waitForTimeout(2500);
+await page.waitForTimeout(600);
+await page.getByRole("button", { name: /^Folge mir$/ }).click(); // the route, with the running station lit
+await page.waitForTimeout(1900);
 await shot("running");
 await fetch(`${API}/api/executor/abort`, { method: "POST" });
 await page.waitForTimeout(800);
