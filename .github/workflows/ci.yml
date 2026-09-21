@@ -44,3 +44,50 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  smoke:
+    name: studio smoke (browser)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --frozen
+        working-directory: runtime
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            studio/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile          # root: playwright for scripts/smoke.mjs
+      - run: pnpm install --frozen-lockfile
+        working-directory: studio
+      - run: pnpm build
+        working-directory: studio
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: a scratch workspace the test may write to
+        run: mkdir -p /tmp/ds-smoke && cp -r skills behaviors /tmp/ds-smoke/
+      - name: start the runtime and the built Studio
+        run: |
+          (cd runtime && DUCKSTUDIO_BACKEND=mock DUCKSTUDIO_ROOT=/tmp/ds-smoke \
+            nohup uv run python -m duckstudio > /tmp/runtime.log 2>&1 &)
+          (cd studio && nohup pnpm preview > /tmp/preview.log 2>&1 &)
+          for _ in $(seq 1 60); do
+            if curl -sfo /dev/null localhost:8000/api/health && curl -sfo /dev/null localhost:4173; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "runtime or Studio did not come up"; exit 1
+      - run: node scripts/smoke.mjs
+        env:
+          STUDIO: http://localhost:4173
+      - name: logs, if something went wrong
+        if: failure()
+        run: tail -n 40 /tmp/runtime.log /tmp/preview.log

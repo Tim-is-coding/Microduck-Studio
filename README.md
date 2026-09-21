@@ -123,6 +123,7 @@ skills/            *.skill.yaml — building blocks (walk, look_around, quack, g
 behaviors/         *.behavior.yaml — behavior packs (follow-me, go-to-thing)
 sim/               wrapper around upstream duck-sim (pinned checkout, never vendored)
 scripts/           duck-tunnel.sh (ssh -L for a real duck), smoke.mjs, firstrun.mjs, screenshots.mjs
+package.json       the browser tooling above (playwright); the Studio has its own
 ```
 
 ## Tests
@@ -132,17 +133,24 @@ cd runtime && uv run ruff check . && uv run pytest -q     # 200 tests: contract,
 cd studio  && pnpm typecheck && pnpm test && pnpm build   # 76 tests: schemas, editor model, i18n, transfer
 ```
 
-Both run in CI on every push. What unit tests cannot see — the clicks between the browser
-and the runtime — is covered by `scripts/smoke.mjs`: a real browser against a real runtime,
-walking the overview, the editor with undo/redo, copy, file export and import, saving and
-running a behavior, the Notstopp, and the language and theme switches. It needs playwright
-and a runtime with a scratch workspace:
+What unit tests cannot see — the clicks between the browser and the runtime — is covered by
+`scripts/smoke.mjs`: a real browser against a real runtime, walking the overview, the editor
+with undo/redo, copy, file export and import, saving and running a behavior, the Notstopp,
+and the language and theme switches. Twelve checks, one line each.
 
 ```bash
+pnpm install                  # root: playwright for the scripts below
+pnpm exec playwright install chromium
 cd runtime && DUCKSTUDIO_BACKEND=mock DUCKSTUDIO_ROOT=/tmp/ds-smoke uv run python -m duckstudio
-cd studio  && pnpm dev
-node scripts/smoke.mjs        # also: firstrun.mjs (the M3 measurement), screenshots.mjs
+cd studio  && pnpm dev                       # or: pnpm build && pnpm preview
+node scripts/smoke.mjs                       # STUDIO=http://localhost:4173 for the preview
+node scripts/firstrun.mjs                    # the M3 measurement (docs/m3-acceptance.md)
+node scripts/screenshots.mjs                 # the pictures above
 ```
+
+All three jobs run in CI on every push: runtime, studio, and the smoke test against the
+built Studio. Every wait in the smoke test waits for a condition, never for a duration — a
+slow runner makes it slower, not red.
 
 ## Safety, in one paragraph
 

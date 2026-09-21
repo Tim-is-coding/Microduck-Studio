@@ -133,6 +133,8 @@ Microduck-Studio/
   skills/                   *.skill.yaml – Manifeste für offizielle und Community-Policies
   behaviors/                *.behavior.yaml – Behavior-Packs, „follow-me“ zuerst
   sim/                      Wrapper um Upstream duck-sim, docker-compose, Fake-Person-Szene
+  scripts/                  duck-tunnel.sh (ssh -L), smoke.mjs, firstrun.mjs, screenshots.mjs
+  package.json              Playwright für die Skripte oben; das Studio hat sein eigenes
 ```
 
 ## 6. Kernkonzepte und Schemata
