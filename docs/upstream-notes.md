@@ -54,7 +54,8 @@ Pin moved `344925c` → `ac7531a` (`sim/fetch-upstream.sh`); `microduck_rl` deve
 - Upstream glitch, harmless for us: `scripts/duck-sim` writes `updater-duck-a.toml` from an
   unquoted heredoc whose comment carries backticks (`` `policy.fetch` ``, `` `Permission
   denied ...` ``), so `sh` runs them and prints `policy.fetch: command not found` at startup.
-  Only the comment text in the generated file is affected. Not reported upstream yet.
+  Only the comment text in the generated file is affected. Reported 2026-09-22 as
+  `pollen-robotics/microduck#320` (introduced in 2581a38).
 - `microduck_rl#46` (walking policies step in place): still open, no maintainer answer. One
   community comment (2026-09-18) with a plausible cause — the `feet_air_time` reward is
   gated on the *command*, not on achieved motion, so stepping in place is paid — and a
