@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 from duckstudio import upstream
+from duckstudio.executor.conditions import STEADY_S
 
 from .conftest import Harness
 
@@ -120,7 +121,11 @@ async def test_fall_triggers_getup_and_resumes(h: Harness) -> None:
     assert "interrupt.started" in h.kinds()
     assert h.mock.calls[-1].kind == "behavior" and h.mock.calls[-1].name == "getup"
     assert len(h.mock.intents_sent()) == moves_before, "no walking while down"
-    await h.tick()  # mock is standing again → getup done → resume
+    await h.tick()  # mock is standing again, but not yet steady
+    assert "interrupt.resumed" not in h.kinds(), "resumed the moment it was upright"
+    await h.tick(int(STEADY_S * 10) - 2)
+    assert "interrupt.resumed" not in h.kinds()
+    await h.tick(3)  # STEADY_S of standing without a break → getup done → resume
     assert "interrupt.resumed" in h.kinds()
     assert h.executor.interrupt is None and h.executor.step_index == 1
     await h.tick()
@@ -202,3 +207,21 @@ async def test_an_english_trigger_phrase_starts_the_behavior(h: Harness) -> None
     assert h.executor.say("Follow me") == "follow-me"  # phrases.en, not just phrases.de
     assert h.executor.say("Folge mir") == "follow-me"
     assert h.executor.say("Tanz") is None
+
+
+async def test_getup_waits_for_steady_through_a_wobble(h: Harness) -> None:
+    """duck-sim, 2026-09-22: upright first, the neck back only 1.1–1.3 s later."""
+    h.see_person(distance=2.0)
+    await h.start()
+    await h.tick(2)
+    h.mock.push_over()
+    await h.tick()
+    h.mock.flags = h.mock.flags.model_copy(update={"standing": True, "fallen": False})
+    await h.tick(int(STEADY_S * 10) - 3)
+    h.mock.flags = h.mock.flags.model_copy(update={"standing": False})  # tipped past upright again
+    await h.tick()
+    h.mock.flags = h.mock.flags.model_copy(update={"standing": True})
+    await h.tick(int(STEADY_S * 10) - 2)  # the clock started over when it tipped
+    assert "interrupt.resumed" not in h.kinds()
+    await h.tick(3)
+    assert "interrupt.resumed" in h.kinds()

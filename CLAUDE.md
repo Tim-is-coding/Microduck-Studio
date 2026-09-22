@@ -238,7 +238,10 @@ strukturierten Daten fürs Debugging.
   minimalen Live-Panel. `docs/upstream-notes.md` mit verifizierten Methodennamen.
 - **M2 – Follow-me in Sim (Woche 5–7):** Executor führt `follow-me.behavior.yaml` aus;
   Person = markiertes Objekt in der MuJoCo-Szene, lokaler Detektor auf dem Frame;
-  Sturz-Recovery getestet durch simulierten Stoß.
+  Sturz-Recovery getestet durch simulierten Stoß. **Stand 2026-09-23: live in duck-sim**
+  (`sim/fall-drill.py`): umgestoßen → Aufstehen → „Folge mir“ geht weiter. Dabei gefunden und
+  behoben: `standing` heißt jetzt aufrecht (≤ ~26°), `getup` endet erst auf `steady` (2 s
+  ohne Unterbrechung) — vorher endete jeder Lauf nach einem Sturz auf „Hindernis zu nah“.
 - **M3 – Studio (Woche 8–11):** Editor rendert Behavior-Packs als Schrittliste, Karten
   entstehen aus Manifest-`ui`, Ändern → Speichern → Ausführen ohne Code; Log in Sätzen;
   Notstopp. Erstes Behavior aus leerem Studio in unter zwei Minuten (Nutzertest).

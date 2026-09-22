@@ -24,6 +24,12 @@ PERSON_FRESH_S = 1.0
 # Three missed answers at the default 0.5 Hz: a VLM sighting stays usable much longer than a
 # detection, because nothing else is going to refresh it sooner (§4).
 TARGET_FRESH_S = 6.0
+# `steady`: standing without a break for this long. A duck that has just got up is upright
+# before its head is: in duck-sim the neck is still curled at -90° when the trunk is level and
+# takes another 1.1–1.3 s back to its rest pose, the head ToF looking at the floor at its feet
+# all the while. A step resumed then ends on "obstacle too close" (docs/upstream-notes.md,
+# "Falling over in duck-sim"). Re-measure on the real duck (docs/m4-hardware-checklist.md).
+STEADY_S = 2.0
 
 
 @dataclass(frozen=True)
@@ -54,6 +60,7 @@ class Snapshot:
     vlm_request: VlmRequest | None = None
     speech: set[str] = field(default_factory=set)  # phrases heard since the last tick
     pad_active_at: float | None = None
+    standing_since: float | None = None  # written by the executor each tick, for `steady`
     # per-step context, written by the executor before evaluating
     elapsed_s: float = 0.0
     budget_s: float | None = None
@@ -96,6 +103,11 @@ def signal_value(snapshot: Snapshot, signal: str) -> float | bool | None:
             if snapshot.state is None:
                 return None
             return getattr(snapshot.state.flags, signal)
+        case "steady":
+            if snapshot.state is None:
+                return None
+            since = snapshot.standing_since
+            return since is not None and snapshot.now - since >= STEADY_S
         case "tof_distance":
             return snapshot.tof_min_m
         case "person_found":

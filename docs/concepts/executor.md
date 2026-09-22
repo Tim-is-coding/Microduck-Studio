@@ -16,6 +16,9 @@ branches (`CLAUDE.md` §3.2, §6.4). No general behaviour-tree library: the shap
    word — `resume` returns to the interrupted step, `abort` fails the behavior, `stop` halts.
    A rule that fires more than three times in a row fails the behavior ("Erholung klappt
    nicht"). An action refused for a precondition (getup while already standing) is skipped.
+   `getup` ends on `steady` — upright (≤ ~26°) without a break for 2 s — not on the first
+   tick the duck is off the floor: the neck uncurls last, and a step resumed before that
+   reads the floor as an obstacle (measured in duck-sim, `docs/upstream-notes.md`).
 4. **The active step**:
    - `perceive: person.nearest` succeeds when a fresh detection (< 1 s) exists;
      `perceive: vlm.target` when a fresh VLM sighting (< 6 s) does — the step publishes its

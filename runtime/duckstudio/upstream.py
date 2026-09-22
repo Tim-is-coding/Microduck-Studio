@@ -188,7 +188,8 @@ QUERIES: dict[str, Method] = {
 
 # Our named behaviors (`DuckBackend.behavior(name)`, §6.3) and the upstream call each maps to.
 # `getup` has no upstream skill: the default walk policy (velstand.onnx, set v5) recovers from
-# falls itself once enabled; the exact recovery sequence is an M2 decision.
+# falls itself once enabled, and so does duck-sim's alpha_stand; `getup` ends on `steady`
+# (docs/upstream-notes.md, "Falling over in duck-sim").
 BEHAVIOR_CALLS: dict[str, tuple[Method, dict[str, object]]] = {
     "sit": (ROBOT_DO, {"skill": "sit_toggle"}),  # check robot.policies.sitting first
     "stand": (ROBOT_DO, {"skill": "sit_toggle"}),

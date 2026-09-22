@@ -292,6 +292,10 @@ def health_from_upstream(raw: dict[str, Any]) -> Health:
 
 
 NOT_STANDING_LABELS = frozenset({"sit", "limp_fall", "limp_pose"}) | upstream.TRANSITION_LABELS
+# Projected-gravity z a standing duck is at or below: about 26° of tilt. Upstream's own number
+# for "ordinary walking does not reach this" (duck-control/src/fall.rs, FallPredictorConfig
+# tilt_z = -0.90); robotd's `fallen` threshold (~60°) is far past it.
+UPRIGHT_GRAVITY_Z = -0.90
 
 
 def state_from_upstream(raw: dict[str, Any]) -> RobotState:
@@ -306,12 +310,15 @@ def state_from_upstream(raw: dict[str, Any]) -> RobotState:
     sitting = policy == "sit"
     applied = (raw.get("move") or {}).get("applied") or [0.0, 0.0, 0.0]
     moving = any(abs(float(v)) > 1e-3 for v in applied)
-    standing = not fallen and not limp and policy not in NOT_STANDING_LABELS
     # Projected gravity in the trunk frame (x forward, y left, z up), ≈ [0, 0, -1] upright.
     # Roll > 0 is right side down, pitch > 0 is nose down (REP-103), the same signs as
     # `robot.pose` {roll, pitch}. Verified 2026-09-22 on duck-sim 0.14.4 against the IMU quat
     # (docs/upstream-notes.md, "Roll and pitch"); the real duck's mounting is an M4 check.
     gx, gy, gz = (list(safety.get("gravity") or [0.0, 0.0, -1.0]) + [0.0, 0.0, 0.0])[:3]
+    # Standing means upright, not merely "not fallen": robotd's `fallen` clears at ~60° of tilt,
+    # so a duck halfway through getting up would count as standing (seen live, 37°).
+    upright = gz <= UPRIGHT_GRAVITY_Z
+    standing = not fallen and not limp and upright and policy not in NOT_STANDING_LABELS
     odom = raw.get("odom") or {}
     position = list(odom.get("position") or [0.0, 0.0, 0.0])
     yaw = float(odom.get("yaw", 0.0))

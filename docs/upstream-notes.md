@@ -210,7 +210,7 @@ Not present as methods: `robot.walk`, `robot.velocity`, `robot.sit`, `robot.stan
   get-up: `QingMuLYL/microduck-standup`.
 - Mapping used by our backends (`upstream.BEHAVIOR_CALLS`): sit/stand → `robot.do sit_toggle`,
   pickup → `robot.do ground_pick`, kick → `robot.do kick_right`, quack → `robot.sound chirp`,
-  getup → `robot.enable {on: true}` (recovery sequence to be decided in M2).
+  getup → `robot.enable {on: true}`; recovery measured in M2, see "Falling over in duck-sim".
 - microduck_rl: Python `>=3.12,<3.13`, `mjlab==1.3.0`; training needs CUDA, the sim body
   runs on CPU.
 
@@ -305,6 +305,39 @@ Not present as methods: `robot.walk`, `robot.velocity`, `robot.sit`, `robot.stan
   against the mock only, until upstream's sim gait or the hardware arrives.
 - Python 3.12's `asyncio.Server.wait_closed()` waits for accepted connections; anything
   faking a daemon must close them first (bit us in tests, not upstream).
+
+## Falling over in duck-sim (2026-09-22/23, 0.14.4)
+
+Needed for M2 ("Sturz-Recovery getestet durch simulierten Stoß"). Measured through our runtime
+and straight on the sockets; the drill is `sim/fall-drill.py`.
+
+- **No push in duck-body.** `body_server.py` answers `hello/read/write/gain/torque/slow/tof`
+  and nothing else, and we do not fork it. The push is upstream's own API instead:
+  `robot.pose {pitch: 2.5, active: true}`, ten times the trained ±0.26 rad, held 2.5 s.
+  `PoseParams` clamps nothing, so the stand policy leans into it and tips. Pitch 0.9 is not
+  enough (36° lean, stays up); 2.5 lays it down (`fallen`, trunk 4 cm instead of 11.6 cm).
+- **It gets up by itself.** Once the push lets go, `alpha_stand` rights the duck from 72–90°
+  to upright in ~0.8 s. It never goes limp (`safety.gain` stays 160; `safety.limp_fall` is
+  off in duck-sim's `robotd.toml`, and the cheatsheet's `fall_limp`/`fall_recover` names do not
+  exist in the code). Our `getup` → `robot.enable {on: true}` is answered `"enabled —
+  driving"`: harmless and redundant in the sim, which drives anyway.
+- **`fallen` clears early.** robotd's verdict is projected gravity z above `fall_gravity_z`,
+  about 60° of tilt. On the way up it drops at ~60°, so "not fallen" is not "standing": our
+  `standing` flag therefore also requires `gravity z ≤ -0.90` (≈26°, upstream's
+  `FallPredictorConfig::tilt_z`, "which ordinary walking does not reach").
+- **The head comes back last.** When the trunk is level again the neck is still curled at
+  about -90° (`joints[5]`, `neck_pitch`) and needs another 1.1–1.3 s back to its rest pose
+  (+12°, head_pitch +26°). All that time the head ToF looks at the floor at the duck's feet:
+  0.03–0.14 m in the centre columns, against ~0.5 m of floor ahead when standing normally.
+- **What that did to follow-me.** Before the fix: getup counted as done at 60° (`fallen`
+  false → `standing` true), the walk resumed at 37° of tilt, read ToF 0.03 m and ended on
+  „Hindernis zu nah“ a tick later — follow-me finished after every fall. Now `getup` ends on
+  `steady` (standing without a break for `STEADY_S` = 2 s); the walk resumes with the head up
+  and ToF at 0.49 m and carries on toward the person. While the duck tips, walk intents are
+  refused by the precondition (`standing`) instead of pushing a falling duck forward.
+- The real duck runs velstand and may set `safety.limp_fall` (limp while falling, land, pose
+  back, hand to standing); both the timings and whether our upright threshold fits are M4
+  measurements (`docs/m4-hardware-checklist.md`).
 
 ## microduck-mcp (community reference)
 

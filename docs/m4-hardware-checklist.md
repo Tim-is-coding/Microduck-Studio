@@ -58,6 +58,18 @@ Do these with the duck on a table, held, or on a soft floor — one person's han
 - [ ] Then the one M2 could never show: does it actually walk? (In the simulator it does not
       — upstream `microduck_rl#46`.)
 
+- [ ] **A fall, by hand, on a soft floor**, during `follow-me`. The log must read
+      „Unterbrechung: umgefallen → Aufstehen, weitermachen“, then „Weiter mit Schritt 2“, and
+      the walk must carry on — not end on „Hindernis zu nah“. Two numbers to take while it
+      happens (`robot.state`, `robotctl monitor`): how long from the trunk upright to the neck
+      (`joints[5]`) back at rest — in the sim 1.1–1.3 s, `STEADY_S` is 2 s — and whether velstand
+      with `safety.limp_fall` passes through `limp_fall`/`limp_pose` first. Longer than ~1.5 s:
+      raise `STEADY_S` (`runtime/duckstudio/executor/conditions.py`).
+- [ ] **The upright threshold on a walking duck**: `follow-me` on a normal floor for a minute.
+      Any „Gehen nicht gesendet: Voraussetzung nicht erfüllt (standing)“ while it walks means
+      its gait tilts past ~26° (`UPRIGHT_GRAVITY_Z`, `ipc_backend.py`) and the threshold is too
+      strict for the hardware.
+
 ## 6. Afterwards
 
 - [ ] Write what the duck did differently into `docs/upstream-notes.md`, dated.

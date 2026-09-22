@@ -9,5 +9,9 @@ summary: { de: "Steht nach einem Sturz wieder auf.", en: "Gets back up after a f
 source: { kind: builtin, policy: velstand, version: 5 }
 behavior: getup
 preconditions: [fallen]
-terminates_on: [standing, timeout]
+# `steady`, not `standing`: done once the duck has stood for two seconds without a break.
+# Resuming the moment it is upright ended follow-me on "obstacle too close" in duck-sim — the
+# neck was still curled and the head ToF faced the floor (docs/upstream-notes.md, "Falling over
+# in duck-sim").
+terminates_on: [steady, timeout]
 rate_hz: 2

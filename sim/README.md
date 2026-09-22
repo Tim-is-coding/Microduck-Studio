@@ -44,4 +44,16 @@ DUCKSTUDIO_SIM=1 uv run pytest tests/backends -q   # contract tests against the 
 Knobs passed through to upstream: `DUCK_SIM_VIEWER=1` (MuJoCo window, macOS via mjpython),
 `DUCK_SIM_SCENE=apartment`, `DUCK_SIM_DUCKS=2`, `DUCK_SIM_KEYFRAME=STAND`.
 
-Planned for M2: a scene with a marked "person" object for the follow-me detector.
+The default scene (`sim/make-scene.py`) puts a magenta "person" 1.5 m ahead for the follow-me
+detector.
+
+Fall drill — knock the duck over mid-walk and check it gets up and carries on:
+
+```bash
+./sim/up.sh                                             # fresh duck, person ahead
+cd runtime && uv run python -m duckstudio               # sim backend, :8000
+python3 sim/fall-drill.py                               # exit 0 = passed
+```
+
+The push is `robot.pose` far outside its trained range, sent straight to robotd — a hand,
+not the runtime. What it showed: `docs/upstream-notes.md`, "Falling over in duck-sim".

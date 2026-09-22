@@ -44,7 +44,7 @@ The screenshots come from a real Studio against a real runtime — regenerate th
 | `sim` backend: JSON-RPC/NDJSON over duck-sim's Unix sockets, `robot.subscribe` state stream, `tof.stream`, `robot.do`/`robot.sound`, contract tests green against the real daemons and against a protocol double in CI | done |
 | `sim/up.sh` wraps upstream `scripts/duck-sim` (no compose upstream, ADR-0002); `sim` is the default backend, the runtime reconnects on its own | done |
 | Live panel shows the simulated duck's state (steht / läuft / umgefallen, position, battery) and its camera at 2 fps (`mediad` `GET /frame`, PNG) | done |
-| Executor: 10 Hz tick, step list with `on_none` / `until` / `always` branches, heartbeat by resending `robot.move`, watchdog task, gamepad preemption, German event log; 19 mock-based tests incl. fall → getup → resume | done |
+| Executor: 10 Hz tick, step list with `on_none` / `until` / `always` branches, heartbeat by resending `robot.move`, watchdog task, gamepad preemption, German event log; 19 mock-based tests incl. fall → getup → resume, and the same live in duck-sim: knocked over mid-walk, up again, follow-me carries on (`sim/fall-drill.py`) | done |
 | Perception: local magenta-marker detector on the sim camera (bearing + range from ToF column or apparent width), ToF and state feeds into one snapshot | done |
 | Follow-me live in duck-sim: „Folge mir“ finds the person, steers toward it, „Stopp“ ends the walk, quack — but the simulated duck does not advance (upstream `microduck_rl#46`, see upstream notes) | partial |
 | Studio: Start / Abbrechen, „Ich sage: …“ with trigger chips, active step highlighted, person and state chips in the Live panel | done |

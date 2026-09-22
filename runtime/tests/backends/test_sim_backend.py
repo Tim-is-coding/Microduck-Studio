@@ -190,6 +190,27 @@ def test_roll_and_pitch_signs_follow_robot_pose(
 
 
 @pytest.mark.parametrize(
+    ("gravity", "standing"),
+    [
+        ([0.0, 0.0, -1.0], True),
+        ([0.24, 0.0, -0.971], True),  # robot.pose pitch +0.25: 14°, inside the trained range
+        ([0.43, 0.0, -0.903], True),  # 25°
+        ([0.60, 0.0, -0.80], False),  # 37°: robotd no longer says fallen, but it is not standing
+        ([0.87, 0.0, -0.50], False),  # 60°
+    ],
+)
+def test_standing_means_upright(gravity: list[float], standing: bool) -> None:
+    s = state_from_upstream(
+        {
+            "joints": [0.0] * 15,
+            "policy": "stand",
+            "safety": {"fallen": False, "limp": False, "gravity": gravity},
+        }
+    )
+    assert s.flags.standing is standing
+
+
+@pytest.mark.parametrize(
     ("label", "standing", "sitting"),
     [
         ("stand", True, False),

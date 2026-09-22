@@ -24,6 +24,7 @@ SIGNALS: dict[str, Bilingual] = {
     "motor_hot": ("Motor zu heiß", "motor too hot"),
     "timeout": ("Zeit abgelaufen", "time is up"),
     "standing": ("steht wieder", "standing again"),
+    "steady": ("steht wieder sicher", "steady on its feet again"),
     "sitting": ("sitzt", "sitting"),
     "person_found": ("Person gefunden", "person found"),
     "object_grasped": ("Gegenstand gegriffen", "object grasped"),

@@ -30,7 +30,11 @@ non-technical users, everything else for the runtime.
 
 `signal` or `signal <op> number`, e.g. `standing`, `battery > 0.15`, `tof_distance < 0.25`.
 Known signals (`runtime/duckstudio/executor/conditions.py`): `battery`, `motor_hot`,
-`standing`, `fallen`, `sitting`, `moving`, `tof_distance`, `person_distance`, `elapsed`.
+`standing`, `steady`, `fallen`, `sitting`, `moving`, `tof_distance`, `person_distance`,
+`elapsed`. `standing` means on its feet *and* upright (at most ~26° of tilt — upstream's own
+threshold, `robotd`'s `fallen` only trips near 60°); `steady` is `standing` held without a break
+for two seconds (`STEADY_S`), which is what `getup` ends on — long enough for the neck to
+uncurl after getting up (measured in duck-sim, `docs/upstream-notes.md`).
 Unknown signals evaluate to "unknown", which never passes a precondition.
 
 ## UI → params

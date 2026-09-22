@@ -312,6 +312,11 @@ class Executor:
             return
         snap = self.snapshot
         snap.now = self.clock()
+        standing = snap.state is not None and snap.state.flags.standing
+        if not standing:
+            snap.standing_since = None
+        elif snap.standing_since is None:
+            snap.standing_since = snap.now
         self._driving_this_tick = False
         self.counters.ticks += 1
         try:
