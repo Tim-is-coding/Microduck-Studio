@@ -42,7 +42,7 @@ echo "  $dir/robotd.sock → $remote_robot"
 echo "  $dir/tof.sock    → $remote_tof"
 echo "  $dir/pad.sock    → $remote_pad"
 echo
-echo "then, in another terminal:"
+echo "then pick \"Echte Ente\" in the Studio's top bar, or start the runtime on it:"
 echo "  DUCKSTUDIO_BACKEND=duck DUCKSTUDIO_DUCK_HOST=$host uv run python -m duckstudio"
 echo
 

@@ -67,6 +67,15 @@ class Snapshot:
     stop_distance_m: float | None = None  # how close the step wants to get
     steering: str | None = None  # "person" | "target" | None
 
+    def forget_duck(self) -> None:
+        """Drop everything one duck told us, before another one is asked. A switch from the
+        simulation to the real duck must not leave the sim's "standing, battery full" behind
+        for a precondition to read."""
+        self.health = self.state = None
+        self.tof_min_m = self.tof_rows = None
+        self.person = self.target = self.vlm = None
+        self.pad_active_at = self.standing_since = None
+
     @property
     def person_fresh(self) -> PersonDetection | None:
         if self.person is None or self.now - self.person.timestamp > PERSON_FRESH_S:

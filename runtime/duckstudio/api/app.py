@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import re
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -14,7 +16,7 @@ from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, ValidationError
 
 from .. import __version__, behaviors_dir, skills_dir, texts, upstream
-from ..backends import make_backend
+from ..backends import KINDS, make_backend
 from ..backends.base import BackendError, DuckBackend, NoCamera
 from ..behaviors import (
     BehaviorPack,
@@ -28,7 +30,7 @@ from ..events import EventBus
 from ..executor import Executor, ExecutorBusy
 from ..executor.safety import IntentGate
 from ..hub import HubClient, HubError, skill_from_policy, skill_id_for
-from ..perception import PerceptionService, detector_for, make_vlm, vlm_hz
+from ..perception import PerceptionService, StubVlm, detector_for, make_vlm, vlm_hz
 from ..skills import (
     SkillRegistry,
     delete_skill_manifest,
@@ -37,12 +39,23 @@ from ..skills import (
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 RECONNECT_EVERY_S = 3.0
+FIRST_ATTEMPT_S = 3.0  # a switch answers with the first attempt's outcome, not "wait and see"
+# The duck's host only ever appears in a command the Studio shows for copying into a
+# terminal (scripts/duck-tunnel.sh <host>), so it may hold nothing a shell would read twice.
+DUCK_HOST = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,252})$")
 
 
 class SayBody(BaseModel):
     """Module level on purpose: FastAPI resolves the annotation through module globals."""
 
     text: str
+
+
+class BackendBody(BaseModel):
+    """Which duck the runtime talks to (ADR-0007). `host` only matters for the real one."""
+
+    kind: str
+    host: str = ""
 
 
 class ImportBody(BaseModel):
@@ -59,6 +72,7 @@ def create_app(
     behaviors_path: Path | None = None,
     auto_connect: bool = True,
     hub: HubClient | None = None,
+    backend_factory: Callable[..., DuckBackend] = make_backend,
 ) -> FastAPI:
     skills_root = Path(skills_path or skills_dir())
     registry = SkillRegistry.load(skills_root)
@@ -83,8 +97,17 @@ def create_app(
         bus=bus,
     )
 
+    # What the last connection attempt said; "" before the first one, None once connected.
+    # The Studio shows it next to the backend switch, so "Ente nicht verbunden" has a reason.
+    link_error: str | None = ""
+    reconnect_task: asyncio.Task[None] | None = None
+    switching = asyncio.Lock()
+
     def is_connected() -> bool:
         return bool(getattr(duck, "connected", False))
+
+    def duck_host() -> str:
+        return str(getattr(duck, "host", "") or "")
 
     async def try_connect() -> str | None:
         """One connection attempt. Returns an error string, or None when connected."""
@@ -97,38 +120,51 @@ def create_app(
         bus.emit("backend.connected", *texts.backend_connected(duck.kind), backend=duck.kind)
         return None
 
+    async def attempt() -> str | None:
+        """Try once and say so in the log when the reason changed, not on every retry."""
+        nonlocal link_error
+        error = await try_connect()
+        if error is not None and error != link_error:
+            bus.emit(
+                "backend.unavailable",
+                *texts.backend_unavailable(duck.kind, duck_host()),
+                level="warn",
+                backend=duck.kind,
+                error=error,
+            )
+        link_error = error
+        return error
+
     async def reconnect_loop() -> None:
-        last_error: str | None = ""
         while True:
             if not is_connected():
-                error = await try_connect()
-                if error is not None and error != last_error:
-                    bus.emit(
-                        "backend.unavailable",
-                        *texts.backend_unavailable(duck.kind),
-                        level="warn",
-                        backend=duck.kind,
-                        error=error,
-                    )
-                last_error = error
+                error = await attempt()
                 if error is not None and error.startswith("not implemented"):
                     return
             await asyncio.sleep(RECONNECT_EVERY_S)
 
+    def start_link() -> None:
+        nonlocal reconnect_task
+        if auto_connect:
+            reconnect_task = asyncio.create_task(reconnect_loop(), name="backend-reconnect")
+            perception.start()
+
+    async def stop_link() -> None:
+        nonlocal reconnect_task
+        await perception.close()
+        if reconnect_task is not None:
+            reconnect_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await reconnect_task
+            reconnect_task = None
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        task = None
-        if auto_connect:
-            task = asyncio.create_task(reconnect_loop(), name="backend-reconnect")
-            perception.start()
+        start_link()
         yield
         await executor.close()
-        await perception.close()
         await hub_client.close()
-        if task is not None:
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
+        await stop_link()
         await duck.close()
 
     app = FastAPI(title="Duck Studio Runtime", version=__version__, lifespan=lifespan)
@@ -150,7 +186,10 @@ def create_app(
         payload: dict[str, Any] = {
             "version": __version__,
             "backend": duck.kind,
+            "backends": list(KINDS),
             "connected": is_connected(),
+            "backend_error": None if is_connected() else (link_error or None),
+            "duck_host": duck_host(),
             "health": None,
             "unverified_upstream_methods": [m.name for m in upstream.unverified()],
             "vlm": {
@@ -171,6 +210,61 @@ def create_app(
                 gate.observe(health=h)
                 payload["health"] = h.model_dump()
         return payload
+
+    @app.put("/api/backend")
+    async def switch_backend(body: BackendBody) -> dict[str, Any]:
+        """Simulation, practice duck or the real one, chosen in the Studio (ADR-0007).
+
+        The old duck is stopped and let go before the new one is asked anything, and nothing
+        the old one reported survives into the snapshot. A running behavior is not ended
+        from here: the person stops it, like saving or deleting it (409).
+        """
+        nonlocal duck, link_error
+        if body.kind not in KINDS:
+            raise HTTPException(422, f"unknown backend {body.kind!r}; expected one of {KINDS}")
+        host = body.host.strip()
+        if body.kind == "duck" and host and not DUCK_HOST.match(host):
+            raise HTTPException(422, "a host name or address, like duck.local or 192.168.1.42")
+        async with switching:
+            if executor.state == "running":
+                raise HTTPException(409, "a behavior is running; stop it before switching")
+            if body.kind == duck.kind and (body.kind != "duck" or host == duck_host()):
+                return await health()
+            options: dict[str, Any] = {"url": host} if body.kind == "duck" else {}
+            try:
+                fresh = backend_factory(body.kind, **options)
+            except (ValueError, TypeError) as e:
+                raise HTTPException(422, str(e)) from e
+            old = duck
+            # Stopped, then let go. Straight to the backend rather than gate.stop(): this is
+            # not a Notstopp and the log should not say it was one. stop() never raises, and
+            # a duck that is already gone is fine.
+            with contextlib.suppress(Exception):
+                await old.stop()
+            await stop_link()
+            with contextlib.suppress(Exception):
+                await old.close()
+            duck = fresh
+            app.state.backend = fresh
+            gate.backend = fresh
+            gate.snapshot.forget_duck()
+            perception.backend = fresh
+            perception.detector = detector_for(fresh.kind)
+            if isinstance(vlm, StubVlm):  # the stub looks with the local detector
+                vlm.detector = perception.detector
+            perception.camera_available = None
+            link_error = ""
+            bus.emit(
+                "backend.switched",
+                *texts.backend_switched(fresh.kind),
+                backend=fresh.kind,
+                previous=old.kind,
+                host=duck_host() or None,
+            )
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(attempt(), FIRST_ATTEMPT_S)
+            start_link()
+        return await health()
 
     @app.get("/api/state")
     async def state() -> dict[str, Any]:

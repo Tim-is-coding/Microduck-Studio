@@ -20,6 +20,10 @@ than an improvisation. Everything here is already possible except the steps mark
 - [ ] `ls ~/.cache/duckstudio/tunnel` shows the three sockets.
 - [ ] `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/frame` → 200 (or no
       camera on this duck, which is fine).
+- [ ] In the Studio, open the status in the top bar, pick **Echte Ente**, type the host and
+      connect (ADR-0007). The status turns to „Ente verbunden“; without the tunnel it says
+      „Kein Tunnel zur Ente offen“ and shows the command. Switching back to Simulation must
+      leave the real duck stopped — check with the hand on it.
 
 ## 3. Run the contract against the real thing (**hardware**)
 

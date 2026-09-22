@@ -40,7 +40,7 @@ RESERVED_ACTIONS: dict[str, Bilingual] = {
 }
 
 BACKENDS: dict[str, Bilingual] = {
-    "mock": ("Attrappe (Mock)", "mock duck"),
+    "mock": ("Übungsente", "the practice duck"),
     "sim": ("Simulation (MuJoCo)", "simulation (MuJoCo)"),
     "duck": ("Ente", "the duck"),
 }
@@ -56,6 +56,12 @@ def action(name: str) -> Bilingual:
 
 def backend(kind: str) -> Bilingual:
     return BACKENDS.get(kind, (kind, kind))
+
+
+def _backend_subject(kind: str) -> Bilingual:
+    """The backend at the start of a sentence: "The duck", "Simulation (MuJoCo)"."""
+    de, en = backend(kind)
+    return de, en[:1].upper() + en[1:]
 
 
 def name_of(text: Text) -> Bilingual:
@@ -366,18 +372,26 @@ def executor_crashed(error: str) -> Bilingual:
 
 
 def backend_connected(kind: str) -> Bilingual:
-    de, en = backend(kind)
+    de, en = _backend_subject(kind)
     return f"{de} verbunden.", f"{en} connected."
 
 
-def backend_unavailable(kind: str) -> Bilingual:
-    de, en = backend(kind)
-    hint = (
-        (" Starte sie mit sim/up.sh.", " Start it with sim/up.sh.") if kind == "sim" else ("", "")
-    )
+def backend_unavailable(kind: str, host: str = "") -> Bilingual:
+    de, en = _backend_subject(kind)
+    hint: Bilingual = ("", "")
+    if kind == "sim":
+        hint = (" Starte sie mit sim/up.sh.", " Start it with sim/up.sh.")
+    elif kind == "duck":
+        command = f"scripts/duck-tunnel.sh {host or '<ente>'}"
+        hint = (f" Öffne zuerst den Tunnel: {command}", f" Open the tunnel first: {command}")
     return f"{de} nicht erreichbar.{hint[0]}", f"{en} is not reachable.{hint[1]}"
 
 
-def backend_lost(kind: str, error: str) -> Bilingual:
+def backend_switched(kind: str) -> Bilingual:
     de, en = backend(kind)
+    return f"Gewechselt zu: {de}.", f"Switched to {en}."
+
+
+def backend_lost(kind: str, error: str) -> Bilingual:
+    de, en = _backend_subject(kind)
     return f"{de}: Verbindung verloren ({error}).", f"{en}: connection lost ({error})."

@@ -19,10 +19,19 @@ export const VlmInfo = z.object({
 });
 export type VlmInfo = z.infer<typeof VlmInfo>;
 
+export const BackendKind = z.enum(["mock", "sim", "duck"]);
+export type BackendKind = z.infer<typeof BackendKind>;
+
 export const RuntimeHealth = z.object({
   version: z.string(),
-  backend: z.enum(["mock", "sim", "duck"]),
+  backend: BackendKind,
+  /** What the Studio may switch to (ADR-0007). */
+  backends: z.array(BackendKind).default(["sim", "mock", "duck"]),
   connected: z.boolean(),
+  /** Why the last connection attempt failed, in the backend's words; null once connected. */
+  backend_error: z.string().nullish(),
+  /** The real duck's host name, only ever shown in the tunnel command. */
+  duck_host: z.string().default(""),
   health: Health.nullable(),
   unverified_upstream_methods: z.array(z.string()).default([]),
   vlm: VlmInfo.nullish(),

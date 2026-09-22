@@ -17,6 +17,7 @@ import {
   type RobotState as RobotStateT,
   type RunRecord as Run,
   type RuntimeHealth as RuntimeHealthT,
+  type BackendKind as BackendKindT,
   type HubPolicy as Policy,
   type SkillManifest as Skill,
 } from "../schemas";
@@ -77,7 +78,21 @@ interface StudioState {
   loadCatalog: () => Promise<void>;
   select: (id: string | null) => void;
   stop: () => Promise<void>;
+  /** Simulation, practice duck or the real one (ADR-0007). Resolves to an error sentence
+   *  from the runtime, or null when it switched. */
+  switchBackend: (kind: BackendKindT, host?: string) => Promise<string | null>;
   pushEvent: (e: EventT) => void;
+}
+
+/** FastAPI puts its sentence in `detail`; show that, not the JSON around it. */
+function detail(body: string): string {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (parsed && typeof parsed === "object" && "detail" in parsed && typeof parsed.detail === "string") return parsed.detail;
+  } catch {
+    /* not JSON: the body is the message */
+  }
+  return body.slice(0, 300);
 }
 
 async function getJson<T>(url: string, schema: z.ZodType<T>): Promise<T> {
@@ -370,6 +385,23 @@ export const useStudio = create<StudioState>((set, get) => ({
     // Never gated on the client either: fire, then let the runtime's event tell the story.
     await fetch("/api/stop", { method: "POST" }).catch((err) => console.error(err));
     void get().refreshHealth();
+  },
+
+  async switchBackend(kind, host = "") {
+    try {
+      const res = await fetch("/api/backend", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, host }),
+      });
+      if (!res.ok) return detail(await res.text());
+      // Nothing the old duck said is true of the new one.
+      set({ health: RuntimeHealth.parse(await res.json()), state: null });
+      void get().refreshExecutor();
+      return null;
+    } catch (err) {
+      return String(err);
+    }
   },
 
   pushEvent(e) {

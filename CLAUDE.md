@@ -75,7 +75,9 @@ Community (alles pre-hardware, Sim-only):
    Seitenzweigen (Bedingung, Interrupt). Freie Node-Graphen sind später möglich, jetzt nicht.
 3. **Simulation ist Normalzustand.** Das Studio startet mit „Simulation (MuJoCo) ·
    Ente nicht verbunden“ und ist damit vollständig benutzbar. Die echte Ente ist ein
-   weiteres Backend, kein anderer Modus.
+   weiteres Backend, kein anderer Modus. **Stand 2026-09-23 (ADR-0007):** gewählt wird im
+   Studio (Status oben rechts: Simulation · Übungsente · Echte Ente), nie unter einem
+   laufenden Ablauf; ein Neustart kommt immer auf `DUCKSTUDIO_BACKEND` (Standard `sim`) hoch.
 4. **Vertikaler Schnitt zuerst.** Erstes Ziel ist „Folge mir“ komplett durch alle
    Schichten in der Simulation, im Studio gebaut. Kein generisches Framework vorab.
 5. **Kein Fork, nichts auf der Ente in v1.** Wir sind ein Client der Upstream-API.

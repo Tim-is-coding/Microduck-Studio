@@ -63,6 +63,7 @@ The screenshots come from a real Studio against a real runtime — regenerate th
 | Live panel: „Letzte Läufe“ — the last ten runs with duration, how far they got and why they ended (`GET /api/runs`) | done |
 | Editor: undo and redo for the draft (Strg+Z / Strg+Umschalt+Z), one entry per move rather than per keystroke | done |
 | First run: a nameless new draft, starter templates on the empty overview, measured 21 s from empty Studio to a running behavior ([`docs/m3-acceptance.md`](docs/m3-acceptance.md)) | done |
+| Top bar: choose Simulation, Übungsente or Echte Ente without a restart — the old duck is stopped and let go, nothing it reported survives, the tunnel command is shown for copying (`PUT /api/backend`, ADR-0007) | done |
 | Real duck on hardware (M4) | waits for the duck (December) |
 
 Roadmap and rules live in [`CLAUDE.md`](CLAUDE.md); decisions in [`docs/adr/`](docs/adr/).
@@ -90,7 +91,8 @@ cd studio && pnpm install && pnpm dev                        # http://localhost:
 ```
 
 ```bash
-# a real duck (M4, ADR-0006): one terminal holds the tunnel, the runtime talks to its local end
+# a real duck (M4, ADR-0006): one terminal holds the tunnel, then pick "Echte Ente" in the
+# Studio's top bar (ADR-0007) — or start the runtime on it directly:
 ./scripts/duck-tunnel.sh duck.local
 DUCKSTUDIO_BACKEND=duck DUCKSTUDIO_DUCK_HOST=duck.local uv run python -m duckstudio
 ```
@@ -103,8 +105,10 @@ export ANTHROPIC_API_KEY=sk-ant-…
 DUCKSTUDIO_VLM=anthropic uv run python -m duckstudio        # DUCKSTUDIO_VLM_MODEL, _HZ to tune
 ```
 
-The Studio talks only to the runtime; the runtime talks to one backend
-(`DUCKSTUDIO_BACKEND=sim|mock|duck`, default `sim`). Without a running duck-sim the runtime
+The Studio talks only to the runtime; the runtime talks to one backend. It starts on
+`DUCKSTUDIO_BACKEND=sim|mock|duck` (default `sim`), and the status in the Studio's top bar
+switches it while the runtime runs: Simulation, Übungsente, Echte Ente (ADR-0007; never under
+a running behavior, and a restart always comes up on the environment's choice again). Without a running duck-sim the runtime
 says so in the log and retries; the Studio stays usable. With `mock` you get a deterministic
 duck that walks when told to, a fake person in the ToF grid and a camera frame.
 `DUCKSTUDIO_SIM=1 uv run pytest tests/backends` runs the backend contract against the real
