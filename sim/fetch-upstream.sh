@@ -5,7 +5,7 @@
 # Then `uv sync` in the RL checkout, which is what provides `duck-body`.
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
-MICRODUCK_REV="${MICRODUCK_REV:-344925c9f8fa031f85428a305b1e8ec2eaae29c1}"   # 0.14.1, API 31
+MICRODUCK_REV="${MICRODUCK_REV:-ac7531a77adae5e9c49d1a3f5d23f72f9af7fee1}"   # 0.14.4, API 34
 RL_REV="${RL_REV:-cb70b792312d559a4da09064d92009079671815f}"                # develop 2026-09-14
 
 pin() {  # pin <url> <rev> <dest>

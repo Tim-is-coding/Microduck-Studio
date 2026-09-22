@@ -254,9 +254,13 @@ strukturierten Daten fürs Debugging.
   microduck@344925c (0.14.1, API 31): `docs/upstream-notes.md`. Kernpunkte: `robot.move`
   statt `robot.walk`, kein Heartbeat-Befehl (Deadman = Alter des letzten `robot.move`,
   500 ms), keine Geschwindigkeits-Clamps upstream (unsere sind die einzigen), `robotd` hat
-  keine Autoritäts-Arbitrierung (Gamepad-Vorrang bauen wir selbst).
+  keine Autoritäts-Arbitrierung (Gamepad-Vorrang bauen wir selbst). **Nachgeprüft
+  2026-09-22** gegen microduck@ac7531a (0.14.4, API 34, jetzt der Pin): nichts, was wir senden
+  oder lesen, hat sich geändert; v32–v34 fügen nur optionale Felder hinzu (`cpu_throttle` →
+  Warnung `cpu_throttled`). Roll/Pitch-Vorzeichen in der Sim gegen das IMU-Quaternion
+  verifiziert (REP-103); ob die echte Ente die IMU genauso eingebaut hat, prüft M4 von Hand.
 - ~~Ist der WebSocket-Pfad für Agenten implementiert?~~ **Nein, nur Design** (Stand
-  0.14.1). ~~Echte Ente: SSH-Tunnel oder WebRTC-Datachannel – Entscheidung als ADR in M4.~~
+  0.14.1, unverändert in 0.14.4). ~~Echte Ente: SSH-Tunnel oder WebRTC-Datachannel – Entscheidung als ADR in M4.~~
   **Entschieden 2026-09-20, ADR-0006:** `ssh -L` leitet die Sockets der Ente weiter
   (`scripts/duck-tunnel.sh`), das `duck`-Backend ist damit dasselbe `IpcBackend` wie die Sim.
   Die Contract-Tests laufen bereits dagegen — alles außer dem ssh-Sprung. WebRTC bleibt
@@ -268,8 +272,10 @@ strukturierten Daten fürs Debugging.
 - **Die simulierte Ente geht nicht (Stand 2026-09-19, erneut geprüft 2026-09-20):**
   Gehpolicies treten in duck-sim auf der Stelle, auch mit Upstreams eigenem `drive` — offenes
   Upstream-Issue `pollen-robotics/microduck_rl#46` („Velocity-family training converges to
-  standing-in-place“), weiterhin **offen und ohne Antwort**. Wahrnehmung, Lenkung und Ablauf
-  sind in der Sim verifiziert, Vorwärtskommen nur gegen den Mock. Details in
+  standing-in-place“), weiterhin **offen, ohne Antwort der Maintainer** (Stand 2026-09-22;
+  ein Community-Kommentar vermutet das `feet_air_time`-Reward, das Auf-der-Stelle-Treten
+  bezahlt). Wahrnehmung, Lenkung und Ablauf sind in der Sim verifiziert, Vorwärtskommen nur
+  gegen den Mock. Details in
   `docs/upstream-notes.md`.
 - ~~Welches VLM/embodied-reasoning-Modell für Phase 2 (Zielpixel, Szenenfragen)?~~
   **Erledigt 2026-09-20, ADR-0004**: Adapter (`perception/vlm.py`) statt Modellwahl — Claude

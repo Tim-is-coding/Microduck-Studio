@@ -4,9 +4,10 @@ Rule from CLAUDE.md §10: never write API names from memory. Every entry below c
 upstream revision and source location it was read from; `verified=False` entries are
 assumptions and block `sim`/`duck` from connecting (`require_verified`).
 
-Verified 2026-09-19 against pollen-robotics/microduck@344925c9f8fa031f85428a305b1e8ec2eaae29c1
-(workspace 0.14.1, `API_VERSION = 31` in duck-ipc-proto/src/lib.rs). Details and the
-discrepancies against the handover: docs/upstream-notes.md.
+Verified 2026-09-19 against pollen-robotics/microduck@344925c (workspace 0.14.1, API 31),
+re-checked 2026-09-22 against @ac7531a (0.14.4, `API_VERSION = 34`): every struct and method
+name below is unchanged; v32–v34 only add optional fields. Details and the discrepancies
+against the handover: docs/upstream-notes.md.
 """
 
 from __future__ import annotations
@@ -14,10 +15,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 UPSTREAM_REPO = "pollen-robotics/microduck"
-UPSTREAM_REV = "344925c9f8fa031f85428a305b1e8ec2eaae29c1"
-UPSTREAM_VERSION = "0.14.1"
+UPSTREAM_REV = "ac7531a77adae5e9c49d1a3f5d23f72f9af7fee1"
+UPSTREAM_VERSION = "0.14.4"
 API_VERSION = (
-    31  # duck-ipc-proto/src/lib.rs; sent in `hello {api_version}`; skew is logged, never refused
+    34  # duck-ipc-proto/src/lib.rs; sent in `hello {api_version}`; skew is logged, never refused
 )
 
 # robotd zeroes the velocity when no `robot.move` arrived for this long (safety.deadman_ms).
@@ -31,7 +32,7 @@ MOVE_RESEND_HZ = 10
 class Method:
     name: str
     verified: bool = False
-    source: str = ""  # file:line in UPSTREAM_REV
+    source: str = ""  # file and symbol in UPSTREAM_REV (grep the name; line numbers drift)
     note: str = ""
 
 
@@ -41,28 +42,28 @@ _PROTO = "duck-ipc-proto/src/lib.rs"
 ROBOT_MOVE = Method(
     "robot.move",
     True,
-    f"{_PROTO}:2044 MoveParams",
+    f"{_PROTO} MoveParams",
     "continuous velocity intent {vx m/s fwd, vy m/s left, vyaw rad/s +left}; send as "
     "notification (no id) at 10–50 Hz; last-writer-wins; NO clamp upstream — ours is the only one",
 )
 ROBOT_HEAD = Method(
     "robot.head",
     True,
-    f"{_PROTO}:2060 HeadParams",
+    f"{_PROTO} HeadParams",
     "{neck_pitch, head_pitch, head_yaw, head_roll} rad; does not refresh the deadman",
 )
 ROBOT_LOOK = Method(
     "robot.look",
     True,
-    f"{_PROTO}:2074 LookParams",
+    f"{_PROTO} LookParams",
     "{x, y, z} metres in trunk frame (floor ≈ 0.12 m below origin), neck_pitch "
     "→ LookResult{head, clamped}",
 )
-ROBOT_POSE = Method("robot.pose", True, f"{_PROTO}:2248 PoseParams", "{z, roll, pitch, active}")
+ROBOT_POSE = Method("robot.pose", True, f"{_PROTO} PoseParams", "{z, roll, pitch, active}")
 ROBOT_STOP = Method(
     "robot.stop",
     True,
-    f"{_PROTO}; robotd/src/main.rs:4478",
+    f"{_PROTO}; robotd/src/main.rs Call::RobotStop",
     "zero the velocity; always accepted, no gate. Not a physical e-stop (mediad/src/route.rs)",
 )
 ROBOT_RELAX = Method("robot.relax", True, _PROTO, "cut joint power; the robot collapses")
@@ -83,71 +84,75 @@ ROBOT_DO = Method(
 ROBOT_SOUND = Method(
     "robot.sound",
     True,
-    f"{_PROTO}:2098 SoundParams",
+    f"{_PROTO} SoundParams",
     "{tag: alarm|greet|inquire|peck|chirp|coo|wheee, hold?}; `robotctl quack` plays chirp",
 )
 ROBOT_HEALTH = Method(
     "robot.health",
     True,
-    f"{_PROTO}:3259 HealthResult",
-    "{healthy, degraded, reason?, battery?: {volts, percent 0–100}, ...}; battery absent = unknown",
+    f"{_PROTO} HealthResult",
+    "{healthy, degraded, reason?, battery?: {volts, percent 0–100}, cpu_throttle? (v33), ...}; "
+    "battery absent = unknown",
 )
 ROBOT_SUBSCRIBE = Method(
     "robot.subscribe",
     True,
-    f"{_PROTO}:2638 SubscribeParams",
+    f"{_PROTO} SubscribeParams",
     "{hz?} → SubscribeResult, then `robot.state` notifications on this connection",
 )
 ROBOT_STATE = Method(
     "robot.state",
     True,
-    f"{_PROTO}:3487 RobotState (notification)",
+    f"{_PROTO} RobotState (notification)",
     "{t, move{requested, applied, limited_by[]}, head[4], policy, safety{fallen, limp, ...}, "
     "joints[15], targets[15], odom, imu?, ...}",
 )
 ROBOT_POLICIES = Method(
     "robot.policies",
     True,
-    f"{_PROTO}:2329 PoliciesResult",
+    f"{_PROTO} PoliciesResult",
     "{mode, enabled, slots, skills, homed?, sitting?}",
 )
 HELLO = Method(
-    "hello", True, f"{_PROTO}:59 HelloResult", "{api_version} → {api_version, daemon_version?}"
+    "hello", True, f"{_PROTO} HelloResult", "{api_version} → {api_version, daemon_version?}"
 )
 
 # -- other daemons ---------------------------------------------------------------------------
 MEDIA_FRAME = Method(
     "media.frame",
     True,
-    f"{_PROTO}:2947 MediaFrameHeader; mediad/src/frame.rs",
+    f"{_PROTO} MediaFrameHeader; mediad/src/frame.rs",
     "on /run/mediad/media.sock: JSON header {width, height, format: UYVY, bytes, ...} followed "
-    "by raw UYVY pixels. Not JPEG. HTTP alternative: GET :8080/frame → PNG (mediad/src/web.rs:97)",
+    "by raw UYVY pixels. Not JPEG. HTTP alternative: GET :8080/frame → PNG "
+    "(mediad/src/web.rs, route /frame)",
 )
 MEDIA_STREAM = Method(
     "media.stream",
     True,
-    "mediad/src/session.rs:255",
+    "mediad/src/session.rs enum Ask",
     "WebRTC datachannel only: robot dials OUR wss:// and pushes JPEG/H.264 at 0.2–15 fps",
 )
 TOF_STREAM = Method(
     "tof.stream",
     True,
-    f"{_PROTO}:811; TofStreamResult :4479",
+    f"{_PROTO} method::TOF_STREAM, TofStreamResult",
     "on /run/tofd/tof.sock (tofd, not robotd): → {accepted, sensor?, rows, cols, hz}, then "
     "`tof.frame` notifications {seq, at_us, rows, cols, distance_mm: [i16], status: [u8]} (mm!)",
 )
-TOF_FRAME = Method("tof.frame", True, f"{_PROTO}:828,4507 TofFrame", "row-major, millimetres")
+TOF_FRAME = Method(
+    "tof.frame", True, f"{_PROTO} method::TOF_FRAME, TofFrame", "row-major, millimetres"
+)
 PAD_REPORT = Method(
     "pad.report",
     True,
-    f"{_PROTO}:4279 PadReport (notification)",
+    f"{_PROTO} PadReport (notification)",
     'internally tagged: {"report": "attached"|"frame"|"detached"|...}; frame carries '
     "{seq, at_us, since_us?, events: [{kind, code, value, name}], ...}",
 )
 PAD_INPUT = Method(
     "pad.input",
     True,
-    f"{_PROTO}:795; PadReport :4280",
+    f"{_PROTO} method::PAD_INPUT, PadReport",
     "on /run/padd/pad.sock: raw evdev tap → `pad.report` notifications (Attached|Frame|Detached). "
     "NOT an authority signal: robotd has no arbitration, padd is just another `robot.move` writer",
 )
@@ -211,7 +216,8 @@ SIM_SOCKETS = {  # `{duck}` is duck-a, duck-b, ... (DUCK_SIM_DUCKS)
 }
 SIM_CONSOLE_URL = "http://127.0.0.1:8080"  # mediad console of duck-a; 8080 + index for others
 
-# `robot.state.policy` labels seen in robotd/src/{control,main}.rs @344925c and live on duck-sim.
+# `robot.state.policy` labels seen in robotd/src/{control,main}.rs (@344925c, unchanged @ac7531a)
+# and live on duck-sim.
 # Skill labels (kick_left, roulade, ...) appear while a one-shot runs.
 POLICY_LABELS = frozenset(
     {
@@ -234,7 +240,7 @@ POLICY_LABELS = frozenset(
 # held sit, `rise` the way back up (observed live), `sitstand` the scripted move between.
 TRANSITION_LABELS = frozenset({"sitstand", "rise", "homing"})
 
-# Real duck socket paths (duck-ipc-proto/src/lib.rs:393–422) and ports (architecture.md:80–89).
+# Real duck socket paths (duck-ipc-proto/src/lib.rs `mod socket`) and ports (architecture.md:80–89).
 DUCK_SOCKETS = {
     "robot": "/run/robotd.sock",
     "config": "/run/configd.sock",

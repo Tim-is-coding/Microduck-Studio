@@ -40,7 +40,7 @@ The screenshots come from a real Studio against a real runtime — regenerate th
 | `mock` backend, contract tests, safety gate (clamp · battery · preconditions · rate limit · e-stop bypass) | done |
 | Runtime API (`/api/health`, `/api/skills`, `/api/behaviors`, `/api/frame`, `/api/stop`, `/ws/events`) | done |
 | Studio shell: skills panel, step list of `follow-me`, live panel with camera + Notstopp + log | done, read-only |
-| Upstream API verified against `microduck@344925c` (0.14.1) → `docs/upstream-notes.md` | done |
+| Upstream API verified against `microduck@344925c` (0.14.1), re-checked at `@ac7531a` (0.14.4) → `docs/upstream-notes.md` | done |
 | `sim` backend: JSON-RPC/NDJSON over duck-sim's Unix sockets, `robot.subscribe` state stream, `tof.stream`, `robot.do`/`robot.sound`, contract tests green against the real daemons and against a protocol double in CI | done |
 | `sim/up.sh` wraps upstream `scripts/duck-sim` (no compose upstream, ADR-0002); `sim` is the default backend, the runtime reconnects on its own | done |
 | Live panel shows the simulated duck's state (steht / läuft / umgefallen, position, battery) and its camera at 2 fps (`mediad` `GET /frame`, PNG) | done |

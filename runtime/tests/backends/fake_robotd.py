@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-API_VERSION = 31
+API_VERSION = 34
 SOUND_TAGS = {"alarm", "greet", "inquire", "peck", "chirp", "coo", "wheee"}
 PARAMS: dict[str, set[str]] = {
     "hello": {"api_version"},
@@ -143,7 +143,7 @@ class FakeDuck:
                     case "hello":
                         result = {
                             "api_version": API_VERSION,
-                            "daemon_version": "0.14.1",
+                            "daemon_version": "0.14.4",
                             "revision": None,
                         }
                     case "robot.health":

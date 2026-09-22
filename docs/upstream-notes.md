@@ -10,12 +10,82 @@ the code.
 | Repo | Branch | Commit | Date | Notes |
 | --- | --- | --- | --- | --- |
 | pollen-robotics/microduck | main | `344925c9f8fa031f85428a305b1e8ec2eaae29c1` | 2026-09-17 | workspace 0.14.1, `API_VERSION = 31`, Apache-2.0 |
+| pollen-robotics/microduck | main | `ac7531a77adae5e9c49d1a3f5d23f72f9af7fee1` | 2026-09-22 | 0.14.4, `API_VERSION = 34`; **current pin**, re-check below |
 | pollen-robotics/microduck_rl | develop | `cb70b792312d559a4da09064d92009079671815f` | 2026-09-14 | Apache-2.0 |
 | joeynyc/microduck-mcp | main | `0080a854fd1c200efb570ada37d9af38bf3554a1` | 2026-09-16 | Apache-2.0, pinned to API 16/28 |
 | joeynyc/awesome-microduck | main | `a3815e7b73fb1e95cbb3811d80023ed619c375ab` | 2026-09-19 | CC0-1.0 |
 | huggingface.co/pollen-robotics/microduck-policies | main | `manifest.json`, schema 2 | read 2026-09-19 | official policy set, tag ≥ v5 |
 
-File references below are `path:line` in microduck@344925c unless stated otherwise.
+File references below are `path:line` in microduck@344925c unless stated otherwise. The code
+(`runtime/duckstudio/upstream.py`) names symbols instead of lines since the 0.14.4 re-check —
+lines drift with every release, `grep -n 'pub struct MoveParams'` does not.
+
+## Re-check against 0.14.4 (2026-09-22)
+
+Pin moved `344925c` → `ac7531a` (`sim/fetch-upstream.sh`); `microduck_rl` develop is still
+`cb70b79`. Read as a diff of `duck-ipc-proto/src/lib.rs`, then run live.
+
+- **Nothing we send or read changed.** Compared struct by struct (fields, serde attributes):
+  `MoveParams`, `HeadParams`, `LookParams`, `PoseParams`, `SoundParams`/`SoundTag`,
+  `SubscribeParams`, `DoParams`, `EnableParams`, `PoliciesResult`, `RobotState`, `MoveState`,
+  `SafetyState`, `ImuState`, `TofFrame`, `TofStreamResult`, `PadReport`, `MediaFrameHeader`,
+  `HelloParams`/`HelloResult` are identical; no `method::*` constant added or removed; still
+  40 `deny_unknown_fields`.
+- What v32–v34 add, all optional and absent from older daemons:
+  - v32 `ComponentStatus.{degraded, reason}` (updaterd's `update.status`) — a board fault
+    (bench board, servo supply off) is no longer indistinguishable from a broken release. We
+    do not call `update.status`.
+  - v33 `HealthResult.cpu_throttle {level, max_level, khz, max_khz}` — "reported, never
+    judged". Our `health()` adds the warning `cpu_throttled` by upstream's own rule
+    (`CpuThrottle::throttled`: level > 0, or ceiling below the board maximum). duck-sim sends
+    none on macOS.
+  - v34 `PolicySearchHit.{description, preview}` — the publisher's sentence (untrusted) and a
+    clip URL, on `policy.search`. We search the Hub over HTTP ourselves (`hub.py`): the
+    description already comes from `manifest.json`, our preview is the model card's
+    thumbnail. Upstream's video convention (`docs/policy-manifest.md`) is not read — worth
+    adopting when the building-blocks panel wants to play a clip.
+- robotd behaviour changes that do **not** touch our paths: a mode switch (`robot.setMode`)
+  now waits for a policy load and never stands a limp robot up (#195, #228, #319); padd drops
+  a hold, not the shutdown, when the pad disconnects (#273). `getup` stays `robot.enable
+  {on: true}`.
+- Live on duck-sim 0.14.4 (macOS, camera on duck-a): robotd `hello` → `{api_version: 34,
+  daemon_version: "0.14.4"}`; tofd still answers `hello` with -32601; the contract suite
+  passes against it (`DUCKSTUDIO_SIM=1 pytest tests/backends`: 92 passed, 1 skipped).
+- Upstream glitch, harmless for us: `scripts/duck-sim` writes `updater-duck-a.toml` from an
+  unquoted heredoc whose comment carries backticks (`` `policy.fetch` ``, `` `Permission
+  denied ...` ``), so `sh` runs them and prints `policy.fetch: command not found` at startup.
+  Only the comment text in the generated file is affected. Not reported upstream yet.
+- `microduck_rl#46` (walking policies step in place): still open, no maintainer answer. One
+  community comment (2026-09-18) with a plausible cause — the `feet_air_time` reward is
+  gated on the *command*, not on achieved motion, so stepping in place is paid — and a
+  tracking-error metric that overstates the steady-state error about 3×. Nothing on
+  `develop` yet, so the simulated duck still does not walk.
+
+### Roll and pitch
+
+`SafetyState.gravity` is projected gravity in the trunk frame; `ImuState` documents that frame
+as x forward, y left, z up, and `quat` as trunk → world `[w, x, y, z]`. Our `Imu.roll =
+atan2(-gy, -gz)`, `pitch = atan2(gx, hypot(gy, gz))` is REP-103 in that frame: roll > 0 right
+side down, pitch > 0 nose down.
+
+Checked on duck-sim 0.14.4, standing (`policy: stand`), each `robot.pose` held 3 s at 10 Hz:
+
+| `robot.pose` | gravity | roll from gravity | pitch from gravity | from IMU quat |
+| --- | --- | --- | --- | --- |
+| nominal | `[+0.003, -0.002, -1.000]` | +0.1° | +0.2° | same |
+| roll +0.25 | `[+0.009, -0.240, -0.971]` | **+13.9°** | +0.5° | same |
+| roll −0.25 | `[+0.008, +0.229, -0.973]` | **−13.3°** | +0.4° | same |
+| pitch +0.25 | `[+0.240, -0.004, -0.971]` | +0.2° | **+13.9°** | same |
+| pitch −0.25 | `[-0.236, -0.002, -0.972]` | +0.1° | **−13.7°** | same |
+| sitting | `[-0.894, -0.005, -0.449]` | +0.6° | −63.3° | same |
+
+So our signs agree with the quat to the decimal and with `robot.pose`'s own roll/pitch
+(0.25 rad commanded ≈ 14.3°, 13.3–13.9° reached). A sitting duck leans back, nose up, which is
+negative pitch as it should be. The rows are pinned in
+`tests/backends/test_sim_backend.py::test_roll_and_pitch_signs_follow_robot_pose`. Still open:
+whether the real duck's IMU is mounted the way the sim assumes — a hand tilt on day one
+(`docs/m4-hardware-checklist.md` §3). Aside: `robot.pose` on a *sitting* duck does not tilt it
+the way it tilts a standing one; stand it up first.
 
 ## Wire format
 
@@ -168,7 +238,7 @@ Not present as methods: `robot.walk`, `robot.velocity`, `robot.sit`, `robot.stan
 - `RobotState.move` is `{requested[3], applied[3], limited_by[]}`; `safety` is
   `{fallen, limp, gravity[3], gain?}`; `odom` is `{position[3], yaw}`; `imu?` is
   `{gyro[3], quat[4]}`. Roll/pitch in our `Imu` are derived from `safety.gravity`; the sign
-  convention is **not yet checked** against a tilted sim duck.
+  convention was checked against a tilted sim duck on 2026-09-22 ("Roll and pitch" above).
 - `DoParams.skill` is a plain `String` (`lib.rs:2226`), refused with the known list.
 - `HealthResult.motors` is `{hottest, max_c, mean_c}` (`lib.rs:3419`); our
   `temperatures_c` carries `servo_max` and `servo_mean`.

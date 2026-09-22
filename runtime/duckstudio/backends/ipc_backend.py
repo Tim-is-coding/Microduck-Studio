@@ -177,7 +177,7 @@ class IpcBackend:
         if not self.tof_socket:
             raise BackendError(f"{self.kind}: no tof socket configured")
         # tofd answers tof.stream and head_imu.stream and nothing else — no `hello`
-        # (verified against duck-sim 0.14.1; docs/upstream-notes.md).
+        # (verified against duck-sim 0.14.1 and 0.14.4; docs/upstream-notes.md).
         conn = await Connection.open(self.tof_socket, hello=False)
         try:
             result = await conn.call(upstream.TOF_STREAM.name)
@@ -276,6 +276,13 @@ def health_from_upstream(raw: dict[str, Any]) -> Health:
         warnings.append("degraded")
     if raw.get("reason"):
         warnings.append(str(raw["reason"]))
+    # v33: reported, never judged upstream. Same rule as CpuThrottle::throttled(): the governor
+    # wound the level up, or something pinned the ceiling below the board's maximum.
+    throttle = raw.get("cpu_throttle")
+    if isinstance(throttle, dict):
+        step, khz, max_khz = (int(throttle.get(k) or 0) for k in ("level", "khz", "max_khz"))
+        if step > 0 or (max_khz > 0 and khz < max_khz):
+            warnings.append("cpu_throttled")
     return Health(
         battery=level,
         temperatures_c=temps,
@@ -300,8 +307,10 @@ def state_from_upstream(raw: dict[str, Any]) -> RobotState:
     applied = (raw.get("move") or {}).get("applied") or [0.0, 0.0, 0.0]
     moving = any(abs(float(v)) > 1e-3 for v in applied)
     standing = not fallen and not limp and policy not in NOT_STANDING_LABELS
-    # Upright, robotd reports gravity ≈ [0, 0, -1] in the trunk frame (duck-sim prints
-    # "gravity z -1.000" when standing). Roll/pitch signs beyond upright are unverified.
+    # Projected gravity in the trunk frame (x forward, y left, z up), ≈ [0, 0, -1] upright.
+    # Roll > 0 is right side down, pitch > 0 is nose down (REP-103), the same signs as
+    # `robot.pose` {roll, pitch}. Verified 2026-09-22 on duck-sim 0.14.4 against the IMU quat
+    # (docs/upstream-notes.md, "Roll and pitch"); the real duck's mounting is an M4 check.
     gx, gy, gz = (list(safety.get("gravity") or [0.0, 0.0, -1.0]) + [0.0, 0.0, 0.0])[:3]
     odom = raw.get("odom") or {}
     position = list(odom.get("position") or [0.0, 0.0, 0.0])

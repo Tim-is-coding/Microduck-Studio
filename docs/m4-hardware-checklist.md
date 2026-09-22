@@ -8,7 +8,8 @@ than an improvisation. Everything here is already possible except the steps mark
 
 - [ ] `cd runtime && uv sync && uv run pytest -q` — 200+ tests, no skips you did not expect.
 - [ ] Read `docs/upstream-notes.md` again against the duck's firmware version. Ours was
-      verified against microduck@344925c (0.14.1, API 31). A different API version is not a
+      verified against microduck@344925c (0.14.1, API 31) and re-checked against @ac7531a
+      (0.14.4, API 34). A different API version is not a
       reason to panic — upstream logs skew and carries on — but it *is* a reason to re-read
       the method table before driving anything.
 
@@ -26,6 +27,10 @@ than an improvisation. Everything here is already possible except the steps mark
       The same suite that passes against the protocol double. **Every failure here is a
       finding**: it means the duck's wire behaviour differs from what we verified in
       September. Write it into `docs/upstream-notes.md` with the date before fixing code.
+- [ ] **IMU mounting**: tilt the standing duck by hand, nose down, then right side down.
+      `curl -s localhost:8000/api/state` shows `imu.pitch > 0`, then `imu.roll > 0` (REP-103,
+      the signs verified in the sim — `docs/upstream-notes.md`, "Roll and pitch"). A flipped
+      sign means the duck's IMU sits differently from the sim's; note it before fixing code.
 - [ ] Note the round trip: how long `robot.health` takes through the tunnel. The deadman is
       500 ms and the executor resends `robot.move` at 10 Hz; if a call takes longer than
       ~100 ms, say so in the notes and consider the WebRTC fallback (ADR-0006).

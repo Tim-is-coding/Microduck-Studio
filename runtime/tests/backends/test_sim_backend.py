@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import shutil
 
 import pytest
@@ -167,6 +168,28 @@ def test_upright_gravity_is_zero_roll_and_pitch() -> None:
 
 
 @pytest.mark.parametrize(
+    ("gravity", "roll_deg", "pitch_deg"),
+    [
+        # Recorded on duck-sim 0.14.4 standing, `robot.pose` held for 3 s; the IMU quat gave
+        # the same angles to the decimal (docs/upstream-notes.md, "Roll and pitch").
+        ([0.009, -0.240, -0.971], 13.9, 0.5),  # pose roll +0.25
+        ([0.008, 0.229, -0.973], -13.3, 0.4),  # pose roll -0.25
+        ([0.240, -0.004, -0.971], 0.2, 13.9),  # pose pitch +0.25
+        ([-0.236, -0.002, -0.972], 0.1, -13.7),  # pose pitch -0.25
+        ([-0.894, -0.005, -0.449], 0.6, -63.3),  # sitting: leans back, nose up
+    ],
+)
+def test_roll_and_pitch_signs_follow_robot_pose(
+    gravity: list[float], roll_deg: float, pitch_deg: float
+) -> None:
+    s = state_from_upstream(
+        {"joints": [0.0] * 15, "safety": {"fallen": False, "limp": False, "gravity": gravity}}
+    )
+    assert math.degrees(s.imu.roll) == pytest.approx(roll_deg, abs=0.1)
+    assert math.degrees(s.imu.pitch) == pytest.approx(pitch_deg, abs=0.1)
+
+
+@pytest.mark.parametrize(
     ("label", "standing", "sitting"),
     [
         ("stand", True, False),
@@ -188,6 +211,15 @@ def test_policy_label_to_flags(label: str, standing: bool, sitting: bool) -> Non
 def test_pure_mappings() -> None:
     h = health_from_upstream({"healthy": False, "degraded": True, "reason": "policy missing"})
     assert h.ok is False and h.warnings == ["battery_not_reported", "degraded", "policy missing"]
+    cool = {"level": 0, "max_level": 6, "khz": 1800000, "max_khz": 1800000}
+    assert (
+        "cpu_throttled"
+        not in health_from_upstream({"healthy": True, "cpu_throttle": cool}).warnings
+    )
+    for hot in ({**cool, "level": 6, "khz": 408000}, {**cool, "khz": 1200000}):
+        h = health_from_upstream({"healthy": True, "cpu_throttle": hot})
+        assert "cpu_throttled" in h.warnings, "governor level or a lowered ceiling, as upstream"
+        assert h.battery == 1.0, "the throttle level is not the battery level"
     with pytest.raises(BackendError, match="joints"):
         state_from_upstream({"joints": [0.0] * 14})
     with pytest.raises(BackendError, match="shape"):
