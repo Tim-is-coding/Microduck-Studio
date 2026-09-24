@@ -15,7 +15,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, ValidationError
 
-from .. import __version__, behaviors_dir, skills_dir, texts, upstream
+from .. import __version__, behaviors_dir, planner, skills_dir, texts, upstream
 from ..backends import KINDS, make_backend
 from ..backends.base import BackendError, DuckBackend, NoCamera
 from ..behaviors import (
@@ -65,6 +65,13 @@ class KeyBody(BaseModel):
 
     key: str
     model: str | None = None
+
+
+class DraftBody(BaseModel):
+    """A behavior described in a sentence, to be drafted by an AI vendor (ADR-0011)."""
+
+    description: str
+    vendor: str | None = None
 
 
 class ModelBody(BaseModel):
@@ -264,6 +271,49 @@ def create_app(
         settings.set_person_detector(body.model)
         use_detector(duck.kind)
         return local_payload()
+
+    @app.post("/api/planner/draft")
+    async def draft(body: DraftBody) -> dict[str, Any]:
+        """A draft for the editor. Never saved, never run from here: the person does that."""
+        configured = [v for v in vlm.configured() if VENDORS[v].make_text]
+        vendor_id = body.vendor or (configured[0] if configured else None)
+        if vendor_id is None or vendor_id not in configured:
+            raise HTTPException(409, {"reason": "no_key"})
+        v = VENDORS[vendor_id]
+        key = key_store.get(vendor_id)
+        assert key is not None and v.make_text is not None
+        current = executor.packs  # saved since start-up counts, for examples and free ids
+        examples = [current[i] for i in ("follow-me", "go-to-thing") if i in current]
+        bus.emit("planner.asked", *texts.planner_asked(v.label), vendor=vendor_id)
+        try:
+            result = await planner.draft_behavior(
+                body.description,
+                v.make_text(key, v.text_model),
+                registry,
+                examples=examples,
+                taken_ids=set(current),
+                vlm_vendor=vendor_id,
+            )
+        except planner.PlannerError as e:
+            bus.emit(
+                "planner.failed", *texts.planner_failed(v.label), level="warn", reason=e.reason
+            )
+            status = 422 if e.reason in ("empty_description", "too_long") else 502
+            raise HTTPException(status, {"reason": e.reason, "detail": e.detail}) from None
+        bus.emit(
+            "planner.drafted",
+            *texts.planner_drafted(v.label, result.pack.name.de),
+            vendor=vendor_id,
+            attempts=result.attempts,
+            seconds=round(result.seconds, 1),
+        )
+        return {
+            "draft": result.pack.model_dump(by_alias=True, exclude_none=True, mode="json"),
+            "vendor": vendor_id,
+            "label": v.label,
+            "model": result.model,
+            "attempts": result.attempts,
+        }
 
     def known_vendor(vendor_id: str) -> None:
         if vendor_id not in VENDORS:

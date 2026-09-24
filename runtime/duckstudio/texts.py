@@ -515,6 +515,24 @@ def people_model_ready() -> Bilingual:
     )
 
 
+def planner_asked(label: str) -> Bilingual:
+    return f"{label} entwirft einen Ablauf …", f"{label} is drafting a behavior …"
+
+
+def planner_drafted(label: str, name: str) -> Bilingual:
+    return (
+        f"Entwurf von {label}: „{name}“. Prüfe ihn, bevor du speicherst.",
+        f"Draft by {label}: “{name}”. Check it before you save.",
+    )
+
+
+def planner_failed(label: str) -> Bilingual:
+    return (
+        f"{label} hat keinen brauchbaren Entwurf geliefert.",
+        f"{label} did not come up with a usable draft.",
+    )
+
+
 def stuck() -> Bilingual:
     return (
         "Die Ente tritt auf der Stelle: Befehle kommen an, aber sie kommt nicht voran.",

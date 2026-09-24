@@ -479,3 +479,9 @@ details.file pre { background: var(--surface); border: 1px solid var(--line); bo
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .aipage .aisub { font-family: var(--font-display); font-size: var(--t-lg); margin: 8px 0 0; }
 .aivendor .keyrow a { color: var(--link); }
+
+/* Mit KI entwerfen (ADR-0011) */
+.aidraft { margin-top: 16px; display: grid; gap: 8px; }
+.aidraft textarea { width: 100%; resize: vertical; font: inherit; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); }
+.aidraft .row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
+.aidraft .error { color: var(--danger); font-size: var(--t-sm); margin: 0; }

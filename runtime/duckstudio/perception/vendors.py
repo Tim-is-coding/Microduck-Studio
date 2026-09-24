@@ -66,11 +66,20 @@ class Vendor:
     note: dict[str, str]  # {de, en}: what to know before typing a key in
     make: Callable[[str, str], VlmProvider]  # (key, model) → provider
     check: Callable[[str, str], Awaitable[None]]  # (key, model); raises a KeyCheckError
+    # Drafting behaviors from a sentence (ADR-0011): text only, a model good at structure.
+    text_model: str = ""
+    make_text: Callable[[str, str], Any] | None = None  # (key, model) → planner.TextModel
     extra: dict[str, Any] = field(default_factory=dict)
 
     @property
     def default_model(self) -> str:
         return self.models[0].id
+
+
+def _planner() -> Any:
+    from .. import planner  # late: the planner imports perception, perception imports this
+
+    return planner
 
 
 # -- Anthropic -------------------------------------------------------------------------------
@@ -129,6 +138,8 @@ ANTHROPIC = Vendor(
     },
     make=lambda key, model: AnthropicVlm(api_key=key, model=model),
     check=_check_anthropic,
+    text_model="claude-opus-5",
+    make_text=lambda key, model: _planner().AnthropicText(api_key=key, model=model),
 )
 
 # -- Google, OpenAI: one GET on the model says whether the key reaches it ---------------------
@@ -199,6 +210,8 @@ GOOGLE = Vendor(
     },
     make=lambda key, model: GeminiVlm(api_key=key, model=model),
     check=_check_google,
+    text_model="gemini-3.8-flash",
+    make_text=lambda key, model: _planner().GeminiText(api_key=key, model=model),
     extra={"terms_url": "https://ai.google.dev/gemini-api/terms"},
 )
 
@@ -235,6 +248,8 @@ OPENAI = Vendor(
     },
     make=lambda key, model: OpenAiVlm(api_key=key, model=model),
     check=_check_openai,
+    text_model="gpt-6-sol",
+    make_text=lambda key, model: _planner().OpenAiText(api_key=key, model=model),
 )
 
 # Order is the Studio's order: the recommended one first.

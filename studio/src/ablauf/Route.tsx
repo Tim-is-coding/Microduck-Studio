@@ -25,6 +25,7 @@ import {
   withVlmIfNeeded,
 } from "../editor/model";
 import { BehaviorList } from "../editor/BehaviorList";
+import { DraftWithAi } from "../editor/DraftWithAi";
 import { templatesFor } from "../editor/templates";
 import { AiVendors } from "../ai/AiVendors";
 import { Blocks } from "../skills/Blocks";
@@ -106,6 +107,9 @@ export function Route() {
           running={running}
           templates={templatesFor(skillMap)}
         />
+      )}
+      {!draft && !blocksOpen && !saved && !offline && (
+        <DraftWithAi onDraft={(p, notice) => s.newDraft(p, notice)} onSetUp={() => { s.select(null); setPage("ai"); }} />
       )}
 
       {pack && !blocksOpen && (

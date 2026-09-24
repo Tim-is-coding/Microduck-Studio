@@ -107,7 +107,10 @@ Browser: Studio  ──HTTP/WS──►  Runtime (Python, Laptop/Server)  ──
   VLM 0,5–2 Hz (Fragen ans Bild, Zielpixel). Das VLM darf nie in der Schleife hängen,
   die die Ente bremst.
 - Planner (Ziel → Skill-Graph per LLM) ist **Phase 2**. In v1 baut der Mensch den
-  Ablauf im Studio; die Runtime führt ihn aus.
+  Ablauf im Studio; die Runtime führt ihn aus. **Stand 2026-09-24, ADR-0011:** „Mit KI
+  entwerfen“ — ein Satz wird per Anbieter-Schlüssel zu einem *Entwurf* im Editor, gegen Schema
+  und Bausteine geprüft; gespeichert und gestartet wird nur vom Menschen. Das ist kein
+  Planner zur Laufzeit.
 
 ## 5. Repo-Struktur
 

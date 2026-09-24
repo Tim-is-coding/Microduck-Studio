@@ -74,7 +74,7 @@ OPENAI_SCHEMA: dict[str, Any] = {
 }
 
 
-def _json_from_text(text: str) -> dict[str, Any]:
+def json_from_text(text: str) -> dict[str, Any]:
     """The answer's JSON, also when a model wrapped it in a code fence anyway."""
     try:
         data = json.loads(text)
@@ -153,7 +153,7 @@ class GeminiVlm:
             text = response.json()["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError, TypeError, ValueError) as e:
             raise VlmError("google answered without text") from e
-        data = _json_from_text(text)
+        data = json_from_text(text)
         found = bool(data.get("found"))
         point = data.get("point")
         px = py = None
@@ -233,7 +233,7 @@ class OpenAiVlm:
         if response.status_code != 200:
             raise _http_error("openai", response)
         text = _openai_text(response)
-        data = _json_from_text(text)
+        data = json_from_text(text)
         found = bool(data.get("found"))
         return VlmAnswer(
             timestamp=time.monotonic() if timestamp is None else timestamp,

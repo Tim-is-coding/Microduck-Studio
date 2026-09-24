@@ -272,6 +272,20 @@ try {
     ok(ai.vendors.every((v) => v.key === null), "ein Schlüssel wurde gespeichert");
   });
 
+  await check("Mit KI entwerfen: ohne Schlüssel führt der Weg zu den KI-Anbietern", async () => {
+    await backToOverview();
+    const card = page.locator(".aidraft");
+    await until("Karte „Mit KI entwerfen“", () => card.isVisible());
+    const r = await fetch(`${API}/api/planner/draft`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description: "Quak einmal." }),
+    });
+    is(r.status, 409, "ohne Schlüssel");
+    await card.getByRole("button", { name: "KI-Anbieter einrichten" }).click();
+    await until("KI-Anbieter offen", async () => (await page.locator(".tabs button.active").innerText()) === "KI-Anbieter");
+  });
+
   await check("Sprache und Thema schalten", async () => {
     const logHeading = () => page.locator(".live .logwrap h2").innerText();
     await page.locator(".switch.lang button", { hasText: "EN" }).click();
