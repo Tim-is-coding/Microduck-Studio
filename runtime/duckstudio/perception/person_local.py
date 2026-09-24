@@ -2,8 +2,10 @@
 `sim/make-scene.py` puts into the scene and turns it into a bearing.
 
 Runs on every frame from `DuckBackend.frame()` (PNG or JPEG), 5–10 Hz, pure numpy — well
-inside the 10–30 Hz budget for local detectors (§4) and never on the network. A real-person
-detector (YOLO, `pngwn/microduck-detector`) plugs in behind the same `PersonDetection`.
+inside the 10–30 Hz budget for local detectors (§4) and never on the network. A detector for
+real people plugs in behind the same `PersonDetection`; none is chosen yet. Not
+`pngwn/microduck-detector` nor upstream's `duck-detect`: both find ducks, not people
+(docs/upstream-notes.md).
 
 Geometry: mediad reports the sensor as 640x360 with fx = fy ≈ 434.6 (logged at start-up,
 docs/upstream-notes.md). The head camera is mounted a quarter turn off and `GET /frame`
