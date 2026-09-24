@@ -351,8 +351,9 @@ class Executor:
                 else texts.step_look_for(n, step.perceive)
             )
         elif isinstance(step, SkillStep):
-            opts = ", ".join(f"{k}: {v}" for k, v in step.with_.items())
-            text = texts.step_skill(n, self.registry.get(step.skill).name, opts)
+            skill = self.registry.get(step.skill)
+            units = {k: getattr(c, "unit", None) for k, c in skill.ui.items()}
+            text = texts.step_skill(n, skill.name, texts.step_options(step.with_, units))
         else:
             text = texts.step_wait(n, step.wait)
         self.bus.emit("step.started", *text, step=self.step_index, behavior=self.pack.id)

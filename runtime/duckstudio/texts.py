@@ -11,9 +11,123 @@ carry `de` and an optional `en` of their own; `Text.get` falls back to German.
 
 from __future__ import annotations
 
+import math
+from collections.abc import Mapping
+
 from .common import Text
 
 Bilingual = tuple[str, str]
+
+
+def num(value: float, digits: int = 1) -> Bilingual:
+    """A number as each language writes it: 0,8 in German, 0.8 in English (like the Studio)."""
+    en = f"{value:.{digits}f}"
+    return en.replace(".", ","), en
+
+
+# A card's controls and their options, in the words the Studio's cards use: the same entries
+# as `ui.*` and `opt.*` in studio/src/i18n/{de,en}.json (a test keeps them equal). A manifest
+# from the Hub with a control or option not listed here shows its identifier, like the card.
+UI_LABELS: dict[str, Bilingual] = {
+    "tempo": ("Tempo", "Speed"),
+    "direction": ("Richtung", "Direction"),
+    "distance": ("Abstand", "Distance"),
+    "pattern": ("Muster", "Pattern"),
+    "style": ("Art", "Style"),
+}
+OPTION_LABELS: dict[str, Bilingual] = {
+    "slow": ("langsam", "slow"),
+    "easy": ("gemütlich", "easy"),
+    "brisk": ("zügig", "brisk"),
+    "toward_person": ("zur Person", "toward the person"),
+    "straight": ("geradeaus", "straight ahead"),
+    "toward_target": ("zum Ziel", "toward the target"),
+    "sweep": ("hin und her", "back and forth"),
+    "left": ("nach links", "to the left"),
+    "right": ("nach rechts", "to the right"),
+    "short": ("kurz", "short"),
+    "double": ("doppelt", "double"),
+}
+
+
+def option_value(value: object, unit: str | None = None) -> Bilingual:
+    """One control's value as the card shows it: a named option, a tick, or a number."""
+    if isinstance(value, bool):
+        return ("✓", "✓") if value else ("–", "–")
+    if isinstance(value, str):
+        return OPTION_LABELS.get(value, (value, value))
+    if isinstance(value, int | float):
+        de, en = num(float(value), 0 if float(value).is_integer() else 1)
+        tail = f" {unit}" if unit else ""
+        return de + tail, en + tail
+    return str(value), str(value)
+
+
+def step_options(values: Mapping[str, object], units: Mapping[str, str | None]) -> Bilingual:
+    """`{direction: toward_person, distance: 60}` → „Richtung zur Person, Abstand 60 cm“."""
+    parts = []
+    for key, value in values.items():
+        label = UI_LABELS.get(key, (key, key))
+        shown = option_value(value, units.get(key))
+        parts.append((f"{label[0]} {shown[0]}", f"{label[1]} {shown[1]}"))
+    return joined(parts)
+
+
+# Below these, a velocity is the controller's jitter, not something the duck is doing.
+STILL_M_S = 0.005
+STILL_RAD_S = math.radians(2.0)
+
+
+def movement(vx: float = 0.0, vy: float = 0.0, vyaw: float = 0.0) -> Bilingual:
+    """A `robot.move` command as someone watching the duck would say it."""
+    parts: list[Bilingual] = []
+    if abs(vx) >= STILL_M_S:
+        speed = num(abs(vx) * 100, 0)
+        way = ("vorwärts", "forward") if vx > 0 else ("rückwärts", "backward")
+        parts.append((f"{speed[0]} cm/s {way[0]}", f"{speed[1]} cm/s {way[1]}"))
+    if abs(vy) >= STILL_M_S:
+        speed = num(abs(vy) * 100, 0)
+        way = ("nach links", "to the left") if vy > 0 else ("nach rechts", "to the right")
+        parts.append((f"{speed[0]} cm/s seitwärts {way[0]}", f"{speed[1]} cm/s sideways {way[1]}"))
+    if abs(vyaw) >= STILL_RAD_S:
+        rate = num(math.degrees(abs(vyaw)), 0)
+        way = ("links", "left") if vyaw > 0 else ("rechts", "right")
+        parts.append((f"dreht {rate[0]}°/s nach {way[0]}", f"turning {way[1]} at {rate[1]}°/s"))
+    if not parts:
+        return "steht still", "standing still"
+    return joined(parts)
+
+
+def look_at(x: float = 0.0, y: float = 0.0, z: float = 0.0) -> Bilingual:
+    """A `robot.look` point (duck frame, metres) as a direction."""
+    ahead = num(x)
+    parts = [(f"{ahead[0]} m voraus", f"{ahead[1]} m ahead")]
+    if abs(y) >= 0.05:
+        side = num(abs(y))
+        way = ("links", "left") if y > 0 else ("rechts", "right")
+        parts.append((f"{side[0]} m {way[0]}", f"{side[1]} m {way[1]}"))
+    if abs(z) >= 0.05:
+        way = ("nach oben", "up") if z > 0 else ("nach unten", "down")
+        parts.append(way)
+    what = joined(parts)
+    return f"schaut {what[0]}", f"looking {what[1]}"
+
+
+def intent_params(
+    intent: str, params: Mapping[str, float], units: Mapping[str, str | None]
+) -> Bilingual:
+    """What an intent asks of the duck, in words where we know the intent, else with units."""
+    if intent == "robot.move":
+        return movement(**{k: params[k] for k in ("vx", "vy", "vyaw") if k in params})
+    if intent == "robot.look":
+        return look_at(**{k: params[k] for k in ("x", "y", "z") if k in params})
+    parts = []
+    for key, value in params.items():
+        shown = num(value, 2)
+        tail = f" {units[key]}" if units.get(key) else ""
+        parts.append((f"{key} {shown[0]}{tail}", f"{key} {shown[1]}{tail}"))
+    return joined(parts)
+
 
 # Signals in the language of someone watching a duck, not of the condition string.
 SIGNALS: dict[str, Bilingual] = {
@@ -156,10 +270,12 @@ def step_look_for(number: int, query: str) -> Bilingual:
     return f"Schritt {number}: Suche {what[0]}.", f"Step {number}: looking for {what[1]}."
 
 
-def step_skill(number: int, skill: Text, options: str) -> Bilingual:
+def step_skill(number: int, skill: Text, options: Bilingual = ("", "")) -> Bilingual:
     de, en = name_of(skill)
-    tail = f" ({options})." if options else "."
-    return f"Schritt {number}: {de}{tail}", f"Step {number}: {en}{tail}"
+    return (
+        f"Schritt {number}: {de}{f' ({options[0]}).' if options[0] else '.'}",
+        f"Step {number}: {en}{f' ({options[1]}).' if options[1] else '.'}",
+    )
 
 
 def step_wait(number: int, duration: str) -> Bilingual:
@@ -213,14 +329,13 @@ def perceive_found(
     what: Bilingual, distance_m: float | None, degrees: float, left: bool
 ) -> Bilingual:
     side = ("links", "left") if left else ("rechts", "right")
-    near = (
-        (f"{distance_m:.1f} m, ", f"{distance_m:.1f} m, ") if distance_m is not None else ("", "")
-    )
+    far = num(distance_m) if distance_m is not None else None
+    near = (f"{far[0]} m, ", f"{far[1]} m, ") if far else ("", "")
     if abs(degrees) < AHEAD_DEG:  # "0° links" read like a direction; the Studio says it too
-        ahead = f"{distance_m:.1f} m " if distance_m is not None else ""
+        ahead = (f"{far[0]} m ", f"{far[1]} m ") if far else ("", "")
         return (
-            f"{what[0]} gefunden: {ahead}genau voraus.",
-            f"{what[1]} found: {ahead}straight ahead.",
+            f"{what[0]} gefunden: {ahead[0]}genau voraus.",
+            f"{what[1]} found: {ahead[1]}straight ahead.",
         )
     return (
         f"{what[0]} gefunden: {near[0]}{degrees:.0f}° {side[0]}.",
@@ -329,14 +444,46 @@ def speech_heard(text: str) -> Bilingual:
     return f"Gehört: „{text.strip()}“", f"Heard: “{text.strip()}”"
 
 
-def intent_sent(skill: Text, description: str) -> Bilingual:
+def intent_sent(skill: Text, description: Bilingual) -> Bilingual:
     de, en = name_of(skill)
-    return f"{de}: {description}.", f"{en}: {description}."
+    return f"{de}: {description[0]}.", f"{en}: {description[1]}."
 
 
-def intent_clamped(skill: Text, description: str) -> Bilingual:
+def intent_clamped(skill: Text, description: Bilingual) -> Bilingual:
     de, en = name_of(skill)
-    return f"{de}: Werte begrenzt ({description}).", f"{en}: values clamped ({description})."
+    return (
+        f"{de}: Werte begrenzt ({description[0]}).",
+        f"{en}: values clamped ({description[1]}).",
+    )
+
+
+def intent_refused(skill: Text, reason: str, detail: Bilingual = ("", "")) -> Bilingual:
+    """Why the gate did not send a command. It was German only until 2026-09-24."""
+    de, en = name_of(skill)
+    why = {
+        "no_health_snapshot": (
+            "noch keine Zustandsdaten von der Ente",
+            "no state from the duck yet",
+        ),
+        "battery_low": ("Akku zu niedrig", "battery too low"),
+        "precondition_failed": ("Voraussetzung nicht erfüllt", "precondition not met"),
+        "unknown_param": ("unbekannter Parameter", "unknown parameter"),
+        "rate_limited": ("zu viele Befehle pro Sekunde", "too many commands per second"),
+    }
+    if reason == "skill_has_no_intent":
+        return f"{de} ist kein Bewegungs-Intent.", f"{en} is not a motion intent."
+    if reason == "skill_has_no_behavior":
+        return f"{de} ist kein benanntes Verhalten.", f"{en} is not a named behavior."
+    what = why.get(reason, ("abgelehnt", "refused"))
+    return (
+        f"{de} nicht gesendet: {what[0]}{f' ({detail[0]})' if detail[0] else ''}.",
+        f"{en} not sent: {what[1]}{f' ({detail[1]})' if detail[1] else ''}.",
+    )
+
+
+def battery_percent(level: float) -> Bilingual:
+    percent = f"{round(level * 100)} %"
+    return f"Akku {percent}", f"battery {percent}"
 
 
 def behavior_sent(skill: Text) -> Bilingual:

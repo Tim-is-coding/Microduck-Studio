@@ -113,3 +113,16 @@ def test_heartbeat_runs_in_its_own_task_and_stops_duck_when_executor_dies() -> N
 
 @pytest.mark.skip(reason="M2: pad.input override lands with the executor")
 def test_gamepad_input_preempts_executor_immediately() -> None: ...
+
+
+async def test_a_refusal_says_why_in_both_languages(
+    gate: IntentGate, mock: MockBackend, registry: SkillRegistry
+) -> None:
+    """Refusals were German only: an English Studio showed „Gehen nicht gesendet: …“."""
+    mock.set_battery(0.0)
+    gate.observe(health=await mock.health())
+    await gate.send(registry.get("walk"), {"vx": 0.05})
+    refused = next(e for e in gate.bus.history if e.kind == "intent.refused")
+    assert refused.text.de == "Gehen nicht gesendet: Akku zu niedrig (Akku 0 %)."
+    assert refused.text.en == "Walk not sent: battery too low (battery 0 %)."
+    assert refused.data["failed"] == ["battery 0.00"]  # the data stays what it was

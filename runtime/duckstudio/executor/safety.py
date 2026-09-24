@@ -100,7 +100,15 @@ class IntentGate:
         await self.backend.intent(skill.intent, **sent)
         self._sent_at.append(self.clock())
         if clamped:
-            desc = ", ".join(f"{k} {req:g}→{got:g}" for k, (req, got) in clamped.items())
+            desc = texts.joined(
+                [
+                    (
+                        f"{k} {texts.num(req, 2)[0]} → {texts.num(got, 2)[0]}{_unit(skill, k)}",
+                        f"{k} {texts.num(req, 2)[1]} → {texts.num(got, 2)[1]}{_unit(skill, k)}",
+                    )
+                    for k, (req, got) in clamped.items()
+                ]
+            )
             self.bus.emit(
                 "intent.clamped",
                 *texts.intent_clamped(skill.name, desc),
@@ -139,7 +147,8 @@ class IntentGate:
         if last is not None and last[1] == key and now - last[0] < 5.0:
             return
         self._last_logged[skill.id] = (now, key)
-        desc = ", ".join(f"{k} {v:g}" for k, v in sent.items())
+        units = {k: spec.unit for k, spec in skill.params.items()}
+        desc = texts.intent_params(skill.intent or "", sent, units)
         self.bus.emit(
             "intent.sent", *texts.intent_sent(skill.name, desc), skill=skill.id, params=sent
         )
@@ -149,7 +158,12 @@ class IntentGate:
         if health is None:
             return self._refuse(skill, "no_health_snapshot")
         if health.battery < self.min_battery:
-            return self._refuse(skill, "battery_low", failed=[f"battery {health.battery:.2f}"])
+            return self._refuse(
+                skill,
+                "battery_low",
+                failed=[f"battery {health.battery:.2f}"],
+                detail=texts.battery_percent(health.battery),
+            )
         failed = [
             c
             for c in skill.preconditions
@@ -166,24 +180,26 @@ class IntentGate:
         return len(self._sent_at) >= self.max_per_second
 
     def _refuse(
-        self, skill: SkillManifest, reason: str, failed: list[str] | None = None
+        self,
+        skill: SkillManifest,
+        reason: str,
+        failed: list[str] | None = None,
+        detail: texts.Bilingual | None = None,
     ) -> GateDecision:
         failed = failed or []
-        text = _REFUSAL_TEXT_DE.get(reason, "abgelehnt").format(
-            skill=skill.name.de, detail=", ".join(failed)
-        )
+        # Condition strings and parameter names are identifiers: the same in both languages.
+        detail = detail or (", ".join(failed), ", ".join(failed))
         self.bus.emit(
-            "intent.refused", text, level="warn", skill=skill.id, reason=reason, failed=failed
+            "intent.refused",
+            *texts.intent_refused(skill.name, reason, detail),
+            level="warn",
+            skill=skill.id,
+            reason=reason,
+            failed=failed,
         )
         return GateDecision(accepted=False, reason=reason, failed=failed)
 
 
-_REFUSAL_TEXT_DE = {
-    "no_health_snapshot": "{skill} nicht gesendet: noch keine Zustandsdaten von der Ente.",
-    "battery_low": "{skill} nicht gesendet: Akku zu niedrig ({detail}).",
-    "precondition_failed": "{skill} nicht gesendet: Voraussetzung nicht erfüllt ({detail}).",
-    "unknown_param": "{skill} nicht gesendet: unbekannter Parameter ({detail}).",
-    "rate_limited": "{skill} nicht gesendet: zu viele Befehle pro Sekunde.",
-    "skill_has_no_intent": "{skill} ist kein Bewegungs-Intent.",
-    "skill_has_no_behavior": "{skill} ist kein benanntes Verhalten.",
-}
+def _unit(skill: SkillManifest, key: str) -> str:
+    spec = skill.params.get(key)
+    return f" {spec.unit}" if spec is not None and spec.unit else ""

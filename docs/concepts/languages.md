@@ -29,6 +29,13 @@ step's end reason and a VLM target's label are `(de, en)` pairs all the way to t
 
 A test walks a whole `follow-me` run and fails if any event lacks an English text.
 
+The log uses the cards' words, not the pack's identifiers: a step reads „Schritt 2: Gehen
+(Richtung zur Person, Tempo gemütlich, Abstand 60 cm)“, a command „Gehen: 8 cm/s vorwärts“
+rather than `vx 0.08, vyaw 0.0013`. The control and option names (`UI_LABELS`,
+`OPTION_LABELS` in `texts.py`) are copies of `ui.*` and `opt.*` in the Studio's dictionaries,
+and `tests/texts` fails when the two disagree. Numbers in the German sentences take a comma
+(`texts.num`), like the Studio's own.
+
 ## 3. What the data says
 
 Skill manifests and behavior packs carry their own `name`, `summary`, `question` and
