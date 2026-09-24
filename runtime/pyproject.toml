@@ -15,6 +15,7 @@ dependencies = [
   "numpy>=2",
   "pillow>=10",
   "anthropic>=1.7,<2",   # Claude as a perception vendor (ADR-0004, ADR-0009); keys come from the Studio
+  "onnxruntime>=1.20",   # the local person detector (ADR-0010), on this machine, no network
 ]
 
 [project.optional-dependencies]

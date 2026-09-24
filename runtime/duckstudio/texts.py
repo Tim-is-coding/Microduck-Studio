@@ -499,6 +499,22 @@ def ai_key_removed(label: str) -> Bilingual:
     return f"Schlüssel für {label} entfernt.", f"Key for {label} removed."
 
 
+def people_model_missing() -> Bilingual:
+    return (
+        "Die echte Ente sucht Menschen, aber die Personenerkennung ist noch nicht geladen "
+        "(Tab „KI-Anbieter“). Bis dahin findet sie nur die Markierung der Simulation.",
+        "The real duck looks for people, but the person detector is not loaded yet (the “AI "
+        "vendors” tab). Until then it only finds the simulation's marker.",
+    )
+
+
+def people_model_ready() -> Bilingual:
+    return (
+        "Personenerkennung geladen: erkennt Menschen auf diesem Rechner.",
+        "Person detector loaded: finds people on this computer.",
+    )
+
+
 def stuck() -> Bilingual:
     return (
         "Die Ente tritt auf der Stelle: Befehle kommen an, aber sie kommt nicht voran.",

@@ -477,3 +477,5 @@ details.file pre { background: var(--surface); border: 1px solid var(--line); bo
 .aivendor .keyrow input { flex: 1; min-width: 200px; }
 .aivendor .error { color: var(--danger); font-size: var(--t-sm); margin: 6px 0 0; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.aipage .aisub { font-family: var(--font-display); font-size: var(--t-lg); margin: 8px 0 0; }
+.aivendor .keyrow a { color: var(--link); }

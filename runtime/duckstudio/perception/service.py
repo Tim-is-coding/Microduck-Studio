@@ -128,7 +128,12 @@ class PerceptionService:
             self.camera_available = True
             self.frames_seen += 1
             try:
-                detection = self.detector.detect(frame, timestamp=self.clock())
+                now = self.clock()
+                if getattr(self.detector, "runs_in_thread", False):
+                    # A neural net takes tens of ms; the executor ticks on this loop (§6.4).
+                    detection = await asyncio.to_thread(self.detector.detect, frame, now)
+                else:
+                    detection = self.detector.detect(frame, timestamp=now)
             except Exception as e:  # noqa: BLE001 - a bad frame must not kill perception
                 log.warning("detector failed on a frame: %s", e)
                 detection = None

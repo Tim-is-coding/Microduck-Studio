@@ -195,3 +195,43 @@ async def test_unknown_vendor_and_bad_format(api) -> None:
     assert (await client.put("/api/ai/skynet/key", json={"key": KEY})).status_code == 404
     r = await client.put("/api/ai/google/key", json={"key": "has a space"})
     assert r.status_code == 422 and r.json()["detail"]["reason"] == "format"
+
+
+# -- the local person detector (ADR-0010) -----------------------------------------------------
+
+
+async def test_the_local_detector_is_listed_loaded_and_chosen(
+    api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from duckstudio.perception import person_yolox
+
+    client, _, _ = api
+    local = (await client.get("/api/ai")).json()["local"]
+    assert local["ready"] is False and local["mode"] == "auto" and local["license"] == "Apache-2.0"
+    assert local["bytes"] == person_yolox.MODEL_BYTES
+
+    fetched: list[bool] = []
+
+    async def fake_ensure(*_a, **_k):
+        fetched.append(True)
+
+    monkeypatch.setattr(person_yolox, "ensure_model", fake_ensure)
+    r = await client.post("/api/ai/local/download")
+    assert r.status_code == 200 and fetched == [True]
+
+    r = await client.put("/api/ai/local/mode", json={"model": "people"})
+    assert r.json()["mode"] == "people"
+    assert (await client.put("/api/ai/local/mode", json={"model": "x"})).status_code == 422
+
+
+async def test_a_failed_download_says_so(api, monkeypatch: pytest.MonkeyPatch) -> None:
+    from duckstudio.perception import person_yolox
+
+    client, _, _ = api
+
+    async def broken(*_a, **_k):
+        raise person_yolox.ModelDownloadError("checksum mismatch; the file was not kept")
+
+    monkeypatch.setattr(person_yolox, "ensure_model", broken)
+    r = await client.post("/api/ai/local/download")
+    assert r.status_code == 502 and r.json()["detail"]["reason"] == "download"

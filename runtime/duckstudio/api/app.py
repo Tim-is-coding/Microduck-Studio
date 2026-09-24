@@ -31,7 +31,14 @@ from ..executor import Executor, ExecutorBusy
 from ..executor.safety import IntentGate
 from ..hub import HubClient, HubError, skill_from_policy, skill_id_for
 from ..keys import AiSettings, KeyStore
-from ..perception import PerceptionService, StubVlm, detector_for, vlm_hz
+from ..perception import (
+    PerceptionService,
+    StubVlm,
+    YoloxPersonDetector,
+    detector_for,
+    person_yolox,
+    vlm_hz,
+)
 from ..perception.vendors import CHECKED, VENDORS, KeyCheckError, VlmRouter, env_names
 from ..skills import (
     SkillRegistry,
@@ -98,12 +105,12 @@ def create_app(
     duck = backend or make_backend()
     gate = IntentGate(duck, bus=bus)
     executor = Executor(registry, gate, bus, packs=packs)
-    detector = detector_for(duck.kind)
+    key_store = keys or KeyStore(env_names=env_names())
+    settings = ai_settings or AiSettings()
+    detector = detector_for(duck.kind, settings.person_detector())  # ADR-0010
     # Who answers a behavior's question (ADR-0004, ADR-0009): the vendor the behavior named, if
     # a key for it was typed into the Studio (or named in DUCKSTUDIO_VLM with a key in the
     # environment); otherwise the local stub, which sends nothing anywhere.
-    key_store = keys or KeyStore(env_names=env_names())
-    settings = ai_settings or AiSettings()
     vlm = VlmRouter(key_store, StubVlm(detector), models=settings.models())
     perception = PerceptionService(
         duck,
@@ -221,6 +228,43 @@ def create_app(
             **v.extra,
         }
 
+    def use_detector(kind: str) -> None:
+        """Pick who finds the person for this duck (ADR-0010) and say so when it is lacking."""
+        perception.detector = detector_for(kind, settings.person_detector())
+        vlm.stub.detector = perception.detector  # the stub looks with the local detector
+        if kind == "duck" and not isinstance(perception.detector, YoloxPersonDetector):
+            bus.emit("perception.no_people", *texts.people_model_missing(), level="warn")
+
+    def local_payload() -> dict[str, Any]:
+        return {
+            "name": person_yolox.MODEL_NAME,
+            "license": person_yolox.MODEL_LICENSE,
+            "bytes": person_yolox.MODEL_BYTES,
+            "source": person_yolox.MODEL_URL,
+            "ready": person_yolox.model_ready(),
+            "mode": settings.person_detector(),
+            "active": getattr(perception.detector, "name", type(perception.detector).__name__),
+        }
+
+    @app.post("/api/ai/local/download")
+    async def download_person_model() -> dict[str, Any]:
+        """Fetch YOLOX-nano once (3.7 MB), check its SHA-256, then use it where it applies."""
+        try:
+            await person_yolox.ensure_model()
+        except person_yolox.ModelDownloadError as e:
+            raise HTTPException(502, {"reason": "download", "detail": str(e)}) from None
+        use_detector(duck.kind)
+        bus.emit("perception.model_ready", *texts.people_model_ready(), level="info")
+        return local_payload()
+
+    @app.put("/api/ai/local/mode")
+    async def set_person_mode(body: ModelBody) -> dict[str, Any]:
+        if body.model not in ("auto", "people"):
+            raise HTTPException(422, {"reason": "unknown_mode"})
+        settings.set_person_detector(body.model)
+        use_detector(duck.kind)
+        return local_payload()
+
     def known_vendor(vendor_id: str) -> None:
         if vendor_id not in VENDORS:
             raise HTTPException(404, f"unknown AI vendor {vendor_id!r}")
@@ -232,6 +276,7 @@ def create_app(
             "hz": perception.vlm_hz,
             "max_calls": perception.vlm_max_calls,
             "vendors": [vendor_payload(v) for v in VENDORS],
+            "local": local_payload(),
         }
 
     @app.put("/api/ai/{vendor_id}/key")
@@ -343,8 +388,7 @@ def create_app(
             gate.backend = fresh
             gate.snapshot.forget_duck()
             perception.backend = fresh
-            perception.detector = detector_for(fresh.kind)
-            vlm.stub.detector = perception.detector  # the stub looks with the local detector
+            use_detector(fresh.kind)
             perception.camera_available = None
             link_error = ""
             bus.emit(

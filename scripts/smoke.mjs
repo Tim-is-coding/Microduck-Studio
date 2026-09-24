@@ -257,8 +257,11 @@ try {
   await check("KI-Anbieter: drei Karten mit Links, falsches Format wird nicht gespeichert", async () => {
     await backToOverview();
     await page.getByRole("button", { name: "KI-Anbieter", exact: true }).click();
-    await until("drei Anbieter", async () => (await page.locator(".aivendor").count()) === 3);
-    const google = page.locator(".aivendor").first();
+    await until("drei Anbieter und die lokale Erkennung", async () => (await page.locator(".aivendor").count()) === 4);
+    // Never downloaded here (CI has no model, a laptop may): either the button or "geladen".
+    const local = await page.locator(".aivendor.local").innerText();
+    ok(/Personenerkennung laden|ist geladen/.test(local), `lokale Karte: ${local.slice(0, 80)}`);
+    const google = page.locator(".aivendor:not(.local)").first();
     ok(/Google/.test(await google.locator("h3").innerText()), "Google nicht zuerst");
     is(await google.locator("a", { hasText: "Schlüssel holen" }).getAttribute("href"), "https://aistudio.google.com/apikey", "Link");
     // A key with a space is refused by the runtime before any vendor is asked: no network in CI.

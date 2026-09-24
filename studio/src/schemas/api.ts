@@ -41,11 +41,24 @@ export const AiVendor = z.object({
 });
 export type AiVendor = z.infer<typeof AiVendor>;
 
+/** The person detector that runs on this machine (ADR-0010). */
+export const LocalDetector = z.object({
+  name: z.string(),
+  license: z.string(),
+  bytes: z.number(),
+  source: z.string(),
+  ready: z.boolean(),
+  mode: z.enum(["auto", "people"]),
+  active: z.string(),
+});
+export type LocalDetector = z.infer<typeof LocalDetector>;
+
 export const AiInfo = z.object({
   checked: z.string(),
   hz: z.number(),
   max_calls: z.number(),
   vendors: z.array(AiVendor),
+  local: LocalDetector.nullish(),
 });
 export type AiInfo = z.infer<typeof AiInfo>;
 

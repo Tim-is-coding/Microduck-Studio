@@ -16,6 +16,7 @@ from duckstudio.skills import SkillRegistry
 def _no_real_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """No test ever reads or writes the person's real AI keys (ADR-0009), or uses theirs."""
     monkeypatch.setenv("DUCKSTUDIO_KEYS", str(tmp_path / "keys.json"))
+    monkeypatch.setenv("DUCKSTUDIO_MODELS", str(tmp_path / "models"))  # nor a downloaded model
     for name in ("DUCKSTUDIO_VLM", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY"):
         monkeypatch.delenv(name, raising=False)
 

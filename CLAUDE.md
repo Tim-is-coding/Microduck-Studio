@@ -312,6 +312,9 @@ strukturierten Daten fürs Debugging.
   zurückgegeben. Der Ablauf nennt den Anbieter; ohne Schlüssel springt die Attrappe ein.
   Personen finden per KI: `behaviors/follow-with-ai.behavior.yaml`. Echte Antworten von Gemini
   und OpenAI sind noch nicht live geprüft (kein Schlüssel zur Hand).
+  **Lokal, ADR-0010:** YOLOX-nano (Apache-2.0, 3,7 MB) über onnxruntime, etwa 20 ms pro Bild, per
+  Klick geladen und per SHA-256 geprüft (`~/.cache/duckstudio/models`). Automatisch bei der
+  echten Ente; Sim und Übungsente behalten ihre Markierungen (dort sind keine Menschen).
 - Name „Duck Studio“ auf Kollisionen prüfen, bevor er öffentlich wird. **Stand 2026-09-20:**
   In der Robotik nichts gefunden; in Software und Design dagegen gut besetzt —
   `duckstudio.design`, `duck.design`, `7duckstudios.com`, „Duck Studios“ (Agentur),

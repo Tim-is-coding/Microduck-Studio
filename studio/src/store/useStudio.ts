@@ -3,6 +3,7 @@ import { create } from "zustand";
 import {
   AiInfo,
   AiVendor,
+  LocalDetector,
   type AiInfo as AiInfoT,
   BehaviorPack,
   BehaviorPackFromApi,
@@ -93,6 +94,9 @@ interface StudioState {
   saveAiKey: (vendor: string, key: string, model?: string) => Promise<string | null>;
   removeAiKey: (vendor: string) => Promise<void>;
   setAiModel: (vendor: string, model: string) => Promise<void>;
+  /** Fetch the local person detector once (ADR-0010); null on success, else a reason. */
+  downloadPersonModel: () => Promise<string | null>;
+  setPersonMode: (mode: "auto" | "people") => Promise<void>;
 }
 
 /** FastAPI puts its sentence in `detail`; show that, not the JSON around it. */
@@ -190,6 +194,32 @@ export const useStudio = create<StudioState>((set, get) => ({
       body: JSON.stringify({ model }),
     });
     if (res.ok) replaceVendor(set, get, AiVendor.parse(await res.json()));
+  },
+
+  async downloadPersonModel() {
+    let res: Response;
+    try {
+      res = await fetch("/api/ai/local/download", { method: "POST" });
+    } catch {
+      return "unreachable";
+    }
+    if (!res.ok) return "download";
+    const local = LocalDetector.parse(await res.json());
+    const ai = get().ai;
+    if (ai) set({ ai: { ...ai, local } });
+    return null;
+  },
+
+  async setPersonMode(mode) {
+    const res = await fetch("/api/ai/local/mode", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: mode }),
+    });
+    if (!res.ok) return;
+    const local = LocalDetector.parse(await res.json());
+    const ai = get().ai;
+    if (ai) set({ ai: { ...ai, local } });
   },
 
   async refreshHealth() {

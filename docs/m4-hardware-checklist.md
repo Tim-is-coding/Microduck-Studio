@@ -57,6 +57,9 @@ Do these with the duck on a table, held, or on a soft floor — one person's han
 
 ## 5. First behavior (**hardware**)
 
+- [ ] Person detection loaded („KI-Anbieter" → „Personenerkennung laden"); the Live panel's
+      person chip follows someone walking past at 1, 2 and 3 m, from the duck's 20 cm camera
+      height, standing and sitting. If legs alone are not found, try YOLOX-tiny (ADR-0010).
 - [ ] `follow-me` with a person standing 2 m away, in the Studio, with a hand ready and the
       Notstopp on screen. Watch the Live panel: the person chip, the ToF grid, the step bar.
 - [ ] Then the one M2 could never show: does it actually walk? (In the simulator it does not

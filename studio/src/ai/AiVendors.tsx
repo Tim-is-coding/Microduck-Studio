@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { formatDate, language, t } from "../i18n";
-import type { AiVendor } from "../schemas";
+import { formatDate, language, number, t } from "../i18n";
+import type { AiVendor, LocalDetector } from "../schemas";
 import { useStudio } from "../store/useStudio";
 
 /**
@@ -26,6 +26,8 @@ export function AiVendors({ offline }: { offline: boolean }) {
         <p>{t("ai.privacy.keys")}</p>
         <p>{t("ai.privacy.frames")}</p>
       </div>
+      {ai.local && <LocalCard local={ai.local} />}
+      <h3 className="aisub">{t("ai.vendors.title")}</h3>
       <div className="aivendors">
         {ai.vendors.map((v) => (
           <VendorCard key={v.id} vendor={v} />
@@ -127,6 +129,52 @@ function VendorCard({ vendor }: { vendor: AiVendor }) {
         </form>
       )}
       {error && <p className="error" role="alert">{t(`ai.error.${error}`)}</p>}
+    </article>
+  );
+}
+
+/** YOLOX-nano on this machine: people, 10× a second, no picture leaving it (ADR-0010). */
+function LocalCard({ local }: { local: LocalDetector }) {
+  const { downloadPersonModel, setPersonMode } = useStudio();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+  const mb = number(local.bytes / 1_000_000, 1);
+  const load = async () => {
+    setBusy(true);
+    setError(false);
+    setError((await downloadPersonModel()) !== null);
+    setBusy(false);
+  };
+  return (
+    <article className={`card aivendor local${local.ready ? " on" : ""}`}>
+      <header>
+        <h3>{t("ai.local.title")}</h3>
+        <span className="chip good">{t("ai.local.private")}</span>
+        {local.ready && <span className="chip on">{t("ai.ready")}</span>}
+      </header>
+      <p className="note">{t("ai.local.note", { name: local.name, license: local.license })}</p>
+      <fieldset className="models">
+        <legend>{t("ai.local.where")}</legend>
+        <label>
+          <input checked={local.mode === "auto"} name="person-mode" onChange={() => void setPersonMode("auto")} type="radio" />
+          <span>{t("ai.local.auto")}</span>
+        </label>
+        <label>
+          <input checked={local.mode === "people"} name="person-mode" onChange={() => void setPersonMode("people")} type="radio" />
+          <span>{t("ai.local.people")}</span>
+        </label>
+      </fieldset>
+      {local.ready ? (
+        <p className="keyrow">{t("ai.local.ready", { name: local.name })}</p>
+      ) : (
+        <div className="keyrow">
+          <button className="btn small primary" disabled={busy} onClick={() => void load()} type="button">
+            {busy ? t("ai.local.loading") : t("ai.local.load", { mb })}
+          </button>
+          <a href="https://github.com/Megvii-BaseDetection/YOLOX" rel="noreferrer" target="_blank">{t("ai.local.source")} ↗</a>
+        </div>
+      )}
+      {error && <p className="error" role="alert">{t("ai.local.error")}</p>}
     </article>
   );
 }

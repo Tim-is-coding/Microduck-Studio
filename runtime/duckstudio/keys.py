@@ -153,22 +153,40 @@ class AiSettings:
         self.path = path or default_path().with_name("ai.json")
         self._lock = threading.Lock()
 
-    def models(self) -> dict[str, str]:
+    def _data(self) -> dict:
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
         except (FileNotFoundError, OSError, json.JSONDecodeError):
             return {}
-        models = data.get("models") if isinstance(data, dict) else None
+        return data if isinstance(data, dict) else {}
+
+    def _save(self, data: dict) -> None:
+        if not self.path.parent.exists():
+            self.path.parent.mkdir(parents=True, mode=stat.S_IRWXU)
+        tmp = self.path.with_name(self.path.name + ".tmp")
+        tmp.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+        os.replace(tmp, self.path)
+
+    def person_detector(self) -> str:
+        """`auto` (people only on the real duck) or `people` (the model everywhere)."""
+        mode = self._data().get("person_detector")
+        return mode if mode in ("auto", "people") else "auto"
+
+    def set_person_detector(self, mode: str) -> None:
+        with self._lock:
+            data = self._data()
+            data["person_detector"] = mode
+            self._save(data)
+
+    def models(self) -> dict[str, str]:
+        data = self._data()
+        models = data.get("models")
         if not isinstance(models, dict):
             return {}
         return {str(k): str(v) for k, v in models.items() if isinstance(v, str) and v}
 
     def set_model(self, vendor: str, model: str) -> None:
         with self._lock:
-            models = self.models()
-            models[vendor] = model
-            if not self.path.parent.exists():
-                self.path.parent.mkdir(parents=True, mode=stat.S_IRWXU)
-            tmp = self.path.with_name(self.path.name + ".tmp")
-            tmp.write_text(json.dumps({"models": models}, indent=2, sort_keys=True) + "\n")
-            os.replace(tmp, self.path)
+            data = self._data()
+            data["models"] = {**self.models(), vendor: model}
+            self._save(data)
