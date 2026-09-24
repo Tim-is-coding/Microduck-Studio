@@ -60,6 +60,14 @@ docs, then run live.
   tests/backends`: 101 passed, 1 skipped). `GET :8080/frame` still a 360×640 PNG.
 - `microduck_rl#46` (walking policies step in place): still open, no maintainer answer, nothing
   new on `develop` — the simulated duck still does not walk.
+- Start pose, five starts on 0.15.0: the duck settles at a heading of +18…+22° (IMU yaw, odom at
+  the origin), so the marker 1.5 m "ahead" shows at −20…−22°, on the right of the frame — the
+  same offset follow-me steered against on 0.14.4 (`vyaw ≈ −0.23`). Once of three `SIT` starts
+  (upstream's default keyframe) the sitstand rise fell over (`fall verdict changed
+  fallen=true`) and the duck came up at −81°, 0.6 m off, with the marker out of view; then
+  follow-me starts with its `look_around`. `DUCK_SIM_KEYFRAME=STAND` does not change the
+  heading. Restarting the sim (`sim/up.sh`) is the fix; not reported upstream — a random
+  outcome of a learned rise in simulation, not a daemon bug.
 
 ## Re-check against 0.14.4 (2026-09-22)
 
