@@ -54,6 +54,16 @@ The model per vendor is picked on the „KI-Anbieter" page (kept in `~/.config/d
 `DUCKSTUDIO_VLM_HZ` (default 0.5, clamped to 2.0). Each run may ask 200 questions, then the
 service stops and says so.
 
+## Old answers, steered by now
+
+A model answers a second or two after the frame; even the local detector is 100–200 ms behind.
+Every sighting carries `seen_from` — the duck's odometry (x, y, heading) as the frame was
+taken — and `Snapshot.subject` hands the executor the sighting *as seen from where the duck is
+now*: turned 20° left since means the thing is 20° further right, walked 50 cm towards it means
+50 cm closer. Steering and `target_reached` both read that, so a slow answer neither makes the
+duck overshoot its turn nor walk past the stop distance. Without odometry nothing changes;
+without a range only the turn is made up for (`perception/base.py::Sighting.seen_now`).
+
 ## What the log says
 
 Every question that leaves the machine is announced once — "Bild wird an Anthropic

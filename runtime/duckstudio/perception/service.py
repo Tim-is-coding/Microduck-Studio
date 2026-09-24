@@ -115,6 +115,7 @@ class PerceptionService:
             if not self._connected():
                 await asyncio.sleep(RETRY_S)
                 continue
+            seen_from = self._pose()  # where the duck is as the frame is taken
             try:
                 frame = await self.backend.frame()
             except NoCamera:
@@ -139,6 +140,7 @@ class PerceptionService:
                 detection = None
             if detection is not None:
                 detection = fuse_distance(detection, self.snapshot.tof_rows)
+                detection = detection.model_copy(update={"seen_from": seen_from})
             self.snapshot.person = detection
             await asyncio.sleep(1.0 / self.frame_hz)
 
@@ -192,6 +194,12 @@ class PerceptionService:
             await asyncio.sleep(RETRY_S)
 
     # -- the slow one ------------------------------------------------------------------
+
+    def _pose(self) -> tuple[float, float, float] | None:
+        """The duck's odometry right now, from the last state (10 Hz), for `seen_from`."""
+        state = self.snapshot.state
+        pose = state.pose if state is not None else None
+        return None if pose is None else (pose.x, pose.y, pose.heading)
 
     def _provider_for(self, request: VlmRequest) -> VlmProvider:
         """The vendor the behavior named, through the router when there is one (ADR-0009)."""
@@ -274,6 +282,7 @@ class PerceptionService:
                 await asyncio.sleep(RETRY_S)
                 continue
             try:
+                seen_from = self._pose()
                 frame = await self.backend.frame()
             except NoCamera:
                 self.camera_available = False
@@ -306,7 +315,7 @@ class PerceptionService:
                     tof_rows=self.snapshot.tof_rows,
                 )
                 if sighting is not None:
-                    self.snapshot.target = sighting
+                    self.snapshot.target = sighting.model_copy(update={"seen_from": seen_from})
             if answer.answer != last_said:  # only when the picture changed, not every ask
                 last_said = answer.answer
                 self._emit(

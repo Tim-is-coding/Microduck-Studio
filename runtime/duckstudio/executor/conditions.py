@@ -95,8 +95,15 @@ class Snapshot:
 
     @property
     def subject(self) -> Sighting | None:
-        """What the active step steers at: its target when it asked for one, else the person."""
-        return self.target_fresh if self.steering == "target" else self.person_fresh
+        """What the active step steers at: its target when it asked for one, else the person —
+        seen from where the duck is now, not from where it was when the frame was taken. A
+        model's answer is a second or two old; steering by it as it was makes the duck
+        overshoot every turn and walk past the stop distance."""
+        seen = self.target_fresh if self.steering == "target" else self.person_fresh
+        pose = self.state.pose if self.state is not None else None
+        if seen is None or pose is None:
+            return seen
+        return seen.seen_now(pose.x, pose.y, pose.heading)
 
 
 def signal_value(snapshot: Snapshot, signal: str) -> float | bool | None:
