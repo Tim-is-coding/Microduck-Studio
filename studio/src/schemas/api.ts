@@ -99,6 +99,7 @@ export const ExecutorStatus = z.object({
   intents_sent: z.number(),
   /** How many runs the runtime has recorded — a new number means the run list changed. */
   runs_recorded: z.number().default(0),
+  stuck: z.boolean().default(false),
   camera: z.boolean().nullable(),
   person: PersonDetection.nullable(),
   target: TargetSighting.nullable(),

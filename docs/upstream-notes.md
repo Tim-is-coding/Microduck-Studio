@@ -59,7 +59,10 @@ docs, then run live.
   daemon_version: "0.15.0"}`; the contract suite passes against it (`DUCKSTUDIO_SIM=1 pytest
   tests/backends`: 101 passed, 1 skipped). `GET :8080/frame` still a 360×640 PNG.
 - `microduck_rl#46` (walking policies step in place): still open, no maintainer answer, nothing
-  new on `develop` — the simulated duck still does not walk.
+  new on `develop` — the simulated duck still does not walk. **It does not turn either**
+  (2026-09-24, follow-me for 60 s): `robot.state` shows `move.applied ≈ [0.08, 0, −0.245]`,
+  `policy: walk`, not fallen, and `odom` stays at x 0.027 m, yaw 0.518 rad to the third
+  decimal. The executor now says so (`executor/progress.py`: „Die Ente tritt auf der Stelle“).
 - Start pose, five starts on 0.15.0: the duck settles at a heading of +18…+22° (IMU yaw, odom at
   the origin), so the marker 1.5 m "ahead" shows at −20…−22°, on the right of the frame — the
   same offset follow-me steered against on 0.14.4 (`vyaw ≈ −0.23`). Once of three `SIT` starts

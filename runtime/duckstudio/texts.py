@@ -481,6 +481,17 @@ def intent_refused(skill: Text, reason: str, detail: Bilingual = ("", "")) -> Bi
     )
 
 
+def stuck() -> Bilingual:
+    return (
+        "Die Ente tritt auf der Stelle: Befehle kommen an, aber sie kommt nicht voran.",
+        "The duck is stepping in place: the commands arrive, but it is not getting anywhere.",
+    )
+
+
+def moving_again() -> Bilingual:
+    return "Die Ente kommt wieder voran.", "The duck is moving again."
+
+
 def battery_percent(level: float) -> Bilingual:
     percent = f"{round(level * 100)} %"
     return f"Akku {percent}", f"battery {percent}"

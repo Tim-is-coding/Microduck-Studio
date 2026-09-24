@@ -330,6 +330,7 @@
   "stage.state.fallen": "The duck is on the ground.",
   "stage.state.sitting": "The duck is sitting.",
   "stage.state.moving": "The duck is walking.",
+  "stage.state.stuck": "The duck is stepping in place.",
   "stage.state.standing": "The duck is standing.",
   "stage.state.unknown": "The duck has not reported yet.",
   "stage.person.none": "Nobody in the picture.",

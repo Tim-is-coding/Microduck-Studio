@@ -72,6 +72,16 @@ Running: the text feeds `until: speech` conditions for one tick. A phrase matche
 appear in order, as whole words (`phrase_in`): „Okay, folge mir bitte“ starts „Folge mir“,
 „Stoppuhr“ is not „Stopp“. The duck's own microphone will be a second source for the same call.
 
+## Is the duck getting anywhere?
+
+`executor/progress.py` compares, in windows of 3 s, how far the movement commands should have
+carried or turned the duck with what odometry reports. When a window should have covered at
+least 6 cm or 0.3 rad and the duck managed less than 30 % of both, the log says „Die Ente tritt
+auf der Stelle: Befehle kommen an, aber sie kommt nicht voran.“ once, the status carries
+`stuck: true`, and the Live panel says „Die Ente tritt auf der Stelle.“ instead of „läuft“. A
+hint only — the step goes on. The case it was built for is duck-sim (`microduck_rl#46`); a real
+duck against a wall looks the same.
+
 ## What a run leaves behind
 
 A run nobody can look back at is hard to trust, so the executor keeps the last ten

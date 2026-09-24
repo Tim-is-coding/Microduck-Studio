@@ -24,7 +24,7 @@ export function LivePane({ health, offline, state, executor, runs, events, onSto
       <h2>{t("stage.title")}</h2>
       <CameraView connected={connected} executor={executor} />
       <p className="sentence">
-        {stateSentence(offline, connected, state)} <span className="soft">{connected ? sightingSentence(executor) : ""}</span>
+        {stateSentence(offline, connected, state, executor?.stuck ?? false)} <span className="soft">{connected ? sightingSentence(executor) : ""}</span>
       </p>
       {executor?.vlm?.question && (
         <p className={`vlmline${executor.vlm.sends_frames ? " sending" : ""}`}>
@@ -82,12 +82,14 @@ export function LivePane({ health, offline, state, executor, runs, events, onSto
   );
 }
 
-function stateSentence(offline: boolean, connected: boolean, state: RobotState | null): string {
+function stateSentence(offline: boolean, connected: boolean, state: RobotState | null, stuck: boolean): string {
   if (offline) return t("live.doing.offline");
   if (!connected) return t("stage.state.disconnected");
   if (!state) return t("stage.state.unknown");
   if (state.flags.fallen) return t("stage.state.fallen");
   if (state.flags.sitting) return t("stage.state.sitting");
+  // Told to walk, getting nowhere (runtime: executor/progress.py) — not „läuft“.
+  if (stuck) return t("stage.state.stuck");
   if (state.flags.moving) return t("stage.state.moving");
   return t("stage.state.standing");
 }

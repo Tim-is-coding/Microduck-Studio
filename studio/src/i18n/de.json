@@ -330,6 +330,7 @@
   "stage.state.fallen": "Die Ente liegt am Boden.",
   "stage.state.sitting": "Die Ente sitzt.",
   "stage.state.moving": "Die Ente läuft.",
+  "stage.state.stuck": "Die Ente tritt auf der Stelle.",
   "stage.state.standing": "Die Ente steht.",
   "stage.state.unknown": "Die Ente meldet sich noch nicht.",
   "stage.person.none": "Niemand im Bild.",

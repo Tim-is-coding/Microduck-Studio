@@ -395,8 +395,11 @@ details.file pre { background: var(--surface); border: 1px solid var(--line); bo
 .live { background: var(--stage); color: var(--stage-ink); border-radius: var(--r-lg); padding: 16px; align-self: start; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 16px; }
 .live h2 { font-size: 15px; color: var(--stage-soft); font-weight: 600; }
 .live .camera { position: relative; aspect-ratio: var(--camera-ratio, 4 / 3); max-height: 46vh; background: var(--stage-deep); border-radius: 12px; overflow: hidden; display: grid; place-items: center; color: var(--stage-muted); font-size: var(--t-sm); text-align: center; padding: 12px; }
-.live .camera img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.live .camera .overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* Picture and overlay share one box, both "contain" (the overlay's viewBox is "meet"): a marker
+   stays on the thing when max-height squeezes the frame or the padding shrinks it. */
+.live .camera img, .live .camera .overlay { position: absolute; inset: 12px; width: calc(100% - 24px); height: calc(100% - 24px); }
+.live .camera img { object-fit: contain; display: block; }
+.live .camera .overlay { pointer-events: none; }
 .live .camera .overlay .axis { stroke: rgba(255, 255, 255, 0.16); stroke-width: 1; stroke-dasharray: 6 8; }
 .live .camera .overlay .mark line { stroke: currentColor; stroke-linecap: round; }
 .live .camera .overlay .mark .halo { fill: none; stroke: currentColor; opacity: 0.9; }

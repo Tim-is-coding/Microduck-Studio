@@ -49,6 +49,7 @@ from ..events import EventBus
 from ..perception.base import Sighting
 from ..skills import SkillManifest, SkillRegistry
 from .conditions import Snapshot, VlmRequest, evaluate
+from .progress import ProgressWatch
 from .safety import GateDecision, IntentGate
 from .watchdog import Watchdog
 
@@ -197,6 +198,8 @@ class Executor:
         self._preempt_source: str | None = None
         self._driving_this_tick = False
         self._task: asyncio.Task[None] | None = None
+        self.progress = ProgressWatch()
+        self._movement: tuple[float, dict[str, float]] | None = None  # (sent at, params)
 
     # -- control -------------------------------------------------------------------------
 
@@ -215,6 +218,8 @@ class Executor:
         self._started_at = self.now()
         self._started_mono = self.clock()
         self._preempt_source = None
+        self.progress.reset()
+        self._movement = None
         self.snapshot.speech.clear()
         self._clear_vlm_request()
         self.snapshot.target = self.snapshot.vlm = None
@@ -298,6 +303,7 @@ class Executor:
             "ticks": self.counters.ticks,
             "intents_sent": self.counters.intents_sent,
             "runs_recorded": self.runs_recorded,
+            "stuck": self.state == "running" and self.progress.stuck,
         }
 
     async def close(self) -> None:
@@ -358,6 +364,22 @@ class Executor:
         finally:
             snap.speech.clear()
             self.watchdog.pet(driving=self._driving_this_tick)
+            self._watch_progress()
+
+    def _watch_progress(self) -> None:
+        """Commanded motion against odometry (progress.py): say so when the duck is stuck."""
+        snap = self.snapshot
+        command = None
+        if self.state == "running" and self._movement is not None:
+            sent_at, params = self._movement
+            if snap.now - sent_at <= 0.5:  # still being sent; a step that ended sends none
+                command = params
+        pose = snap.state.pose if snap.state is not None else None
+        change = self.progress.observe(snap.now, pose, command)
+        if change == "stuck":
+            self.bus.emit("progress.stuck", *texts.stuck(), level="warn")
+        elif change == "moving":
+            self.bus.emit("progress.moving", *texts.moving_again())
 
     # -- transitions -----------------------------------------------------------------------
 
@@ -713,6 +735,7 @@ class Executor:
                 self.counters.intents_sent += 1
                 if run.skill.is_movement:
                     self._driving_this_tick = True
+                    self._movement = (snap.now, dict(decision.params))
         except BehaviorRefused as e:
             run.end_reason = texts.duck_refused(str(e))
             self.reason = run.end_reason
