@@ -231,6 +231,9 @@ strukturierten Daten fürs Debugging.
 - Gamepad-Eingabe (`pad.input`) unterbricht den Executor sofort und übernimmt.
 - Kamera-Frames verlassen die Runtime nur zum Studio des Nutzers; VLM-Aufrufe sind
   opt-in pro Behavior und im Studio sichtbar markiert („Bild wird an <Anbieter> gesendet“).
+- API-Schlüssel (ADR-0009): nie in Events, Logs, Fehlermeldungen, URLs oder API-Antworten
+  (nur die letzten 4 Zeichen); Datei außerhalb des Repos, 0600; Tests nutzen nie die echte
+  Datei (`tests/conftest.py`), `tests/ai/`, `tests/test_keys.py`.
 - Mikrofon (ADR-0008): Die Runtime bekommt nur Text, nie Audio. Erkennung auf dem Gerät zuerst;
   übers Netz nur nach Einwilligung, und solange es zuhört, steht dort, wohin die Aufnahme geht.
   Zuhören nur nach Klick und nur, solange die Zeile sichtbar und die Runtime verbunden ist
@@ -303,6 +306,12 @@ strukturierten Daten fürs Debugging.
   eigener Task, der Executor liest nur. Das Opt-in wird beim Senden gegen den im Pack
   genannten Anbieter geprüft; 200 Fragen pro Lauf. Szenenfragen (`vlm.question`) passen in
   denselben Adapter — gebaut werden sie, wenn ein Behavior sie braucht.
+  **Erweitert 2026-09-24, ADR-0009:** Google (Gemini, inkl. Robotics-ER), Anthropic und OpenAI
+  als Anbieter; Schlüssel werden im Studio eingetragen (Tab „KI-Anbieter“), beim Anbieter
+  geprüft und außerhalb des Repos gespeichert (`~/.config/duckstudio/keys.json`, 0600), nie
+  zurückgegeben. Der Ablauf nennt den Anbieter; ohne Schlüssel springt die Attrappe ein.
+  Personen finden per KI: `behaviors/follow-with-ai.behavior.yaml`. Echte Antworten von Gemini
+  und OpenAI sind noch nicht live geprüft (kein Schlüssel zur Hand).
 - Name „Duck Studio“ auf Kollisionen prüfen, bevor er öffentlich wird. **Stand 2026-09-20:**
   In der Robotik nichts gefunden; in Software und Design dagegen gut besetzt —
   `duckstudio.design`, `duck.design`, `7duckstudios.com`, „Duck Studios“ (Agentur),

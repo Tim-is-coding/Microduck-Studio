@@ -127,6 +127,13 @@ export function number(value: number, digits = 1): string {
   });
 }
 
+/** "2026-09-24" → 24.09.2026 / 9/24/2026, without a time zone shifting the day. */
+export function formatDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString(current);
+}
+
 export function formatTime(ms: number): string {
   return new Date(ms).toLocaleTimeString(current);
 }

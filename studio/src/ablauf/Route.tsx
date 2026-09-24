@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { stringify } from "yaml";
 
 import { language, phrases as phraseList, quote, t, text, tOr } from "../i18n";
-import type { BehaviorPack, BehaviorPackFromApi, ExecutorStatus, SkillManifest, Step } from "../schemas";
+import type { AiInfo, BehaviorPack, BehaviorPackFromApi, ExecutorStatus, SkillManifest, Step } from "../schemas";
 import {
+  DEFAULT_VLM_PROVIDER,
   AFTER_ACTIONS,
   SIGNALS,
   addAlwaysRule,
@@ -25,6 +26,7 @@ import {
 } from "../editor/model";
 import { BehaviorList } from "../editor/BehaviorList";
 import { templatesFor } from "../editor/templates";
+import { AiVendors } from "../ai/AiVendors";
 import { Blocks } from "../skills/Blocks";
 import { useStudio } from "../store/useStudio";
 import { Icon } from "../ui/Icon";
@@ -37,7 +39,9 @@ import { actionLabel, describeSignal, describeTrigger } from "./describe";
  *  are the same cards; `editable` only turns the controls on. */
 export function Route() {
   const s = useStudio();
-  const [blocksOpen, setBlocksOpen] = useState(false);
+  // A page beside the behaviors: the building blocks, or the AI vendors (ADR-0009).
+  const [page, setPage] = useState<"blocks" | "ai" | null>(null);
+  const blocksOpen = page !== null;
   const lang = language();
   const skillMap = new Map(s.skills.map((k) => [k.id, k]));
   const connected = s.health?.connected ?? false;
@@ -59,7 +63,7 @@ export function Route() {
   };
 
   const open = (id: string | null) => {
-    setBlocksOpen(false);
+    setPage(null);
     s.select(id);
   };
 
@@ -75,15 +79,19 @@ export function Route() {
           </button>
         ))}
         {draft && s.draftIsNew && <button className="active" type="button">{text(draft.name) || t("route.new")}</button>}
-        <button className={blocksOpen && !draft ? "active" : ""} disabled={Boolean(draft)} onClick={() => { s.select(null); setBlocksOpen(true); }} type="button">
+        <button className={page === "blocks" && !draft ? "active" : ""} disabled={Boolean(draft)} onClick={() => { s.select(null); setPage("blocks"); }} type="button">
           {t("route.tab.blocks")}
         </button>
-        {!draft && <button className="new" onClick={() => { setBlocksOpen(false); s.newDraft(); }} type="button">+ {t("route.new")}</button>}
+        <button className={page === "ai" && !draft ? "active" : ""} disabled={Boolean(draft)} onClick={() => { s.select(null); setPage("ai"); }} type="button">
+          {t("route.tab.ai")}
+        </button>
+        {!draft && <button className="new" onClick={() => { setPage(null); s.newDraft(); }} type="button">+ {t("route.new")}</button>}
       </nav>
 
       {offline && <OfflineCard />}
 
-      {!draft && blocksOpen && !offline && (
+      {!draft && page === "ai" && <AiVendors offline={offline} />}
+      {!draft && page === "blocks" && !offline && (
         <Blocks offline={offline} onRemove={(id) => void s.removeSkill(id)} skills={s.skills} {...hub} />
       )}
 
@@ -337,12 +345,12 @@ function RouteView({ pack, saved, draft, editable, connected, executor, runningT
             <div className="node">◉</div>
             <div className={`card${pack.vlm ? " vlm-on" : ""}`}>
               <label className="field inline">
-                <input checked={Boolean(pack.vlm)} disabled={asksVlm(pack)} onChange={(e) => onChange(setVlm(pack, e.target.checked ? "anthropic" : null))} type="checkbox" />
+                <input checked={Boolean(pack.vlm)} disabled={asksVlm(pack)} onChange={(e) => onChange(setVlm(pack, e.target.checked ? preferredVendor(s.ai) : null))} type="checkbox" />
                 <span>{t("editor.vlm.toggle")}</span>
-                {pack.vlm && <input className="provider" onChange={(e) => onChange(setVlm(pack, e.target.value || "anthropic"))} placeholder={t("editor.vlm.provider")} value={pack.vlm.provider} />}
               </label>
+              {pack.vlm && <VendorSelect ai={s.ai} onPick={(id) => onChange(setVlm(pack, id))} value={pack.vlm.provider} />}
               {asksVlm(pack) && <div className="sub">{t("editor.vlm.required")}</div>}
-              {pack.vlm && <div className="vlm">{t("editor.vlm", { provider: pack.vlm.provider })}</div>}
+              {pack.vlm && <div className="vlm">{t("editor.vlm", { provider: tOr(`vlm.provider.${pack.vlm.provider}`, pack.vlm.provider) })}</div>}
             </div>
           </div>
         )}
@@ -381,7 +389,7 @@ function TriggerStation({ pack, editable, onChange }: { pack: BehaviorPack; edit
         {!editable ? (
           <>
             <div className="title">{t("route.trigger.title")}, {describeTrigger(pack.trigger)}</div>
-            {pack.vlm && <div className="vlm">{t("route.vlm.badge", { provider: pack.vlm.provider })}</div>}
+            {pack.vlm && <div className="vlm">{t("route.vlm.badge", { provider: tOr(`vlm.provider.${pack.vlm.provider}`, pack.vlm.provider) })}</div>}
           </>
         ) : (
           <>
@@ -477,4 +485,33 @@ function executorLabel(executor: ExecutorStatus | null, behaviorId: string): str
   }
   const label = t(`run.state.${executor.state}`);
   return executor.reason ? `${label}: ${text(executor.reason)}` : label;
+}
+
+/** The vendor a new opt-in names: one that has a key, else the recommended one (ADR-0009). */
+function preferredVendor(ai: AiInfo | null): string {
+  const vendors = ai?.vendors ?? [];
+  return (vendors.find((v) => v.key) ?? vendors.find((v) => v.recommended) ?? vendors[0])?.id ?? DEFAULT_VLM_PROVIDER;
+}
+
+function VendorSelect({ ai, value, onPick }: { ai: AiInfo | null; value: string; onPick: (id: string) => void }) {
+  const { loadAi } = useStudio();
+  useEffect(() => {
+    if (!ai) void loadAi();
+  }, [ai, loadAi]);
+  const vendors = ai?.vendors ?? [];
+  const known = vendors.some((v) => v.id === value);
+  return (
+    <label className="field">
+      <span>{t("editor.vlm.choose")}</span>
+      <select className="provider" onChange={(e) => onPick(e.target.value)} value={value}>
+        {vendors.map((v) => (
+          <option key={v.id} value={v.id}>
+            {v.label}
+            {v.key ? "" : ` (${t("editor.vlm.nokey")})`}
+          </option>
+        ))}
+        {!known && <option value={value}>{value}</option>}
+      </select>
+    </label>
+  );
 }

@@ -29,6 +29,12 @@ sentences, and the Notstopp stays within reach.
 
 ![Follow-me running: station 2 of 3 lit on the rail, the log showing what the duck is doing](docs/images/running.png)
 
+Seeing with a model: the „KI-Anbieter" tab takes a key for Google (free to try, with its
+privacy catch said out loud), Anthropic or OpenAI, checks it with the vendor and keeps it on
+this computer, never showing it again (ADR-0009).
+
+![The AI vendors page: Google recommended and free to try, with a plain note on what the free tier means for pictures, links to get a key and to prices, a model choice and a key field](docs/images/ai-vendors.png)
+
 The screenshots come from a real Studio against a real runtime — regenerate them with
 `node scripts/screenshots.mjs`.
 
@@ -48,6 +54,7 @@ The screenshots come from a real Studio against a real runtime — regenerate th
 | Perception: local magenta-marker detector on the sim camera (bearing + range from ToF column or apparent width), ToF and state feeds into one snapshot | done |
 | Follow-me live in duck-sim: „Folge mir“ finds the person, steers toward it, „Stopp“ ends the walk, quack — but the simulated duck does not advance (upstream `microduck_rl#46`, see upstream notes) | partial |
 | Studio: Start / Abbrechen, „Ich sage: …“ with trigger chips, active step highlighted, person and state chips in the Live panel | done |
+| AI vendors: bring a key for Google (Gemini, free to try), Anthropic or OpenAI in the Studio's „KI-Anbieter“ tab; „Folge mir (mit KI)“ finds real people (ADR-0009) | done |
 | Speech: say „Folge mir“ into the microphone — recognised in the browser, on the device where it can be, and only after asking when the recording would go to the browser maker (ADR-0008) | done |
 | Studio editor: new behavior from empty, cards from manifest `ui` (choice/select/range/toggle), perceive/wait steps, `until` conditions, always rules, trigger, VLM opt-in with warning, live validation, Speichern / Speichern & Starten / Löschen, YAML developer view | done |
 | Runtime: `PUT`/`DELETE /api/behaviors/{id}` write `behaviors/*.behavior.yaml` atomically (ADR-0003), `POST /api/behaviors/validate`, `GET …/yaml` | done |

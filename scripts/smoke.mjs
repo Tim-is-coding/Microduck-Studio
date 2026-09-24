@@ -254,6 +254,21 @@ try {
     });
   });
 
+  await check("KI-Anbieter: drei Karten mit Links, falsches Format wird nicht gespeichert", async () => {
+    await backToOverview();
+    await page.getByRole("button", { name: "KI-Anbieter", exact: true }).click();
+    await until("drei Anbieter", async () => (await page.locator(".aivendor").count()) === 3);
+    const google = page.locator(".aivendor").first();
+    ok(/Google/.test(await google.locator("h3").innerText()), "Google nicht zuerst");
+    is(await google.locator("a", { hasText: "Schlüssel holen" }).getAttribute("href"), "https://aistudio.google.com/apikey", "Link");
+    // A key with a space is refused by the runtime before any vendor is asked: no network in CI.
+    await google.locator("input[type=password]").fill("kein schlüssel");
+    await google.getByRole("button", { name: "Prüfen und speichern" }).click();
+    await until("Hinweis zum Format", async () => /nicht wie ein Schlüssel/.test(await google.locator(".error").innerText()));
+    const ai = await (await fetch(`${API}/api/ai`)).json();
+    ok(ai.vendors.every((v) => v.key === null), "ein Schlüssel wurde gespeichert");
+  });
+
   await check("Sprache und Thema schalten", async () => {
     const logHeading = () => page.locator(".live .logwrap h2").innerText();
     await page.locator(".switch.lang button", { hasText: "EN" }).click();

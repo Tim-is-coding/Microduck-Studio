@@ -26,3 +26,7 @@ sim/upstream/
 
 # microduck_rl checkout for duck-body (pinned, never vendored)
 sim/upstream-rl/
+
+# AI vendor keys (ADR-0009) live in ~/.config/duckstudio; never here, even by mistake
+keys.json
+keys.json.tmp

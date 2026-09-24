@@ -59,6 +59,13 @@ await shot("running");
 await fetch(`${API}/api/executor/abort`, { method: "POST" });
 await page.waitForTimeout(800);
 
+await theme("light");
+await page.getByRole("button", { name: /^KI-Anbieter$/ }).click();
+await page.locator(".aivendor").first().waitFor();
+await page.waitForTimeout(400);
+await shot("ai-vendors");
+await theme("dark");
+
 await lang("en");
 await page.getByRole("button", { name: /^Overview$/ }).click();
 await page.waitForTimeout(500);

@@ -14,12 +14,11 @@ dependencies = [
   "httpx>=0.27",
   "numpy>=2",
   "pillow>=10",
+  "anthropic>=1.7,<2",   # Claude as a perception vendor (ADR-0004, ADR-0009); keys come from the Studio
 ]
 
 [project.optional-dependencies]
-vlm = [
-  "anthropic>=1.7,<2",   # optional: only the Claude VLM provider needs it (ADR-0004)
-]
+vlm = []  # kept so `uv sync --extra vlm` from older notes still works; anthropic is a dependency now
 
 [dependency-groups]
 dev = [

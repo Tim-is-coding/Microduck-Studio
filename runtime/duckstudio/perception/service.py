@@ -26,6 +26,7 @@ from ..backends.base import BackendError, DuckBackend, NoCamera, NotConnected
 from ..events import EventBus
 from .base import PersonDetection
 from .person_local import fuse_distance
+from .vendors import VlmRouter
 from .vlm import (
     DEFAULT_HZ,
     VlmError,
@@ -61,7 +62,7 @@ class PerceptionService:
         frame_hz: float = 5.0,
         state_hz: float = 10.0,
         on_pad_activity: Callable[[dict[str, Any]], None] | None = None,
-        vlm: VlmProvider | None = None,
+        vlm: VlmProvider | VlmRouter | None = None,
         vlm_hz: float = DEFAULT_HZ,
         vlm_max_calls: int = DEFAULT_MAX_CALLS,
         bus: EventBus | None = None,
@@ -187,14 +188,18 @@ class PerceptionService:
 
     # -- the slow one ------------------------------------------------------------------
 
-    def _vlm_allowed(self, request: VlmRequest) -> bool:
+    def _provider_for(self, request: VlmRequest) -> VlmProvider:
+        """The vendor the behavior named, through the router when there is one (ADR-0009)."""
+        vlm = self.vlm
+        assert vlm is not None
+        return vlm.resolve(request.provider) if isinstance(vlm, VlmRouter) else vlm
+
+    def _vlm_allowed(self, request: VlmRequest, provider: VlmProvider) -> bool:
         """§7: a frame leaves the runtime only for the provider the behavior named.
 
         A provider that answers on this machine is always allowed — it cannot break a
         promise about where pictures go — but the log says it stood in for the real one.
         """
-        provider = self.vlm
-        assert provider is not None
         if provider.sends_frames and provider.name != request.provider:
             self._notice(
                 "provider_mismatch",
@@ -239,8 +244,7 @@ class PerceptionService:
         self._emit(f"vlm.{kind}", text, level=level, question=request.question, **data)
 
     async def _vlm(self) -> None:
-        provider = self.vlm
-        assert provider is not None
+        assert self.vlm is not None
         period = 1.0 / max(0.01, self.vlm_hz)
         last_said: str | None = None
         while True:
@@ -251,7 +255,8 @@ class PerceptionService:
                 last_said = None
                 await asyncio.sleep(RETRY_S)
                 continue
-            if not self._connected() or not self._vlm_allowed(request):
+            provider = self._provider_for(request)  # a key typed in mid-run counts at once
+            if not self._connected() or not self._vlm_allowed(request, provider):
                 await asyncio.sleep(RETRY_S)
                 continue
             if self.vlm_calls >= self.vlm_max_calls:

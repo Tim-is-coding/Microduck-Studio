@@ -40,19 +40,23 @@ answers; the service asks. The question stands while a following `direction: tow
 walk needs fresh bearings, and is withdrawn — with the sighting — when the behavior ends,
 is aborted or preempted, or when another perceive step takes over.
 
-The provider is chosen by the runtime, the consent by the behavior:
+The behavior names the vendor (its consent, ADR-0004); the router answers with that vendor
+if a key for it is there, else with the stub (ADR-0009):
 
-| `DUCKSTUDIO_VLM` | Provider | Frames leave the machine |
-| --- | --- | --- |
-| unset (default) | `StubVlm` — the local blob detector in a VLM's clothes | no |
-| `anthropic` | `AnthropicVlm` — Claude, needs `ANTHROPIC_API_KEY` and `uv sync --extra vlm` | yes, for behaviors that opted in |
+| Vendor | Provider | Key from | Frames leave the machine |
+| --- | --- | --- | --- |
+| — (no key) | `StubVlm` — the local blob detector in a VLM's clothes | — | no |
+| `google` | `GeminiVlm` — Gemini, points as `[y, x]` in 0–1000 | Studio, or `GEMINI_API_KEY` + `DUCKSTUDIO_VLM=google` | yes, for behaviors that name it |
+| `anthropic` | `AnthropicVlm` — Claude, official SDK | Studio, or `ANTHROPIC_API_KEY` + `DUCKSTUDIO_VLM=anthropic` | yes, for behaviors that name it |
+| `openai` | `OpenAiVlm` — Responses API, `store: false` | Studio, or `OPENAI_API_KEY` + `DUCKSTUDIO_VLM=openai` | yes, for behaviors that name it |
 
-Knobs: `DUCKSTUDIO_VLM_MODEL` (default `claude-opus-5`), `DUCKSTUDIO_VLM_HZ` (default 0.5,
-clamped to 2.0). Each run may ask 200 questions, then the service stops and says so.
+The model per vendor is picked on the „KI-Anbieter" page (kept in `~/.config/duckstudio/ai.json`).
+`DUCKSTUDIO_VLM_HZ` (default 0.5, clamped to 2.0). Each run may ask 200 questions, then the
+service stops and says so.
 
 ## What the log says
 
-Every question that leaves the machine is announced once — "Bild wird an „anthropic“
+Every question that leaves the machine is announced once — "Bild wird an Anthropic
 gesendet: „Wo ist der rote Ball?“" — and every answer that differs from the last one is a
 line of its own. A provider the behavior did not name is refused in the log, in red, and no
 frame is sent (§7). The Live panel shows the same in a red band while a behavior is asking.

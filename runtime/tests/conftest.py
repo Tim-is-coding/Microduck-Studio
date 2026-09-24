@@ -12,6 +12,14 @@ from duckstudio.perception.vlm import VlmAnswer
 from duckstudio.skills import SkillRegistry
 
 
+@pytest.fixture(autouse=True)
+def _no_real_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test ever reads or writes the person's real AI keys (ADR-0009), or uses theirs."""
+    monkeypatch.setenv("DUCKSTUDIO_KEYS", str(tmp_path / "keys.json"))
+    for name in ("DUCKSTUDIO_VLM", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+
+
 @pytest.fixture(scope="session")
 def root() -> Path:
     return repo_root()

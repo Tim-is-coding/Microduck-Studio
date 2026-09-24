@@ -1,6 +1,9 @@
 import { create } from "zustand";
 
 import {
+  AiInfo,
+  AiVendor,
+  type AiInfo as AiInfoT,
   BehaviorPack,
   BehaviorPackFromApi,
   Event,
@@ -83,6 +86,13 @@ interface StudioState {
    *  from the runtime, or null when it switched. */
   switchBackend: (kind: BackendKindT, host?: string) => Promise<string | null>;
   pushEvent: (e: EventT) => void;
+  /** AI vendors and whether a key is there (ADR-0009). */
+  ai: AiInfoT | null;
+  loadAi: () => Promise<void>;
+  /** Checks the key with the vendor and keeps it; null on success, else the runtime's reason. */
+  saveAiKey: (vendor: string, key: string, model?: string) => Promise<string | null>;
+  removeAiKey: (vendor: string) => Promise<void>;
+  setAiModel: (vendor: string, model: string) => Promise<void>;
 }
 
 /** FastAPI puts its sentence in `detail`; show that, not the JSON around it. */
@@ -94,6 +104,15 @@ function detail(body: string): string {
     /* not JSON: the body is the message */
   }
   return body.slice(0, 300);
+}
+
+function replaceVendor(
+  set: (partial: Partial<StudioState>) => void,
+  get: () => StudioState,
+  vendor: z.infer<typeof AiVendor>,
+): void {
+  const ai = get().ai;
+  if (ai) set({ ai: { ...ai, vendors: ai.vendors.map((v) => (v.id === vendor.id ? vendor : v)) } });
 }
 
 async function getJson<T>(url: string, schema: z.ZodType<T>): Promise<T> {
@@ -124,6 +143,54 @@ export const useStudio = create<StudioState>((set, get) => ({
   hubResults: null,
   hubBusy: false,
   hubError: null,
+  ai: null,
+
+  async loadAi() {
+    try {
+      set({ ai: await getJson("/api/ai", AiInfo) });
+    } catch {
+      /* the settings page says the runtime is not there */
+    }
+  },
+
+  async saveAiKey(vendor, key, model) {
+    let res: Response;
+    try {
+      res = await fetch(`/api/ai/${encodeURIComponent(vendor)}/key`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(model ? { key, model } : { key }),
+      });
+    } catch {
+      return "unreachable";
+    }
+    if (!res.ok) {
+      try {
+        const reason = (await res.json())?.detail?.reason;
+        return typeof reason === "string" ? reason : "failed";
+      } catch {
+        return "failed";
+      }
+    }
+    replaceVendor(set, get, AiVendor.parse(await res.json()));
+    void get().refreshHealth();
+    return null;
+  },
+
+  async removeAiKey(vendor) {
+    const res = await fetch(`/api/ai/${encodeURIComponent(vendor)}/key`, { method: "DELETE" });
+    if (res.ok) replaceVendor(set, get, AiVendor.parse(await res.json()));
+    void get().refreshHealth();
+  },
+
+  async setAiModel(vendor, model) {
+    const res = await fetch(`/api/ai/${encodeURIComponent(vendor)}/model`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model }),
+    });
+    if (res.ok) replaceVendor(set, get, AiVendor.parse(await res.json()));
+  },
 
   async refreshHealth() {
     const before = get().runtime;

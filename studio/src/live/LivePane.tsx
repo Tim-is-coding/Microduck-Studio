@@ -75,7 +75,7 @@ export function LivePane({ health, offline, state, executor, runs, events, onSto
         <p className="meta">
           {t(`stage.backend.${health.backend}`)}
           {health.health ? `, ${t("stage.battery", { percent: Math.round(health.health.battery * 100) })}` : ""}
-          {health.vlm ? `, ${t("live.vlm")}: ${health.vlm.configured ? tOr(`vlm.provider.${health.vlm.provider}`, health.vlm.provider) : t("live.vlm.off", { provider: health.vlm.provider })}` : ""}
+          {health.vlm ? `, ${t("live.vlm")}: ${health.vlm.vendors.length ? health.vlm.vendors.map((v) => tOr(`vlm.provider.${v}`, v)).join(", ") : t("live.vlm.none")}` : ""}
         </p>
       )}
     </aside>

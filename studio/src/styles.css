@@ -454,3 +454,26 @@ details.file pre { background: var(--surface); border: 1px solid var(--line); bo
 .live .runs .outcome.failed { color: #ffb3bf; }
 .live .runs .outcome.aborted, .live .runs .outcome.preempted { color: #ffd66b; }
 .live .runs .detail { grid-column: 1 / -1; font-size: var(--t-xs); color: var(--stage-muted); }
+
+/* KI-Anbieter (ADR-0009) */
+.aipage { display: grid; gap: 14px; max-width: 900px; }
+.aipage h2 { font-family: var(--font-display); font-size: var(--t-xl, 22px); margin: 0; }
+.aipage .lead { margin: 0; color: var(--muted); line-height: 1.5; }
+.aiprivacy { border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 14px; background: var(--surface); font-size: var(--t-sm); }
+.aiprivacy p { margin: 4px 0; }
+.aivendors { display: grid; gap: 12px; }
+.aivendor header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.aivendor h3 { margin: 0; font-family: var(--font-display); font-size: var(--t-lg); }
+.aivendor.on { border-color: var(--link); }
+.aivendor .chip.good { border-color: var(--link); color: var(--link); }
+.aivendor .chip.on { background: var(--link); color: var(--surface); border-color: var(--link); }
+.aivendor .note { margin: 8px 0; font-size: var(--t-sm); line-height: 1.5; }
+.aivendor .links { display: flex; gap: 14px; flex-wrap: wrap; margin: 6px 0 10px; font-size: var(--t-sm); }
+.aivendor .links a { color: var(--link); }
+.aivendor .models { border: 0; padding: 0; margin: 0 0 10px; display: grid; gap: 4px; font-size: var(--t-sm); }
+.aivendor .models legend { font-weight: 600; margin-bottom: 4px; }
+.aivendor .models label { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.aivendor .keyrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--t-sm); }
+.aivendor .keyrow input { flex: 1; min-width: 200px; }
+.aivendor .error { color: var(--danger); font-size: var(--t-sm); margin: 6px 0 0; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

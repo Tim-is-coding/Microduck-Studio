@@ -373,10 +373,19 @@ def vlm_not_allowed() -> Bilingual:
     )
 
 
+# Vendor ids as a person says them; the same names as `vlm.provider.*` in the Studio.
+VENDOR_NAMES = {"google": "Google", "anthropic": "Anthropic", "openai": "OpenAI"}
+
+
+def vendor_name(vendor: str) -> str:
+    return VENDOR_NAMES.get(vendor, vendor)
+
+
 def vlm_sending(provider: str, question: str) -> Bilingual:
+    who = vendor_name(provider)
     return (
-        f"Bild wird an „{provider}“ gesendet: „{question}“",
-        f"Sending a picture to “{provider}”: “{question}”",
+        f"Bild wird an {who} gesendet: „{question}“",
+        f"Sending a picture to {who}: “{question}”",
     )
 
 
@@ -399,10 +408,11 @@ def vlm_not_configured(provider: str) -> Bilingual:
 
 
 def vlm_stub_stands_in(allowed: str) -> Bilingual:
+    who = vendor_name(allowed)
     return (
-        f"„{allowed}“ ist nicht eingerichtet; die lokale Attrappe antwortet. "
-        f"Es verlässt kein Bild die Runtime.",
-        f"“{allowed}” is not set up; the local stub answers instead. "
+        f"Für {who} ist kein Schlüssel hinterlegt (Tab „KI-Anbieter“); die lokale Attrappe "
+        f"antwortet. Es verlässt kein Bild die Runtime.",
+        f"No key for {who} yet (the “AI vendors” tab); the local stub answers instead. "
         f"No picture leaves the runtime.",
     )
 
@@ -479,6 +489,14 @@ def intent_refused(skill: Text, reason: str, detail: Bilingual = ("", "")) -> Bi
         f"{de} nicht gesendet: {what[0]}{f' ({detail[0]})' if detail[0] else ''}.",
         f"{en} not sent: {what[1]}{f' ({detail[1]})' if detail[1] else ''}.",
     )
+
+
+def ai_key_saved(label: str) -> Bilingual:
+    return f"Schlüssel für {label} geprüft und gespeichert.", f"Key for {label} checked and saved."
+
+
+def ai_key_removed(label: str) -> Bilingual:
+    return f"Schlüssel für {label} entfernt.", f"Key for {label} removed."
 
 
 def stuck() -> Bilingual:

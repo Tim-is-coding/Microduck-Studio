@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 
-import { phrases as phraseList, quote, t, text } from "../i18n";
+import { phrases as phraseList, quote, t, text, tOr } from "../i18n";
 import type { BehaviorPack, BehaviorPackFromApi } from "../schemas";
 import { Icon } from "../ui/Icon";
 import type { Template } from "./templates";
@@ -54,7 +54,7 @@ export function BehaviorList({ behaviors, connected, running, templates, onOpen,
             <div className="chips">
               <span className="chip">{describeTrigger(b)}</span>
               <span className="chip">{t("list.steps", { count: b.steps.length })}</span>
-              {b.vlm && <span className="chip ki">{t("list.vlm", { provider: b.vlm.provider })}</span>}
+              {b.vlm && <span className="chip ki">{t("list.vlm", { provider: tOr(`vlm.provider.${b.vlm.provider}`, b.vlm.provider) })}</span>}
               {b.problems.length > 0 && <span className="chip problem">{t("list.problems", { count: b.problems.length })}</span>}
             </div>
             <div className="actions">

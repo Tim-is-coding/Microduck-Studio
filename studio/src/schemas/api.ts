@@ -12,12 +12,42 @@ export const Health = z.strictObject({
 /** Which model would see the camera, and whether a frame would leave the machine at all. */
 export const VlmInfo = z.object({
   provider: z.string(),
+  /** Vendors with a key the runtime may use (ADR-0009); empty = only the local stand-in. */
+  vendors: z.array(z.string()).default([]),
   model: z.string(),
   configured: z.boolean(),
   sends_frames: z.boolean(),
   hz: z.number(),
 });
 export type VlmInfo = z.infer<typeof VlmInfo>;
+
+const Bilingual = z.object({ de: z.string(), en: z.string() });
+
+/** One AI vendor a person can bring a key for (GET /api/ai, ADR-0009). Never the key itself. */
+export const AiVendor = z.object({
+  id: z.string(),
+  label: z.string(),
+  key_url: z.string(),
+  docs_url: z.string(),
+  pricing_url: z.string(),
+  terms_url: z.string().nullish(),
+  free_tier: z.boolean(),
+  recommended: z.boolean(),
+  note: Bilingual,
+  env_var: z.string(),
+  models: z.array(z.object({ id: z.string(), note: Bilingual })),
+  model: z.string(),
+  key: z.object({ source: z.enum(["studio", "environment"]), hint: z.string() }).nullable(),
+});
+export type AiVendor = z.infer<typeof AiVendor>;
+
+export const AiInfo = z.object({
+  checked: z.string(),
+  hz: z.number(),
+  max_calls: z.number(),
+  vendors: z.array(AiVendor),
+});
+export type AiInfo = z.infer<typeof AiInfo>;
 
 export const BackendKind = z.enum(["mock", "sim", "duck"]);
 export type BackendKind = z.infer<typeof BackendKind>;

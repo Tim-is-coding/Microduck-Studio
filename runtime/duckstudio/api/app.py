@@ -30,7 +30,9 @@ from ..events import EventBus
 from ..executor import Executor, ExecutorBusy
 from ..executor.safety import IntentGate
 from ..hub import HubClient, HubError, skill_from_policy, skill_id_for
-from ..perception import PerceptionService, StubVlm, detector_for, make_vlm, vlm_hz
+from ..keys import AiSettings, KeyStore
+from ..perception import PerceptionService, StubVlm, detector_for, vlm_hz
+from ..perception.vendors import CHECKED, VENDORS, KeyCheckError, VlmRouter, env_names
 from ..skills import (
     SkillRegistry,
     delete_skill_manifest,
@@ -49,6 +51,17 @@ class SayBody(BaseModel):
     """Module level on purpose: FastAPI resolves the annotation through module globals."""
 
     text: str
+
+
+class KeyBody(BaseModel):
+    """A key for an AI vendor, typed into the Studio (ADR-0009). Never echoed back."""
+
+    key: str
+    model: str | None = None
+
+
+class ModelBody(BaseModel):
+    model: str
 
 
 class BackendBody(BaseModel):
@@ -73,6 +86,8 @@ def create_app(
     auto_connect: bool = True,
     hub: HubClient | None = None,
     backend_factory: Callable[..., DuckBackend] = make_backend,
+    keys: KeyStore | None = None,
+    ai_settings: AiSettings | None = None,
 ) -> FastAPI:
     skills_root = Path(skills_path or skills_dir())
     registry = SkillRegistry.load(skills_root)
@@ -84,9 +99,12 @@ def create_app(
     gate = IntentGate(duck, bus=bus)
     executor = Executor(registry, gate, bus, packs=packs)
     detector = detector_for(duck.kind)
-    # The VLM is the local stub unless DUCKSTUDIO_VLM says otherwise (ADR-0004): asking a
-    # paid service to look at camera frames is a switch you flip, not a default.
-    vlm = make_vlm(detector=detector)
+    # Who answers a behavior's question (ADR-0004, ADR-0009): the vendor the behavior named, if
+    # a key for it was typed into the Studio (or named in DUCKSTUDIO_VLM with a key in the
+    # environment); otherwise the local stub, which sends nothing anywhere.
+    key_store = keys or KeyStore(env_names=env_names())
+    settings = ai_settings or AiSettings()
+    vlm = VlmRouter(key_store, StubVlm(detector), models=settings.models())
     perception = PerceptionService(
         duck,
         gate.snapshot,
@@ -181,6 +199,80 @@ def create_app(
             "backend.lost", *texts.backend_lost(duck.kind, str(e)), level="error", backend=duck.kind
         )
 
+    # -- AI vendors (ADR-0009) ---------------------------------------------------------------
+
+    def vendor_payload(vendor_id: str) -> dict[str, Any]:
+        v = VENDORS[vendor_id]
+        info = key_store.info(vendor_id)
+        return {
+            "id": v.id,
+            "label": v.label,
+            "key_url": v.key_url,
+            "docs_url": v.docs_url,
+            "pricing_url": v.pricing_url,
+            "free_tier": v.free_tier,
+            "recommended": v.recommended,
+            "note": v.note,
+            "env_var": v.env_var,
+            "models": [{"id": m.id, "note": m.note} for m in v.models],
+            "model": vlm.model_for(vendor_id),
+            # Whether there is a key and how to tell it apart — never the key itself.
+            "key": {"source": info.source, "hint": info.hint} if info else None,
+            **v.extra,
+        }
+
+    def known_vendor(vendor_id: str) -> None:
+        if vendor_id not in VENDORS:
+            raise HTTPException(404, f"unknown AI vendor {vendor_id!r}")
+
+    @app.get("/api/ai")
+    async def ai_vendors() -> dict[str, Any]:
+        return {
+            "checked": CHECKED,
+            "hz": perception.vlm_hz,
+            "max_calls": perception.vlm_max_calls,
+            "vendors": [vendor_payload(v) for v in VENDORS],
+        }
+
+    @app.put("/api/ai/{vendor_id}/key")
+    async def set_ai_key(vendor_id: str, body: KeyBody) -> dict[str, Any]:
+        """Check the key with the vendor, then keep it. A key that does not work is not kept."""
+        known_vendor(vendor_id)
+        key = body.key.strip()
+        if not key or len(key) > 512 or any(c.isspace() for c in key):
+            raise HTTPException(422, {"reason": "format"})
+        model = body.model or vlm.model_for(vendor_id)
+        if model not in {m.id for m in VENDORS[vendor_id].models}:
+            raise HTTPException(422, {"reason": "unknown_model"})
+        try:
+            await VENDORS[vendor_id].check(key, model)
+        except KeyCheckError as e:
+            raise HTTPException(422, {"reason": e.reason}) from None
+        key_store.set(vendor_id, key)
+        if body.model:
+            settings.set_model(vendor_id, model)
+            vlm.models[vendor_id] = model
+        bus.emit("ai.key_saved", *texts.ai_key_saved(VENDORS[vendor_id].label), vendor=vendor_id)
+        return vendor_payload(vendor_id)
+
+    @app.delete("/api/ai/{vendor_id}/key")
+    async def remove_ai_key(vendor_id: str) -> dict[str, Any]:
+        known_vendor(vendor_id)
+        key_store.remove(vendor_id)
+        bus.emit(
+            "ai.key_removed", *texts.ai_key_removed(VENDORS[vendor_id].label), vendor=vendor_id
+        )
+        return vendor_payload(vendor_id)
+
+    @app.put("/api/ai/{vendor_id}/model")
+    async def set_ai_model(vendor_id: str, body: ModelBody) -> dict[str, Any]:
+        known_vendor(vendor_id)
+        if body.model not in {m.id for m in VENDORS[vendor_id].models}:
+            raise HTTPException(422, {"reason": "unknown_model"})
+        settings.set_model(vendor_id, body.model)
+        vlm.models[vendor_id] = body.model
+        return vendor_payload(vendor_id)
+
     @app.get("/api/health")
     async def health() -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -193,10 +285,12 @@ def create_app(
             "health": None,
             "unverified_upstream_methods": [m.name for m in upstream.unverified()],
             "vlm": {
-                "provider": vlm.name,
-                "model": vlm.model,
-                "configured": vlm.configured,
-                "sends_frames": vlm.sends_frames,
+                # The vendors a behavior could name and be answered by; "stub" when none.
+                "provider": (vlm.configured() or ["stub"])[0],
+                "vendors": vlm.configured(),
+                "model": vlm.model_for(vlm.configured()[0]) if vlm.configured() else "local-blob",
+                "configured": True,
+                "sends_frames": bool(vlm.configured()),
                 "hz": perception.vlm_hz,
             },
         }
@@ -250,8 +344,7 @@ def create_app(
             gate.snapshot.forget_duck()
             perception.backend = fresh
             perception.detector = detector_for(fresh.kind)
-            if isinstance(vlm, StubVlm):  # the stub looks with the local detector
-                vlm.detector = perception.detector
+            vlm.stub.detector = perception.detector  # the stub looks with the local detector
             perception.camera_available = None
             link_error = ""
             bus.emit(
@@ -446,6 +539,7 @@ def create_app(
 
     def executor_payload() -> dict[str, Any]:
         snap = gate.snapshot
+        answering = vlm.resolve(snap.vlm_request.provider) if snap.vlm_request else vlm.stub
         person = snap.person_fresh if snap.now else snap.person
         target = snap.target_fresh if snap.now else snap.target
         return {
@@ -456,8 +550,8 @@ def create_app(
             "tof_min_m": snap.tof_min_m,
             "tof_rows": snap.tof_rows,  # 8x8 metres, for the Studio's proximity grid
             "vlm": {
-                "provider": vlm.name,
-                "sends_frames": vlm.sends_frames,
+                "provider": answering.name,
+                "sends_frames": answering.sends_frames,
                 "question": snap.vlm_request.text.model_dump() if snap.vlm_request else None,
                 "asked": perception.vlm_calls,
                 "answer": snap.vlm.model_dump() if snap.vlm is not None else None,

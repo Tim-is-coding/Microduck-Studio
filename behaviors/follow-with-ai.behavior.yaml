@@ -1,0 +1,26 @@
+schema: duckstudio.behavior/v0
+id: follow-with-ai
+name: { de: Folge mir (mit KI), en: Follow me (with AI) }
+summary:
+  de: "Wie „Folge mir“, aber ein KI-Modell sucht die Person im Kamerabild — auch echte Menschen, nicht nur die Markierung der Simulation."
+  en: "Like “Follow me”, but an AI model finds the person in the camera picture — real people too, not just the simulation's marker."
+trigger:
+  kind: speech
+  phrases: { de: ["Folge mir mit KI", "Komm mit mir"], en: ["Follow me with AI"] }
+vlm:
+  provider: google
+  purpose:
+    de: "Sucht die nächste Person im Kamerabild und zeigt, wo sie ist."
+    en: "Finds the nearest person in the camera picture and points at them."
+steps:
+  - perceive: vlm.target
+    question: { de: "Wo ist die nächste Person?", en: "Where is the nearest person?" }
+    on_none: { do: look_around, seconds: 5, then: retry }
+  - skill: walk
+    with: { direction: toward_target, tempo: slow, distance: 80 }
+    until: { any: [speech: { de: ["Stopp"], en: ["Stop"] }, elapsed: 10m] }
+  - skill: quack
+    with: { style: short }
+always:
+  - on: fallen
+    do: [getup, resume]
