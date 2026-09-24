@@ -21,7 +21,10 @@ export function LivePane({ health, offline, state, executor, runs, events, onSto
   const connected = health?.connected ?? false;
   return (
     <aside className="live">
-      <h2>{t("stage.title")}</h2>
+      <div className="livehead">
+        <h2>{t("stage.title")}</h2>
+        {health && <span className="meta">{t(`stage.backend.${health.backend}`)}</span>}
+      </div>
       <CameraView connected={connected} executor={executor} />
       <p className="sentence">
         {stateSentence(offline, connected, state, executor?.stuck ?? false)} <span className="soft">{connected ? sightingSentence(executor) : ""}</span>
@@ -34,6 +37,20 @@ export function LivePane({ health, offline, state, executor, runs, events, onSto
           {executor.vlm.answer?.answer ? ` ${executor.vlm.answer.answer}` : ""}
         </p>
       )}
+      <dl className="figures">
+        <div>
+          <dt>{t("stage.figure.person")}</dt>
+          <dd>{figure(executor?.target?.distance_m ?? executor?.person?.distance_m, "m")}</dd>
+        </div>
+        <div>
+          <dt>{t("stage.figure.obstacle")}</dt>
+          <dd>{figure(executor?.tof_min_m, "m")}</dd>
+        </div>
+        <div>
+          <dt>{t("stage.figure.battery")}</dt>
+          <dd>{health?.health ? `${Math.round(health.health.battery * 100)} %` : t("stage.figure.none")}</dd>
+        </div>
+      </dl>
       <TofGrid minM={executor?.tof_min_m} rows={executor?.tof_rows} />
       <button className="estop" onClick={onStop} type="button"><Icon name="stop" /> {t("live.stop")}</button>
       <div className="logwrap">
@@ -73,13 +90,17 @@ export function LivePane({ health, offline, state, executor, runs, events, onSto
       </div>
       {health && (
         <p className="meta">
-          {t(`stage.backend.${health.backend}`)}
-          {health.health ? `, ${t("stage.battery", { percent: Math.round(health.health.battery * 100) })}` : ""}
-          {health.vlm ? `, ${t("live.vlm")}: ${health.vlm.vendors.length ? health.vlm.vendors.map((v) => tOr(`vlm.provider.${v}`, v)).join(", ") : t("live.vlm.none")}` : ""}
+          {health.vlm ? `${t("live.vlm")}: ${health.vlm.vendors.length ? health.vlm.vendors.map((v) => tOr(`vlm.provider.${v}`, v)).join(", ") : t("live.vlm.none")}` : ""}
         </p>
       )}
     </aside>
   );
+}
+
+/** A live value with its unit, or a dash while nobody measured it (TOF_RANGE_M = nothing). */
+function figure(value: number | null | undefined, unit: string): string {
+  if (value == null || !Number.isFinite(value) || value >= 3.9) return t("stage.figure.none");
+  return `${number(value, 1)} ${unit}`;
 }
 
 function stateSentence(offline: boolean, connected: boolean, state: RobotState | null, stuck: boolean): string {

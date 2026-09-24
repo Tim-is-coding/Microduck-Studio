@@ -114,9 +114,11 @@ export function proximity(distanceM: number): number {
 /** Warm where something is close, quiet where the way is clear — in both themes. */
 export function zoneColor(distanceM: number, dark = false): string {
   const p = proximity(distanceM);
-  const hue = 8 + p * 40; // red → sand
-  const light = dark ? 48 - p * 32 : 42 + p * 46;
-  const sat = dark ? 72 - p * 66 : 78 - p * 55;
+  // A cool grey ramp (design system „Stille“): close is ink-dark on paper, bright at night;
+  // clear fades into the sheet. Colour stays for the camera's own marks.
+  const hue = 210;
+  const light = dark ? 78 - p * 62 : 28 + p * 66;
+  const sat = dark ? 6 : 8;
   return `hsl(${hue.toFixed(0)} ${sat.toFixed(0)}% ${light.toFixed(0)}%)`;
 }
 

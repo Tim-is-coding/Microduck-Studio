@@ -80,13 +80,22 @@ export function Route() {
           </button>
         ))}
         {draft && s.draftIsNew && <button className="active" type="button">{text(draft.name) || t("route.new")}</button>}
-        <button className={page === "blocks" && !draft ? "active" : ""} disabled={Boolean(draft)} onClick={() => { s.select(null); setPage("blocks"); }} type="button">
-          {t("route.tab.blocks")}
-        </button>
-        <button className={page === "ai" && !draft ? "active" : ""} disabled={Boolean(draft)} onClick={() => { s.select(null); setPage("ai"); }} type="button">
-          {t("route.tab.ai")}
-        </button>
+
         {!draft && <button className="new" onClick={() => { setPage(null); s.newDraft(); }} type="button">+ {t("route.new")}</button>}
+
+        <span className="spacer" />
+
+        <button className={`tool${page === "blocks" && !draft ? " active" : ""}`} disabled={Boolean(draft)} onClick={() => { s.select(null); setPage("blocks"); }} type="button">
+
+          {t("route.tab.blocks")}
+
+        </button>
+
+        <button className={`tool${page === "ai" && !draft ? " active" : ""}`} disabled={Boolean(draft)} onClick={() => { s.select(null); setPage("ai"); }} type="button">
+
+          {t("route.tab.ai")}
+
+        </button>
       </nav>
 
       {offline && <OfflineCard />}
@@ -105,6 +114,7 @@ export function Route() {
           onOpen={open}
           onRun={(id) => void s.run(id)}
           running={running}
+          skills={skillMap}
           templates={templatesFor(skillMap)}
         />
       )}
@@ -346,7 +356,7 @@ function RouteView({ pack, saved, draft, editable, connected, executor, runningT
 
         {editable && (
           <div className="station vlmstation">
-            <div className="node">◉</div>
+            <div className="node">{t("route.node.ai")}</div>
             <div className={`card${pack.vlm ? " vlm-on" : ""}`}>
               <label className="field inline">
                 <input checked={Boolean(pack.vlm)} disabled={asksVlm(pack)} onChange={(e) => onChange(setVlm(pack, e.target.checked ? preferredVendor(s.ai) : null))} type="checkbox" />
@@ -388,7 +398,7 @@ function TriggerStation({ pack, editable, onChange }: { pack: BehaviorPack; edit
   }, [pack.id, pack.trigger]);
   return (
     <div className="station trigger">
-      <div className="node"><Icon name="play" size={0.75} /></div>
+      <div className="node">{t("route.node.start")}</div>
       <div className="card">
         {!editable ? (
           <>
@@ -425,7 +435,7 @@ function AlwaysStation({ pack, skills, editable, active, onChange }: { pack: Beh
   const skillList = [...skills.values()];
   return (
     <div className={`station always${active ? " active" : ""}`}>
-      <div className="node">!</div>
+      <div className="node">{t("route.node.always")}</div>
       <div className="card">
         <div className="title">{t("route.always.title")}</div>
         {!editable &&

@@ -441,5 +441,15 @@
   "backend.duck.again": "Connect another duck",
   "backend.why.duck": "No tunnel to the duck is open. Open it with the command above; the Studio connects by itself once it is.",
   "backend.why.sim": "The simulation is not running. Start it with sim/up.sh; the Studio connects by itself once it is.",
-  "backend.why.other": "Not connected."
+  "backend.why.other": "Not connected.",
+  "route.node.start": "Start",
+  "route.node.always": "Always",
+  "route.node.ai": "AI",
+  "route.step.running": "running",
+  "stage.figure.person": "Distance",
+  "stage.figure.obstacle": "Obstacle",
+  "stage.figure.battery": "Battery",
+  "stage.figure.none": "–",
+  "list.path.person": "Find a person",
+  "list.path.wait": "wait"
 }

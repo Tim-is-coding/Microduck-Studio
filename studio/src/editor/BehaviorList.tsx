@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 
 import { phrases as phraseList, quote, t, text, tOr } from "../i18n";
-import type { BehaviorPack, BehaviorPackFromApi } from "../schemas";
+import type { BehaviorPack, BehaviorPackFromApi, SkillManifest, Step } from "../schemas";
 import { Icon } from "../ui/Icon";
 import type { Template } from "./templates";
 import { download, duplicate, fileName, fromYaml, toYaml } from "./transfer";
@@ -11,6 +11,8 @@ interface Props {
   connected: boolean;
   running: boolean;
   templates: Template[];
+  /** For the step names on each row: the same words the route shows. */
+  skills: Map<string, SkillManifest>;
   onOpen: (id: string) => void;
   onRun: (id: string) => void;
   onNew: () => void;
@@ -24,7 +26,7 @@ interface Props {
  * or take with you, and an empty one that makes a new behavior. §3.1 — nobody has to know
  * what a file is, but a file is how a behavior travels until the Hub path exists (M4).
  */
-export function BehaviorList({ behaviors, connected, running, templates, onOpen, onRun, onNew, onDraft }: Props) {
+export function BehaviorList({ behaviors, connected, running, templates, skills, onOpen, onRun, onNew, onDraft }: Props) {
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [notice, setNotice] = useState<{ kind: "error" | "info"; text: string } | null>(null);
   const taken = behaviors.map((b) => b.id);
@@ -51,14 +53,20 @@ export function BehaviorList({ behaviors, connected, running, templates, onOpen,
               <span className="title">{text(b.name)}</span>
               {b.summary && <span className="sub">{text(b.summary)}</span>}
             </button>
-            <div className="chips">
-              <span className="chip">{describeTrigger(b)}</span>
-              <span className="chip">{t("list.steps", { count: b.steps.length })}</span>
-              {b.vlm && <span className="chip ki">{t("list.vlm", { provider: tOr(`vlm.provider.${b.vlm.provider}`, b.vlm.provider) })}</span>}
-              {b.problems.length > 0 && <span className="chip problem">{t("list.problems", { count: b.problems.length })}</span>}
-            </div>
+            <ol aria-label={t("list.steps", { count: b.steps.length })} className="path">
+              <li className="start">{describeTrigger(b)}</li>
+              {b.steps.map((step, i) => (
+                <li key={i}>{stepName(step, skills)}</li>
+              ))}
+            </ol>
+            {(b.vlm || b.problems.length > 0) && (
+              <div className="chips">
+                {b.vlm && <span className="chip ki">{t("list.vlm", { provider: tOr(`vlm.provider.${b.vlm.provider}`, b.vlm.provider) })}</span>}
+                {b.problems.length > 0 && <span className="chip problem">{t("list.problems", { count: b.problems.length })}</span>}
+              </div>
+            )}
             <div className="actions">
-              <button className="btn" onClick={() => onOpen(b.id)} type="button">{t("list.open")}</button>
+              <button className="btn quiet" onClick={() => onOpen(b.id)} type="button">{t("list.open")}</button>
               <button
                 className="btn primary"
                 disabled={!connected || running || b.problems.length > 0}
@@ -119,4 +127,17 @@ export function BehaviorList({ behaviors, connected, running, templates, onOpen,
 function describeTrigger(behavior: BehaviorPackFromApi): string {
   if (behavior.trigger.kind === "speech") return quote(phraseList(behavior.trigger.phrases)[0] ?? "");
   return t("editor.trigger.kind.manual");
+}
+
+/** A step as the overview names it: the building block, or what is looked for. */
+function stepName(step: Step, skills: Map<string, SkillManifest>): string {
+  if ("skill" in step) {
+    const skill = skills.get(step.skill);
+    return skill ? text(skill.name) : step.skill;
+  }
+  if ("perceive" in step) {
+    if (step.question) return text(step.question);
+    return step.perceive === "person.nearest" ? t("list.path.person") : step.perceive;
+  }
+  return t("list.path.wait");
 }

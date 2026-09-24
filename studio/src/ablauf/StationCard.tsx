@@ -38,7 +38,7 @@ export function StationCard({ index, count, step, skills, lang, editable, active
   const cls = ["station", active ? "active" : "", done ? "done" : "", editable ? "editing" : "", dragging ? "dragging" : ""].filter(Boolean).join(" ");
   return (
     <div className={cls}>
-      <div className="node" title={done ? t("route.step.done") : undefined}>{done ? "✓" : index + 1}</div>
+      <div className="node" title={done ? t("route.step.done") : undefined}>{done ? <Icon name="check" title={t("route.step.done")} /> : index + 1}</div>
       <div className="card">
         <div className="head">
           {editable && (
@@ -53,6 +53,7 @@ export function StationCard({ index, count, step, skills, lang, editable, active
             )}
             {isWait(step) && <div className="title">{t("route.wait", { duration: formatDuration(step.wait) })}</div>}
           </div>
+          {active && !editable && <span className="running"><span className="dot" />{t("route.step.running")}</span>}
           {editable && (
             <div className="actions">
               <button className="iconbtn" disabled={index === 0} onClick={() => onMove(-1)} title={t("editor.step.up")} type="button">↑</button>

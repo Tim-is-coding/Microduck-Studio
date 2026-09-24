@@ -441,5 +441,15 @@
   "backend.duck.again": "Andere Ente verbinden",
   "backend.why.duck": "Kein Tunnel zur Ente offen. Öffne ihn mit dem Befehl oben; das Studio verbindet sich dann von selbst.",
   "backend.why.sim": "Die Simulation läuft nicht. Starte sie mit sim/up.sh; das Studio verbindet sich dann von selbst.",
-  "backend.why.other": "Nicht verbunden."
+  "backend.why.other": "Nicht verbunden.",
+  "route.node.start": "Start",
+  "route.node.always": "Immer",
+  "route.node.ai": "KI",
+  "route.step.running": "läuft",
+  "stage.figure.person": "Abstand",
+  "stage.figure.obstacle": "Hindernis",
+  "stage.figure.battery": "Akku",
+  "stage.figure.none": "–",
+  "list.path.person": "Person suchen",
+  "list.path.wait": "warten"
 }

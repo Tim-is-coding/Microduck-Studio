@@ -5,27 +5,32 @@ does, then watches it happen. Audience: duck owners, makers, families, educators
 first, English beside it. Primary job: build a sequence → run it → see the duck react. Not a
 dashboard, not an IDE.
 
-## Direction (decided 2026-09-21, first drafted on the `studio-design-ablauf-2026-09-20` tag)
+## Direction „Stille“ (2026-09-25; reference: Claude Design system
+https://claude.ai/artifact/JYhoevE5GeEu1JxM3K1KV8)
 
-One vertical rail is the memorable thing. A behavior reads top-down like a route: the
-trigger is where it starts, steps are stations, side branches hang off a station as notes,
-the running station glows duck-yellow. Everything else stays quiet.
+Calm and exact, almost monochrome. Two white sheets on a cool grey ground — left the route
+(Ablauf), right the stage (Live: camera, one sentence, three figures, the Notstopp, the log).
+Inside a sheet there are no boxes: rows separated by hairlines, a number column on the left
+(Start · 1 · 2 · 3 · Immer), settings as a small label over its value. The memorable thing is
+the one row that runs: a 3 px duck-yellow bar at the sheet's edge, a bigger title and a dot
+with the word „läuft“. Nothing else is yellow.
 
-Two panes, not three: left the route (Ablauf), right the stage (Live: what the duck sees and
-does, and the stop). Building blocks are not a permanent column; they appear when you add a
-step, and have their own tab for browsing and the Hub. Viewing and editing are the same
-cards; "Bearbeiten" only turns the controls on.
+The first pass (Bricolage + DM Sans, teal Live block, round yellow nodes on a rail, pill
+buttons) read as playful and „wie ein MVP“; this one trades that for restraint: one family,
+small radii (inputs 6, buttons 8, camera/menus 10, sheets 14), ink as the primary action.
 
 ## Tokens (`src/styles.css`, light and dark)
 
-- Paper `--surface`, app background `--bg` (cool grey, not cream), ink, muted, line.
-- Duck yellow `--accent #F5B700`: the running station, the primary action, the current tab.
-  Spent only there.
-- Pond teal `--stage #155E63`: the Live pane's block. `--link` is the readable teal for text
-  and quiet buttons on both backgrounds.
-- Signal red `--danger`: Notstopp and errors only.
-- Type: Bricolage Grotesque for names and station titles (600/700), DM Sans for everything
-  else. Scale 12 · 13 · 15 · 18 · 22. Sentence case, no all-caps labels.
+- Ground `--bg #f4f5f5`, sheets `--surface #fff`, wells `--surface-2`, hairlines `--line`,
+  input borders `--line-mid`, controls that must be found `--line-strong` (3.4:1).
+- Ink `--ink #1a1c1e`, body `--ink-2`, labels `--muted #61666b` (5.8:1). The primary button is
+  ink with white text (`--action`, `--on-action`); links are ink, underlined.
+- Duck yellow `--accent #f2b705`: the running dot and bar only. Never text, never under text.
+- Red `--danger-solid #d1242f`: the Notstopp, and the dot that says a picture leaves this
+  computer. `--danger` is the readable red for error text.
+- Type: Geist (bundled via fontsource, no font CDN) 400/500/600, Geist Mono for file names.
+  Scale 12 · 13 · 14.5 · 16 · 18/20 (names, the running step) · 26 (page titles). Sentence
+  case, no all-caps, no emoji.
 
 ## Writing
 
@@ -38,4 +43,6 @@ a sentence, not chips: "Die Ente steht. Person 2,0 m genau voraus." Empty states
 - Three columns with a permanent Bausteine list: dead space, nothing to do there.
 - Separate editor layout: two renderings of the same thing drifted apart.
 - Cream background + mustard accent + uppercase eyebrows: the generated-page default.
+- Yellow primary buttons, a teal Live block, round numbered nodes on a line (2026-09-21 to
+  09-24): friendly, but read as childish next to a robot you trust with a Notstopp.
 - Two sessions redesigning the same surface in parallel (2026-09-20): `CLAUDE.md` §10.
