@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import math
+import re
 import time
 from collections import deque
 from collections.abc import Callable
@@ -78,7 +79,24 @@ STEERING = {"toward_person": "person", "toward_target": "target"}
 
 
 def normalize_phrase(text: str) -> str:
-    return " ".join(text.casefold().strip().strip(".!?,;:").split())
+    """Lower case, no punctuation, single spaces: „Okay, folge mir!“ → okay folge mir."""
+    return " ".join(re.sub(r"[^\w\s]", " ", text.casefold()).split())
+
+
+def phrase_in(phrase: str, heard: str) -> int:
+    """How many words of `phrase` were heard, if they were heard in a row inside `heard`; else 0.
+
+    Typed phrases matched whole. Speech recognition hears the sentence around them („okay,
+    folge mir bitte“), so a phrase counts when its words appear together, in order, as whole
+    words: „Stopp“ is in „stopp jetzt“ but not in „Stoppuhr“.
+    """
+    want, got = normalize_phrase(phrase).split(), normalize_phrase(heard).split()
+    if not want:
+        return 0
+    for i in range(len(got) - len(want) + 1):
+        if got[i : i + len(want)] == want:
+            return len(want)
+    return 0
 
 
 @dataclass
@@ -232,12 +250,15 @@ class Executor:
             self.snapshot.speech.add(phrase)
             self.bus.emit("speech.heard", *texts.speech_heard(text), text=text)
             return None
+        # The longest phrase heard wins, so „geh zu dem Ding“ is not taken for a shorter one.
+        best, best_words = None, 0
         for pack in self.packs.values():
-            if isinstance(pack.trigger, SpeechTrigger) and any(
-                normalize_phrase(p) == phrase for p in pack.trigger.phrases.all()
-            ):
-                return pack.id
-        return None
+            if not isinstance(pack.trigger, SpeechTrigger):
+                continue
+            words = max((phrase_in(p, phrase) for p in pack.trigger.phrases.all()), default=0)
+            if words > best_words:
+                best, best_words = pack.id, words
+        return best
 
     def _record_run(self) -> None:
         """Called wherever a run leaves `running` — done, failed, aborted, preempted."""
@@ -754,7 +775,7 @@ class Executor:
         snap = self.snapshot
         if isinstance(c, SpeechCondition):
             for phrase in c.speech.all():
-                if normalize_phrase(phrase) in snap.speech:
+                if any(phrase_in(phrase, heard) for heard in snap.speech):
                     return f"du hast „{phrase}“ gesagt", f"you said “{phrase}”"
             return None
         if isinstance(c, ElapsedCondition):

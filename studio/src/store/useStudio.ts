@@ -56,7 +56,8 @@ interface StudioState {
   loadRuns: () => Promise<void>;
   run: (behaviorId: string) => Promise<void>;
   abortRun: () => Promise<void>;
-  say: (text: string) => Promise<void>;
+  /** What the runtime made of a phrase: the behavior it started, if any; null if unreachable. */
+  say: (text: string) => Promise<{ started: string | null } | null>;
   editBehavior: (id: string) => void;
   newDraft: (pack?: PackT, notice?: string) => void;
   updateDraft: (fn: (draft: PackT) => PackT) => void;
@@ -192,10 +193,10 @@ export const useStudio = create<StudioState>((set, get) => ({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
     });
-    if (res.ok) {
-      const { heard: _heard, started: _started, ...status } = await res.json();
-      set({ executor: ExecutorStatus.parse(status) });
-    }
+    if (!res.ok) return null;
+    const { heard: _heard, started, ...status } = await res.json();
+    set({ executor: ExecutorStatus.parse(status) });
+    return { started: typeof started === "string" ? started : null };
   },
 
   editBehavior(id) {

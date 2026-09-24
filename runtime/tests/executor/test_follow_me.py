@@ -111,6 +111,32 @@ async def test_speech_trigger_when_idle(h: Harness) -> None:
     assert h.executor.say("Sitz!") is None
 
 
+async def test_a_spoken_sentence_carries_the_phrase(h: Harness) -> None:
+    """Speech recognition hears the words around a phrase; typing never did."""
+    assert h.executor.say("Okay, folge mir bitte!") == "follow-me"
+    assert h.executor.say("Ente, komm mit") == "follow-me"
+    assert h.executor.say("folgen mir") is None  # whole words, not prefixes
+    assert h.executor.say("mir folge") is None  # in order
+
+
+async def test_a_spoken_stop_ends_the_walk(h: Harness) -> None:
+    h.see_person(distance=2.0)
+    await h.start()
+    await h.tick(3)
+    h.executor.say("Stopp jetzt, Ente.")
+    await h.tick()
+    assert h.executor.step_index == 2
+
+
+async def test_a_stopwatch_is_not_a_stop(h: Harness) -> None:
+    h.see_person(distance=2.0)
+    await h.start()
+    await h.tick(3)
+    h.executor.say("wo ist die Stoppuhr")
+    await h.tick()
+    assert h.executor.step_index == 1
+
+
 async def test_fall_triggers_getup_and_resumes(h: Harness) -> None:
     h.see_person(distance=2.0)
     await h.start()

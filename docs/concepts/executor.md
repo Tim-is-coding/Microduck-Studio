@@ -63,11 +63,14 @@ stands still and the deadman stays fed.
 | `BehaviorRefused` from the robot | fail the step with the robot's reason |
 | connection lost | fail, stop, log "Verbindung zur Ente verloren" |
 
-## Speech in v1
+## Speech
 
-`POST /api/say` is the Studio's „Ich sage: …“ button (`CLAUDE.md` §9). Idle: a phrase that
-matches a pack's `trigger.phrases.de` starts it. Running: the phrase feeds `until: speech`
-conditions for one tick. Real speech recognition is a later backend for the same call.
+`POST /api/say` takes what the Studio heard: typed, clicked, or spoken into the microphone and
+recognised in the browser (ADR-0008 — the runtime only ever gets text). Idle: a pack whose
+`trigger.phrases` (any language) appear in what was heard starts; the longest match wins.
+Running: the text feeds `until: speech` conditions for one tick. A phrase matches when its words
+appear in order, as whole words (`phrase_in`): „Okay, folge mir bitte“ starts „Folge mir“,
+„Stoppuhr“ is not „Stopp“. The duck's own microphone will be a second source for the same call.
 
 ## What a run leaves behind
 

@@ -29,6 +29,7 @@ import { Blocks } from "../skills/Blocks";
 import { useStudio } from "../store/useStudio";
 import { Icon } from "../ui/Icon";
 import { AddStepPicker } from "./AddStep";
+import { SayRow } from "./SayRow";
 import { StationCard } from "./StationCard";
 import { actionLabel, describeSignal, describeTrigger } from "./describe";
 
@@ -365,36 +366,6 @@ function Gap({ at, open, over, dragging, onOpen, children }: { at: number; open:
         <button className="gapbtn" onClick={onOpen} title={t("route.add.here")} type="button" aria-label={t("route.add.here")}>+</button>
       )}
     </div>
-  );
-}
-
-function SayRow({ pack, connected }: { pack: BehaviorPack; connected: boolean }) {
-  const { say } = useStudio();
-  const [phrase, setPhrase] = useState("");
-  const submit = (value: string) => {
-    const v = value.trim();
-    if (!v) return;
-    void say(v);
-    setPhrase("");
-  };
-  const triggerPhrases = pack.trigger.kind === "speech" ? phraseList(pack.trigger.phrases) : [];
-  return (
-    <form
-      className="sayrow"
-      onSubmit={(e) => {
-        e.preventDefault();
-        submit(phrase);
-      }}
-    >
-      <label htmlFor="say">{t("run.say.label")}</label>
-      <input disabled={!connected} id="say" onChange={(e) => setPhrase(e.target.value)} placeholder={t("run.say.placeholder")} value={phrase} />
-      <button className="btn small" disabled={!connected} type="submit">{t("run.say.button")}</button>
-      <span className="phrases">
-        {[...triggerPhrases, t("run.say.stop")].map((p) => (
-          <button className="phrase" disabled={!connected} key={p} onClick={() => submit(p)} type="button">{quote(p)}</button>
-        ))}
-      </span>
-    </form>
   );
 }
 

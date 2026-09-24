@@ -22,7 +22,8 @@ export type IconName =
   | "sun"
   | "moon"
   | "system"
-  | "alert";
+  | "alert"
+  | "mic";
 
 const PATHS: Record<IconName, string> = {
   play: "M8 5.5v13l11-6.5z",
@@ -43,6 +44,7 @@ const PATHS: Record<IconName, string> = {
   sun: "M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM11 2h2v3h-2zm0 17h2v3h-2zM2 11h3v2H2zm17 0h3v2h-3zM4.2 5.6l1.4-1.4 2.1 2.1-1.4 1.4zm12.1 12.1 1.4-1.4 2.1 2.1-1.4 1.4zM4.2 18.4l2.1-2.1 1.4 1.4-2.1 2.1zM16.3 6.3l2.1-2.1 1.4 1.4-2.1 2.1z",
   moon: "M20 14.3A8.4 8.4 0 0 1 9.7 4a8.5 8.5 0 1 0 10.3 10.3z",
   system: "M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-6v2h3v2H7v-2h3v-2H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm1 2v7h14V7z",
+  mic: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zm-7 9h2a5 5 0 0 0 10 0h2a7 7 0 0 1-6 6.9V21h-2v-2.1A7 7 0 0 1 5 12z",
   alert: "M12 3.5 22 20H2zm-1 5.5v5h2V9zm0 6.5v2h2v-2z",
 };
 

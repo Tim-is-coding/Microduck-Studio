@@ -231,6 +231,10 @@ strukturierten Daten fürs Debugging.
 - Gamepad-Eingabe (`pad.input`) unterbricht den Executor sofort und übernimmt.
 - Kamera-Frames verlassen die Runtime nur zum Studio des Nutzers; VLM-Aufrufe sind
   opt-in pro Behavior und im Studio sichtbar markiert („Bild wird an <Anbieter> gesendet“).
+- Mikrofon (ADR-0008): Die Runtime bekommt nur Text, nie Audio. Erkennung auf dem Gerät zuerst;
+  übers Netz nur nach Einwilligung, und solange es zuhört, steht dort, wohin die Aufnahme geht.
+  Zuhören nur nach Klick und nur, solange die Zeile sichtbar und die Runtime verbunden ist
+  (`scripts/smoke.mjs`, `studio/tests/speech.test.ts`).
 
 ## 8. Meilensteine (bis Dezember 2026)
 
@@ -277,8 +281,12 @@ strukturierten Daten fürs Debugging.
   Rückfallweg, nicht gewählt.
 - Spracherkennung: läuft auf der Runtime (Mikro der Ente → Audio-Stream) oder lokal
   im Browser? Für v1 ist ein Studio-Button „Ich sage: …“ als Simulation des Triggers ok.
-  **Stand M2:** genau so gebaut (`POST /api/say`, Studio-Zeile „Ich sage:“). Echte
-  Erkennung wird ein weiteres Backend für denselben Aufruf.
+  **Stand M2:** genau so gebaut (`POST /api/say`, Studio-Zeile „Ich sage:“).
+  **Entschieden 2026-09-24, ADR-0008:** im Browser, Mikrofon-Knopf in der Zeile „Ich sage:“.
+  Auf dem Gerät, wo der Browser es kann (Chrome/Edge mit Sprachpaket); sonst nur nach
+  Einwilligung und sichtbar markiert („Aufnahme geht an Google“). Die Runtime bekommt nur
+  Text; Phrasen werden jetzt auch mitten im Satz erkannt. Das Mikro der Ente wird später eine
+  zweite Quelle für denselben Aufruf.
 - **Die simulierte Ente geht nicht (Stand 2026-09-19, erneut geprüft 2026-09-20):**
   Gehpolicies treten in duck-sim auf der Stelle, auch mit Upstreams eigenem `drive` — offenes
   Upstream-Issue `pollen-robotics/microduck_rl#46` („Velocity-family training converges to

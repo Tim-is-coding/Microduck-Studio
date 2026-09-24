@@ -48,6 +48,7 @@ The screenshots come from a real Studio against a real runtime — regenerate th
 | Perception: local magenta-marker detector on the sim camera (bearing + range from ToF column or apparent width), ToF and state feeds into one snapshot | done |
 | Follow-me live in duck-sim: „Folge mir“ finds the person, steers toward it, „Stopp“ ends the walk, quack — but the simulated duck does not advance (upstream `microduck_rl#46`, see upstream notes) | partial |
 | Studio: Start / Abbrechen, „Ich sage: …“ with trigger chips, active step highlighted, person and state chips in the Live panel | done |
+| Speech: say „Folge mir“ into the microphone — recognised in the browser, on the device where it can be, and only after asking when the recording would go to the browser maker (ADR-0008) | done |
 | Studio editor: new behavior from empty, cards from manifest `ui` (choice/select/range/toggle), perceive/wait steps, `until` conditions, always rules, trigger, VLM opt-in with warning, live validation, Speichern / Speichern & Starten / Löschen, YAML developer view | done |
 | Runtime: `PUT`/`DELETE /api/behaviors/{id}` write `behaviors/*.behavior.yaml` atomically (ADR-0003), `POST /api/behaviors/validate`, `GET …/yaml` | done |
 | VLM perception: swappable provider (Claude or a local stub), `perceive: vlm.target` with a question, `direction: toward_target`, opt-in checked by provider name, call budget (ADR-0004) | done |

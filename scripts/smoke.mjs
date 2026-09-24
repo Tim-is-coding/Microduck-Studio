@@ -49,6 +49,35 @@ const page = await browser.newPage({ viewport: { width: 1500, height: 940 }, loc
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 
+// Speech recognition (ADR-0008) without a microphone: a stand-in for the browser's recogniser,
+// installed before the Studio loads. `__speechMode` picks what the browser claims to offer;
+// `__say(text)` is the person speaking. No audio, no network.
+await page.addInitScript(() => {
+  window.__recs = [];
+  window.__speechMode = "local";
+  class FakeRecognition {
+    static async available(o) {
+      return o.processLocally && window.__speechMode !== "local" ? "unavailable" : "available";
+    }
+    constructor() {
+      window.__recs.push(this);
+    }
+    start() {
+      this.running = true;
+      setTimeout(() => this.onstart?.(), 0);
+    }
+    stop() {
+      this.running = false;
+    }
+    abort() {
+      this.running = false;
+    }
+  }
+  window.SpeechRecognition = FakeRecognition;
+  window.__say = (text) =>
+    window.__recs.at(-1)?.onresult?.({ resultIndex: 0, results: [{ isFinal: true, 0: { transcript: text } }] });
+});
+
 /** Poll until the thing is true, then say what it was. */
 async function until(what, fn, timeout = TIMEOUT) {
   const deadline = Date.now() + timeout;
@@ -190,6 +219,39 @@ try {
   await check("Notstopp", async () => {
     await page.locator(".live .estop").click();
     await until("Notstopp im Protokoll", async () => /Notstopp|Stopp/i.test(await page.locator(".live .log").innerText()));
+  });
+
+  await check("Zuhören: ein gesprochener Satz startet „Folge mir“, „Stopp“ wird gehört", async () => {
+    await backToOverview();
+    await page.getByRole("button", { name: "Folge mir", exact: true }).click();
+    await page.getByRole("button", { name: "Zuhören" }).click();
+    await until("hört auf dem Gerät zu", async () => /auf diesem Gerät/.test(await page.locator(".speechline").innerText()));
+    await page.evaluate(() => window.__say("Okay, folge mir bitte"));
+    await until("„Folge mir“ startet", async () => /startet/.test(await page.locator(".heard").innerText()));
+    await page.evaluate(() => window.__say("Stopp"));
+    await until("Stopp gehört", async () => /Gehört: „Stopp“/.test(await page.locator(".heard").innerText()));
+    await page.getByRole("button", { name: "Nicht mehr zuhören" }).click();
+    ok(!(await page.evaluate(() => window.__recs.some((r) => r.running))), "Mikrofon noch an");
+    await fetch(`${API}/api/executor/abort`, { method: "POST" });
+  });
+
+  await check("Zuhören über das Netz nur nach Einwilligung", async () => {
+    await page.evaluate(() => {
+      window.__speechMode = "cloud";
+      localStorage.removeItem("duckstudio.speech.cloud");
+    });
+    await backToOverview(); // the row asks the browser again when it mounts
+    await page.getByRole("button", { name: "Folge mir", exact: true }).click();
+    const before = await page.evaluate(() => window.__recs.length);
+    await until("Mikrofon bereit", () => page.getByRole("button", { name: "Zuhören" }).isEnabled());
+    await page.getByRole("button", { name: "Zuhören" }).click();
+    const ask = await until("Frage nach Einwilligung", async () => await page.locator(".speechline.ask").innerText());
+    ok(/Google/.test(ask), `Anbieter nicht genannt: ${ask}`);
+    is(await page.evaluate(() => window.__recs.length), before, "vor der Einwilligung gestartet");
+    await page.locator(".speechline.ask .btn", { hasText: "Abbrechen" }).click();
+    await page.evaluate(() => {
+      window.__speechMode = "local";
+    });
   });
 
   await check("Sprache und Thema schalten", async () => {
