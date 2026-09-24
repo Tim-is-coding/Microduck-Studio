@@ -282,14 +282,14 @@ try {
     const status = page.locator(".backendmenu > button");
     const pop = page.locator(".backendpop");
     await status.click();
-    await pop.getByRole("radio", { name: /Echte Ente/ }).click();
+    await pop.getByRole("radio", { name: /^Echte Ente/ }).click();
     await pop.getByPlaceholder("duck.local").fill("rauchente.local");
     is(await pop.locator(".command code").innerText(), "scripts/duck-tunnel.sh rauchente.local", "Tunnel-Befehl");
     await pop.getByRole("button", { name: "Mit der Ente verbinden" }).click();
     await until("Ente nicht verbunden", async () => (await status.innerText()) === "Ente nicht verbunden");
     await until("Satz zum Tunnel", () => pop.locator(".problem", { hasText: "Kein Tunnel zur Ente" }).isVisible());
     ok(await page.locator(".behavior-card .btn", { hasText: "Start" }).first().isDisabled(), "Start bleibt gesperrt");
-    await pop.getByRole("radio", { name: /Übungsente/ }).click();
+    await pop.getByRole("radio", { name: /^Übungsente/ }).click();
     await until("Übungsente verbunden", async () => (await status.innerText()) === "Übungsente verbunden");
     await page.keyboard.press("Escape");
     await until("Menü zu", async () => !(await pop.isVisible()));
