@@ -122,6 +122,8 @@ export function BackendMenu({ runtime, health }: { runtime: RuntimeStatus; healt
                   {current === kind && <span className="now">{t(health.connected ? "backend.now.connected" : "backend.now.waiting")}</span>}
                 </span>
                 <span className="desc">{t(`backend.${kind}.summary`)}</span>
+                {/* Until microduck_rl#46 is fixed upstream (docs/upstream-notes.md): remove then. */}
+                {kind === "sim" && <span className="desc caveat">{t("backend.sim.caveat")}</span>}
               </button>
             ))}
           </div>

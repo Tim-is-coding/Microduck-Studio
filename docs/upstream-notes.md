@@ -65,6 +65,8 @@ docs, then run live.
   in the first 10 s, around the stand → walk switch, then 0.011 rad in the next 50 s (~12 rad
   commanded). Posted as a comment on #46. The executor now says so (`executor/progress.py`:
   „Die Ente tritt auf der Stelle“).
+  The Studio's duck menu says it under „Simulation“ (`backend.sim.caveat`); **remove that
+  line when #46 is fixed** and the pin moves to a policy set that walks.
 - Start pose, five starts on 0.15.0: the duck settles at a heading of +18…+22° (IMU yaw, odom at
   the origin), so the marker 1.5 m "ahead" shows at −20…−22°, on the right of the frame — the
   same offset follow-me steered against on 0.14.4 (`vyaw ≈ −0.23`). Once of three `SIT` starts

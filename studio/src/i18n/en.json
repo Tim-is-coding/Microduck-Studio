@@ -360,6 +360,7 @@
   "backend.menu.running": "A behavior is running. Stop it first, then you can switch.",
   "backend.sim.name": "Simulation",
   "backend.sim.summary": "The real duck's programs, with a body on the screen. The normal case until the duck arrives.",
+  "backend.sim.caveat": "Right now the simulated duck steps in place, a known fault in its walking policy. Seeing, detecting and behaviors can be checked here; for walking, use the practice duck.",
   "backend.mock.name": "Practice duck",
   "backend.mock.summary": "An imaginary duck, ready at once, no simulator needed. Good for trying out a behavior.",
   "backend.duck.name": "Real duck",

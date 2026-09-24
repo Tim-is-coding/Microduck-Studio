@@ -360,6 +360,7 @@
   "backend.menu.running": "Ein Ablauf läuft gerade. Beende ihn zuerst, dann kannst du wechseln.",
   "backend.sim.name": "Simulation",
   "backend.sim.summary": "Die Programme der echten Ente, mit einem Körper am Bildschirm. Der Normalfall, bis die Ente da ist.",
+  "backend.sim.caveat": "Gerade tritt die simulierte Ente auf der Stelle, ein bekannter Fehler ihrer Gehpolicy. Sehen, Erkennen und Abläufe lassen sich hier prüfen; zum Laufen nimm die Übungsente.",
   "backend.mock.name": "Übungsente",
   "backend.mock.summary": "Eine gedachte Ente, sofort bereit, ganz ohne Simulator. Gut, um einen Ablauf auszuprobieren.",
   "backend.duck.name": "Echte Ente",
