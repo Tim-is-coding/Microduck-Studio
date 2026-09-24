@@ -51,7 +51,9 @@ Für uns entscheidende Aussagen aus `architecture.md` (Stand 2026-07-22, draft):
   JPEG auf Anfrage oder 1–2 fps Push, dazu Intents senden. Kein Media-Stack nötig.
   **Verifiziert 2026-09-19 (Code 0.14.1): nur Design, nicht implementiert.** `get_frame`
   existiert nicht; real: `GET :8080/frame` (PNG) oder `media.frame` (UYVY). Details und
-  alle Abweichungen: `docs/upstream-notes.md`.
+  alle Abweichungen: `docs/upstream-notes.md`. **Seit 0.15.0 (2026-09-23) auch im Design
+  ersetzt:** Agenten fahren die Ente über die „rendezvous control lane“ (JSON-RPC über
+  HTTP/SSE, über den HF-Rendezvous, mit Anmeldung, ≤ 20 Anfragen/s, keine Bilder).
 - Deadman/Heartbeat: bleiben Kommandos aus, stoppt `robotd` selbst. Nicht verhandelbar.
 - Authority-Arbitration (Gamepad vs. App vs. Remote vs. Autonomie) ist bei Pollen
   **offen**. Ebenso: „Behaviour/Brain-Layer als Teil von `robotd` oder eigener
@@ -260,12 +262,15 @@ strukturierten Daten fürs Debugging.
   statt `robot.walk`, kein Heartbeat-Befehl (Deadman = Alter des letzten `robot.move`,
   500 ms), keine Geschwindigkeits-Clamps upstream (unsere sind die einzigen), `robotd` hat
   keine Autoritäts-Arbitrierung (Gamepad-Vorrang bauen wir selbst). **Nachgeprüft
-  2026-09-22** gegen microduck@ac7531a (0.14.4, API 34, jetzt der Pin): nichts, was wir senden
-  oder lesen, hat sich geändert; v32–v34 fügen nur optionale Felder hinzu (`cpu_throttle` →
-  Warnung `cpu_throttled`). Roll/Pitch-Vorzeichen in der Sim gegen das IMU-Quaternion
+  2026-09-22** gegen microduck@ac7531a (0.14.4, API 34) und **2026-09-24** gegen
+  microduck@a9ec4b2 (0.15.0, API 37, jetzt der Pin): nichts, was wir senden oder lesen, hat sich
+  geändert; v32–v37 fügen nur optionale Felder hinzu (`cpu_throttle` → Warnung
+  `cpu_throttled`; v36 Gelenkgeschwindigkeit und -last im State, noch ungenutzt). Roll/Pitch-Vorzeichen in der Sim gegen das IMU-Quaternion
   verifiziert (REP-103); ob die echte Ente die IMU genauso eingebaut hat, prüft M4 von Hand.
 - ~~Ist der WebSocket-Pfad für Agenten implementiert?~~ **Nein, nur Design** (Stand
   0.14.1, unverändert in 0.14.4). ~~Echte Ente: SSH-Tunnel oder WebRTC-Datachannel – Entscheidung als ADR in M4.~~
+  **Seit 0.15.0 plant Upstream stattdessen die „rendezvous control lane“** (HTTP/SSE über den
+  HF-Rendezvous, kein Terminal nötig, ≤ 20 Anfragen/s) — Kandidat, ADR-0006 in M4 neu zu prüfen.
   **Entschieden 2026-09-20, ADR-0006:** `ssh -L` leitet die Sockets der Ente weiter
   (`scripts/duck-tunnel.sh`), das `duck`-Backend ist damit dasselbe `IpcBackend` wie die Sim.
   Die Contract-Tests laufen bereits dagegen — alles außer dem ssh-Sprung. WebRTC bleibt

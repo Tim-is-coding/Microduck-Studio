@@ -10,7 +10,8 @@ the code.
 | Repo | Branch | Commit | Date | Notes |
 | --- | --- | --- | --- | --- |
 | pollen-robotics/microduck | main | `344925c9f8fa031f85428a305b1e8ec2eaae29c1` | 2026-09-17 | workspace 0.14.1, `API_VERSION = 31`, Apache-2.0 |
-| pollen-robotics/microduck | main | `ac7531a77adae5e9c49d1a3f5d23f72f9af7fee1` | 2026-09-22 | 0.14.4, `API_VERSION = 34`; **current pin**, re-check below |
+| pollen-robotics/microduck | main | `ac7531a77adae5e9c49d1a3f5d23f72f9af7fee1` | 2026-09-22 | 0.14.4, `API_VERSION = 34`, re-check below |
+| pollen-robotics/microduck | `daemon-v0.15.0` | `a9ec4b2079ef8ee7904014089c885bb07d57d63c` | 2026-09-23 | 0.15.0, `API_VERSION = 37`; **current pin**, re-check below |
 | pollen-robotics/microduck_rl | develop | `cb70b792312d559a4da09064d92009079671815f` | 2026-09-14 | Apache-2.0 |
 | joeynyc/microduck-mcp | main | `0080a854fd1c200efb570ada37d9af38bf3554a1` | 2026-09-16 | Apache-2.0, pinned to API 16/28 |
 | joeynyc/awesome-microduck | main | `a3815e7b73fb1e95cbb3811d80023ed619c375ab` | 2026-09-19 | CC0-1.0 |
@@ -19,6 +20,46 @@ the code.
 File references below are `path:line` in microduck@344925c unless stated otherwise. The code
 (`runtime/duckstudio/upstream.py`) names symbols instead of lines since the 0.14.4 re-check —
 lines drift with every release, `grep -n 'pub struct MoveParams'` does not.
+
+## Re-check against 0.15.0 (2026-09-24)
+
+Pin moved `ac7531a` → `a9ec4b2` (`sim/fetch-upstream.sh`); `microduck_rl` develop is still
+`cb70b79`. Read as a diff of `duck-ipc-proto/src/lib.rs`, `robotd`, `mediad` and the design
+docs, then run live.
+
+- **Nothing we send or read changed.** The `method::*` constants are identical (same set,
+  byte for byte), still 40 `deny_unknown_fields`, `mediad/src/route.rs` untouched. We parse
+  replies as dicts, so new fields pass through.
+- What v35–v37 add, all optional and absent from older daemons:
+  - v35 `ComponentStatus.last_checked`, v37 `ComponentStatus.last_check_attempt {at, error?}`
+    (`update.status`): when the update source last answered, and why the last check did not.
+    We do not call `update.status`.
+  - v36 `RobotState.{velocities, currents_ma}`: measured joint velocity (rad/s) and load (mA,
+    magnitude) per joint, on every `robot.state` frame. Empty means *not reported* (older
+    daemon, a backend with no servos, or `[control] publish_velocity_and_load = false`),
+    never zero. We do not read them yet. `currents_ma` is the duck's only measure of external
+    force — worth a look for "someone is holding/pushing the duck" in M4.
+- `/run/mediad/remote.json` (`RemoteStatus`): whether mediad is signed in to the rendezvous
+  and under which account. A file, not a method; `robotctl health` prints it.
+- **The agent transport is decided upstream, and it is not the WebSocket.**
+  `architecture.md` and `remote-access-design.md` §3.8 (#323): a server-side program drives a
+  duck over the **rendezvous control lane** — JSON-RPC in a `peer` envelope, `POST /send` out,
+  SSE back, through the HF rendezvous Space the mini fleet uses; no ICE/DTLS/TURN, authenticated
+  by the account at both ends. No pixels on it (frames from WebRTC or `media.stream`), and a
+  budget of 1200 requests per 60 s per peer, overrun = `429` on the whole peer, the robot's
+  own lease included. Client halves live in upstream `spaces/shared/` (`rendezvous.py`,
+  `wire.py`, `control.py`); the roadmap packages them as the Python SDK. For us: ADR-0006
+  (`ssh -L`) stands and nothing changes before M4. But this lane needs no terminal on either
+  end, which fits §3.1 better than ssh — and 20 req/s is enough for our 10 Hz `robot.move`
+  only if state comes as a subscription, not as polls. A candidate for revisiting ADR-0006
+  once a duck is here.
+- `duck-sim`: the #320 heredoc fix (#321), plus CI lint. Checked live: no `command not found`
+  at startup, and the comment in `updater-duck-a.toml` reads as written.
+- Live on duck-sim 0.15.0 (macOS, camera on duck-a): robotd `hello` → `{api_version: 37,
+  daemon_version: "0.15.0"}`; the contract suite passes against it (`DUCKSTUDIO_SIM=1 pytest
+  tests/backends`: 101 passed, 1 skipped). `GET :8080/frame` still a 360×640 PNG.
+- `microduck_rl#46` (walking policies step in place): still open, no maintainer answer, nothing
+  new on `develop` — the simulated duck still does not walk.
 
 ## Re-check against 0.14.4 (2026-09-22)
 
@@ -170,7 +211,9 @@ Not present as methods: `robot.walk`, `robot.velocity`, `robot.sit`, `robot.stan
 
 - The inbound WebSocket surface for server-side programs is **design only**:
   `docs/design/remote-webrtc.md` §12 lists it under "Deferred"; roadmap M5 "in progress".
-  In `mediad`, `tokio-tungstenite` is used only as a client.
+  In `mediad`, `tokio-tungstenite` is used only as a client. **Superseded in 0.15.0:** the
+  WebSocket is gone from the design; agents use the rendezvous control lane (re-check
+  against 0.15.0 above).
 - Real remote paths today: WebRTC `control` datachannel via mediad (LAN signalling `:8443`
   or HF rendezvous after `account.login`; routing table `mediad/src/route.rs` allows
   `robot.move/head/look/pose/mouth/do/sound/stop/enable/init/relax/subscribe/policies/

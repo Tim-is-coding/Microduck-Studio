@@ -5,8 +5,9 @@ upstream revision and source location it was read from; `verified=False` entries
 assumptions and block `sim`/`duck` from connecting (`require_verified`).
 
 Verified 2026-09-19 against pollen-robotics/microduck@344925c (workspace 0.14.1, API 31),
-re-checked 2026-09-22 against @ac7531a (0.14.4, `API_VERSION = 34`): every struct and method
-name below is unchanged; v32–v34 only add optional fields. Details and the discrepancies
+re-checked 2026-09-22 against @ac7531a (0.14.4, `API_VERSION = 34`) and 2026-09-24 against
+@a9ec4b2 (0.15.0, `API_VERSION = 37`): every struct and method name below is unchanged;
+v32–v37 only add optional fields. Details and the discrepancies
 against the handover: docs/upstream-notes.md.
 """
 
@@ -15,10 +16,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 UPSTREAM_REPO = "pollen-robotics/microduck"
-UPSTREAM_REV = "ac7531a77adae5e9c49d1a3f5d23f72f9af7fee1"
-UPSTREAM_VERSION = "0.14.4"
+UPSTREAM_REV = "a9ec4b2079ef8ee7904014089c885bb07d57d63c"
+UPSTREAM_VERSION = "0.15.0"
 API_VERSION = (
-    34  # duck-ipc-proto/src/lib.rs; sent in `hello {api_version}`; skew is logged, never refused
+    37  # duck-ipc-proto/src/lib.rs; sent in `hello {api_version}`; skew is logged, never refused
 )
 
 # robotd zeroes the velocity when no `robot.move` arrived for this long (safety.deadman_ms).

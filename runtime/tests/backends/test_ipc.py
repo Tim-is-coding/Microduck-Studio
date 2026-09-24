@@ -29,7 +29,7 @@ async def test_hello_handshake(fake: FakeDuck) -> None:
     conn = await Connection.open(str(fake.robot_socket))
     assert conn.hello == {
         "api_version": upstream.API_VERSION,
-        "daemon_version": "0.14.4",
+        "daemon_version": "0.15.0",
         "revision": None,
     }
     assert fake.received[0] == {
