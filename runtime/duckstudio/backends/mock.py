@@ -16,7 +16,7 @@ from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 
 from .. import upstream
-from ._mock_frame import MOCK_FRAME_JPEG
+from ..perception.person_local import PERSON_WIDTH_M, TOF_HALF_FOV_RAD
 from .base import (
     JOINT_COUNT,
     TOF_SIZE,
@@ -30,6 +30,7 @@ from .base import (
     UnknownBehavior,
     UnknownIntent,
 )
+from .mock_camera import MockCamera
 
 
 class ManualClock:
@@ -56,9 +57,13 @@ class Call:
 class MockBackend:
     kind = "mock"
 
-    TOF_MAX_M = 2.0
-    TOF_FOV_RAD = 0.6  # half-angle of the 8x8 sensor's field of view (approximation)
+    # "Nothing there" is a reading beyond perception's TOF_RANGE_M, like the real sensor's;
+    # it was 2.0 m once, which perception took for an obstacle two metres off.
+    TOF_MAX_M = 4.0
+    TOF_FOV_RAD = TOF_HALF_FOV_RAD  # the same 45° square the real sensor sees
     SERVO_HOT_C = 70.0
+    DRAIN_PER_MIN = 0.01
+    CHARGE_PER_MIN = 0.10
 
     def __init__(
         self,
@@ -68,7 +73,7 @@ class MockBackend:
         known_intents: set[str] | None = None,
         known_behaviors: set[str] | None = None,
         person_xy: tuple[float, float] = (1.0, 0.0),
-        frame: bytes = MOCK_FRAME_JPEG,
+        frame: bytes | None = None,
         tof_hz: float = 10.0,
     ) -> None:
         self.clock: Callable[[], float] = clock or ManualClock()
@@ -87,7 +92,8 @@ class MockBackend:
         self.servo_temp_c = 38.0
         self.calls: list[Call] = []
         self.stopped = False
-        self._frame = frame
+        self._frame = frame  # a fixed picture instead of the rendered room, if given
+        self._camera = MockCamera()
         self._tof_hz = tof_hz
         self._last_t = self.clock()
 
@@ -127,7 +133,16 @@ class MockBackend:
 
     async def frame(self) -> bytes:
         self._require_connected()
-        return self._frame
+        if self._frame is not None:
+            return self._frame
+        self.advance()
+        return self._camera.render(
+            x=self.pose.x,
+            y=self.pose.y,
+            heading=self.pose.heading,
+            person_xy=self.person_xy,
+            sitting=self.flags.sitting,
+        )
 
     async def tof(self) -> AsyncIterator[TofFrame]:
         self._require_connected()
@@ -193,21 +208,31 @@ class MockBackend:
             y = self.pose.y + (vx * math.sin(h) + vy * math.cos(h)) * dt
             self.pose = Pose2D(x=x, y=y, heading=h)
         self.flags = self.flags.model_copy(update={"moving": moving})
-        # ~1 %/min while walking, ~0.1 %/min idle
-        self.battery = max(0.0, self.battery - dt * (0.01 if moving else 0.001) / 60.0)
+        # ~1 %/min while walking; standing still, the practice duck charges at ~10 %/min. It
+        # used to drain idle too, so a Studio left open overnight met an empty duck in the
+        # morning, with no way to charge it: every run ended on "Akku zu niedrig".
+        rate = -self.DRAIN_PER_MIN if moving else self.CHARGE_PER_MIN
+        self.battery = max(0.0, min(1.0, self.battery + dt * rate / 60.0))
 
     def tof_frame(self) -> TofFrame:
-        """8x8 grid: `TOF_MAX_M` everywhere, a nearer column where the fake person stands."""
+        """8x8 grid: `TOF_MAX_M` everywhere, nearer columns where the fake person stands."""
         rows = [[self.TOF_MAX_M] * TOF_SIZE for _ in range(TOF_SIZE)]
         dx = self.person_xy[0] - self.pose.x
         dy = self.person_xy[1] - self.pose.y
         dist = math.hypot(dx, dy)
         bearing = math.atan2(dy, dx) - self.pose.heading
         bearing = (bearing + math.pi) % (2 * math.pi) - math.pi
-        if abs(bearing) < self.TOF_FOV_RAD and dist < self.TOF_MAX_M:
-            col = int(round((1.0 - (bearing / self.TOF_FOV_RAD + 1.0) / 2.0) * (TOF_SIZE - 1)))
-            for r in range(2, TOF_SIZE - 1):
-                rows[r][col] = round(dist, 3)
+        if dist < self.TOF_MAX_M:
+            # Every zone the person's width reaches into. With one column per sighting, a
+            # person dead ahead sat on the boundary between two zones and rounding put her
+            # in the one perception did not look at.
+            half_width = math.atan2(PERSON_WIDTH_M / 2, dist)
+            zone = 2 * self.TOF_FOV_RAD / (TOF_SIZE - 1)
+            for col in range(TOF_SIZE):
+                centre = (0.5 - col / (TOF_SIZE - 1)) * 2 * self.TOF_FOV_RAD  # col 0 = left
+                if abs(centre - bearing) <= half_width + zone / 2:
+                    for r in range(2, TOF_SIZE - 1):
+                        rows[r][col] = round(dist, 3)
         return TofFrame(timestamp=self.clock(), distances_m=rows)
 
     # -- test helpers -----------------------------------------------------------------

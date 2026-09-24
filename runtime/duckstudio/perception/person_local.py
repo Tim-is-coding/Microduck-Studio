@@ -10,7 +10,8 @@ docs/upstream-notes.md). The head camera is mounted a quarter turn off and `GET 
 already delivers the picture upright: 360 px wide, 640 px tall, floor at the bottom, so the
 duck sees a tall, narrow slice of the world (≈45° wide, ≈72° high). Bearings come from the
 horizontal pixel offset against the image centre with that focal length; the mock backend's
-64x48 frame with a dark bar goes through the same code (`MockBarDetector`).
+rendered room (480x360, `backends/mock_camera.py`) goes through the same code
+(`MockBarDetector`).
 """
 
 from __future__ import annotations
@@ -97,12 +98,12 @@ class MagentaPersonDetector:
 
 
 class MockBarDetector:
-    """The mock backend's frame has one dark vertical bar; treat it as the person."""
+    """In the mock backend's room only the person's legs are dark; they are the person."""
 
     def detect(self, frame: bytes, timestamp: float | None = None) -> PersonDetection | None:
         rgb = decode_upright(frame)
         mask = rgb.sum(axis=2) < 150
-        # 64 px wide mock frame: scale the focal length with the width so bearings are sane.
+        # The mock renders with FX scaled to its width (480 px); scale the same way here.
         return blob_to_detection(mask, fx=FX * rgb.shape[1] / UPRIGHT_WIDTH, timestamp=timestamp)
 
 

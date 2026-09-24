@@ -50,7 +50,7 @@ async def settle(check, timeout: float = 2.0) -> bool:
 
 
 async def test_a_standing_question_is_asked_and_becomes_a_target() -> None:
-    vlm = RecordingVlm(pixel_x=20.0, pixel_y=24.0)  # the mock's camera frame is 64x48
+    vlm = RecordingVlm(pixel_x=20.0, pixel_y=24.0)  # left of the mock frame's centre
     svc, snap, bus, _ = await service(vlm)
     snap.vlm_request = REQUEST
     svc.start()

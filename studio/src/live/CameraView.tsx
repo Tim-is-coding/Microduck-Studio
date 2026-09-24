@@ -17,8 +17,8 @@ interface Props {
  *
  * The overlay uses the frame's own pixel coordinates as its viewBox and the same fit rule as
  * the picture (`object-fit: contain` ↔ `preserveAspectRatio="xMidYMid meet"`), so a marker
- * sits on the thing at any size — the duck's frames are portrait (360x640), the mock's are
- * a small 64x48.
+ * sits on the thing at any size — the duck's frames are portrait (360x640), the practice
+ * duck's a landscape 480x360.
  */
 export function CameraView({ connected, executor }: Props) {
   const [frameUrl, setFrameUrl] = useState<string | null>(null);

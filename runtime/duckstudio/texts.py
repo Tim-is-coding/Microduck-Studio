@@ -206,6 +206,9 @@ def aborted_by_rule() -> Bilingual:
 # -- perception --------------------------------------------------------------------------
 
 
+AHEAD_DEG = 3.0  # same threshold as the Studio's "genau voraus" (LivePane.sightingSentence)
+
+
 def perceive_found(
     what: Bilingual, distance_m: float | None, degrees: float, left: bool
 ) -> Bilingual:
@@ -213,6 +216,12 @@ def perceive_found(
     near = (
         (f"{distance_m:.1f} m, ", f"{distance_m:.1f} m, ") if distance_m is not None else ("", "")
     )
+    if abs(degrees) < AHEAD_DEG:  # "0° links" read like a direction; the Studio says it too
+        ahead = f"{distance_m:.1f} m " if distance_m is not None else ""
+        return (
+            f"{what[0]} gefunden: {ahead}genau voraus.",
+            f"{what[1]} found: {ahead}straight ahead.",
+        )
     return (
         f"{what[0]} gefunden: {near[0]}{degrees:.0f}° {side[0]}.",
         f"{what[1]} found: {near[1]}{degrees:.0f}° {side[1]}.",
