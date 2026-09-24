@@ -91,3 +91,11 @@ jobs:
       - name: logs, if something went wrong
         if: failure()
         run: tail -n 40 /tmp/runtime.log /tmp/preview.log
+      # `uv run` keeps a lock on uv's cache for as long as the runtime lives, and setup-uv's
+      # post step prunes that cache: with the runtime still up it waits five minutes and fails
+      # a green job. Stop both servers first, whatever happened above.
+      - name: stop the runtime and the Studio
+        if: always()
+        run: |
+          pkill -f "python -m duckstudio" || true
+          pkill -f "vite preview" || true
