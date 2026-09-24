@@ -53,6 +53,15 @@ docs, then run live.
   end, which fits §3.1 better than ssh — and 20 req/s is enough for our 10 Hz `robot.move`
   only if state comes as a subscription, not as polls. A candidate for revisiting ADR-0006
   once a duck is here.
+- **Perception next to the sensor exists, for ducks only.** `mediad/src/detect.rs` runs the
+  *duck detector* (`duck-detect` crate; model trained in `pollen-robotics/duck_detector`, one
+  class, 320×320 letterboxed RGB, INT8 `.rknn` on the NPU or `.onnx` on the CPU, 2 looks/s for
+  thermal reasons). Its sightings (`{width, height, found: [{score, box_}], took_ms}`) go as
+  notifications **only to WebRTC datachannel peers**, not to any Unix socket we use; installed
+  and updated through `detector.check` / `detector.install` (v28). There is no person class
+  and no person detector upstream, so finding people stays ours (`perception/person_local.py`
+  today; a real detector is open). Worth reading the socket side again when a duck-to-duck
+  behavior comes up.
 - `duck-sim`: the #320 heredoc fix (#321), plus CI lint. Checked live: no `command not found`
   at startup, and the comment in `updater-duck-a.toml` reads as written.
 - Live on duck-sim 0.15.0 (macOS, camera on duck-a): robotd `hello` → `{api_version: 37,
