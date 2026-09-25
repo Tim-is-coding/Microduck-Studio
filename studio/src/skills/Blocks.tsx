@@ -26,6 +26,7 @@ interface Props extends HubProps {
 export function Blocks({ skills, offline, onRemove, ...hub }: Props) {
   return (
     <div className="blocks">
+      <h2>{t("route.blocks.title")}</h2>
       <p className="intro">{t("route.blocks.intro")}</p>
       <div className="blocks-grid">
         {offline && skills.length === 0 && <div className="sub">{t("offline.skills")}</div>}

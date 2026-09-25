@@ -339,7 +339,6 @@ function RouteView({ pack, saved, draft, editable, connected, executor, runningT
 
         {editable && (
           <div className={`station add${dropAt === pack.steps.length && dragFrom !== null ? " over" : ""}`} data-gap={pack.steps.length}>
-            <div className="node">+</div>
             {insertAt === pack.steps.length ? (
               <div className="card">
                 <AddStepPicker onAdd={(st) => add(st, pack.steps.length)} onClose={() => setInsertAt(null)} skills={skills} {...hub} />

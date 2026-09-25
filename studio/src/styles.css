@@ -320,7 +320,6 @@ button.duckstatus svg { width: 12px; height: 12px; color: var(--muted); }
 .station.always, .station.vlmstation { margin-top: 0; }
 .station.always .card, .station.vlmstation .card { font-size: var(--t-sm); }
 .station.add { border-top: 1px solid var(--line); padding: 10px 0; }
-.station.add .node { top: 16px; color: var(--muted); font-size: 16px; font-weight: 400; }
 .station.add.over { box-shadow: inset 0 2px 0 var(--accent); }
 .station.dragging { opacity: 0.4; }
 .rail.dragging { cursor: grabbing; }
@@ -366,7 +365,7 @@ input[type="text"], input:not([type]), input[type="number"], input[type="search"
 textarea { height: auto; padding: 8px 10px; }
 input:hover, select:hover, textarea:hover { border-color: var(--line-strong); }
 input:focus, select:focus, textarea:focus { border-color: var(--ink); outline: none; }
-input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
 input[type="number"] { width: 80px; }
 select { appearance: none; padding-right: 28px; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2361666b' stroke-width='1.5'/></svg>"); background-repeat: no-repeat; background-position: right 10px center; }
 input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-color: var(--ink); }
@@ -439,7 +438,8 @@ details.file pre { background: var(--surface-2); border-radius: var(--r-md); pad
 .aidraft .error { color: var(--danger); font-size: var(--t-sm); margin: 0; }
 
 /* building blocks page */
-.blocks .intro { color: var(--muted); margin-bottom: 18px; max-width: 64ch; }
+.blocks > h2 { font-size: var(--t-xl); letter-spacing: -0.02em; margin-bottom: 8px; }
+.blocks .intro { color: var(--muted); margin-bottom: 20px; max-width: 64ch; line-height: 1.55; }
 .blocks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0 28px; }
 .blocks-grid > .card { border-top: 1px solid var(--line); padding: 16px 0; }
 .blocks h3.section { margin: 28px 0 8px; font-size: var(--t-lg); }
