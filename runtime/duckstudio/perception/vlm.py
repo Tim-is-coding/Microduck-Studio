@@ -144,6 +144,17 @@ SYSTEM_PROMPT = (
     "- `answer` is one short German sentence for the person watching the robot."
 )
 
+
+def check_prompt(question: str) -> str:
+    """A yes/no question in the shape every provider already answers (ADR-0012): `found`
+    carries the yes, so Claude, Gemini, OpenAI and the local stub need no second schema."""
+    return (
+        f"Yes/no question about this frame: {question!r}. Set `found` to true if the answer "
+        "is yes, and to false if it is no or you cannot tell from this frame. Set x and y "
+        "to -1. `answer` says yes or no in one short German sentence."
+    )
+
+
 ANSWER_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {

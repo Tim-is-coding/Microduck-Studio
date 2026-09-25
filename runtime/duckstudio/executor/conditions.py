@@ -45,6 +45,9 @@ class VlmRequest:
     text: Text  # the same question for the Studio, in every language the step has
     provider: str
     behavior_id: str
+    # "target": where is it (a pixel to steer by); "check": yes or no, for `only_if: ask`
+    # (ADR-0012). A check never leaves a target behind.
+    kind: str = "target"
 
 
 @dataclass

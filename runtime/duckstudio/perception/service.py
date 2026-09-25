@@ -31,6 +31,7 @@ from .vlm import (
     DEFAULT_HZ,
     VlmError,
     VlmProvider,
+    check_prompt,
     frame_size,
     sighting_from_answer,
 )
@@ -293,7 +294,10 @@ class PerceptionService:
                 continue
             self.vlm_calls += 1
             try:
-                answer = await provider.look(frame, request.question, timestamp=self.clock())
+                prompt = (
+                    check_prompt(request.question) if request.kind == "check" else request.question
+                )
+                answer = await provider.look(frame, prompt, timestamp=self.clock())
             except VlmError as e:
                 self._emit(
                     "vlm.failed", texts.vlm_failed(str(e)), level="warn", provider=provider.name
@@ -304,8 +308,12 @@ class PerceptionService:
                 log.warning("vlm provider failed: %r", e)
                 await asyncio.sleep(period)
                 continue
+            if self.snapshot.vlm_request != request:
+                # Asked for a step that is over: its answer must not decide the next one.
+                await asyncio.sleep(RETRY_S)
+                continue
             self.snapshot.vlm = answer
-            if answer.found:
+            if answer.found and request.kind == "target":
                 width, height = frame_size(frame)
                 sighting = sighting_from_answer(
                     answer,

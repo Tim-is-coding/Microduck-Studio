@@ -224,6 +224,11 @@ def system_prompt(
             "`question: {de, en}` and a top-level `vlm: {provider: "
             f'"{vlm_vendor}", purpose: {{de, en}}}}`; then walk with direction '
             "toward_target. Use it only for things that are not a person (a ball, a door).",
+            "- Any step may get `only_if` when the request says „wenn …“/„nur wenn …“: "
+            "{signal: 'person_found'} (also 'person_found == 0', 'tof_distance < 0.5', "
+            "'battery > 0.3', standing, sitting), or {ask: {de, en}, expect: yes|no} to ask "
+            "the AI model a yes/no question about the picture (needs the top-level `vlm` "
+            "like vlm.target). A step whose check says no is skipped.",
             "- A walk step that could go on for ever gets `until`, e.g. "
             '{"any": [{"speech": {"de": ["Stopp"], "en": ["Stop"]}}, {"elapsed": "5m"}]}.',
             "- Say how it starts: `trigger` {kind: speech, phrases: {de: [...], en: [...]}} "

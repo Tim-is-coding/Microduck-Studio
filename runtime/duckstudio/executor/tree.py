@@ -5,10 +5,13 @@ One tick (10 Hz, §6.4):
   2. gamepad preemption → stop and hand over,
   3. `always` rules (interrupts) are checked before the active node; while one runs, the
      step waits; `resume` returns to it,
-  4. the active step: perceive / skill / wait — each skill run checks its end conditions
+  4. a step's `only_if` is settled before it starts: a signal at once (a moment's patience
+     while it is unknown), a question to the model when its answer comes (ADR-0012); no
+     means the step is skipped with a sentence in the log,
+  5. the active step: perceive / skill / wait — each skill run checks its end conditions
      (`until`, manifest `terminates_on`) first and only then sends at most one intent or
      behavior through the IntentGate, honouring the manifest's `rate_hz`,
-  5. speech heard this tick is consumed, the watchdog is petted.
+  6. speech heard this tick is consumed, the watchdog is petted.
 
 Movement intents are resent every tick while a walk step is active: that IS the heartbeat
 robotd's 500 ms deadman wants (docs/upstream-notes.md). Every transition emits an Event with
@@ -33,9 +36,11 @@ from ..backends.base import BackendError, BehaviorRefused
 from ..behaviors.schema import (
     RESERVED_ACTIONS,
     AlwaysRule,
+    AskCheck,
     BehaviorPack,
     ElapsedCondition,
     PerceiveStep,
+    SignalCheck,
     SignalCondition,
     SkillStep,
     SpeechCondition,
@@ -70,6 +75,10 @@ DEFAULT_BEHAVIOR_BUDGET_S = 10.0
 QUICK_BEHAVIOR_BUDGET_S = 1.5  # behaviors whose only end is `timeout` (quack)
 PERCEIVE_BUDGET_S = 30.0
 PRECONDITION_PATIENCE_S = 5.0  # how long a step may wait for e.g. `standing`
+CHECK_PATIENCE_S = 2.0  # `only_if` on a signal nobody has reported yet (a camera warming up)
+# `only_if: ask`: long enough for a model at the default 0.5 Hz to be asked twice with a slow
+# answer each time, short enough that a missing key or a dead network does not stall the run.
+CHECK_ASK_BUDGET_S = 12.0
 MAX_SAME_INTERRUPT = 3
 TURN_GAIN = 1.5
 TURN_FIRST_RAD = 0.35
@@ -189,6 +198,10 @@ class Executor:
         self.interrupt: InterruptRun | None = None
         self.reason: texts.Bilingual | None = None
         self._announced_none = False  # "nothing found" is worth saying once, not every sweep
+        self._checking = False  # the current step's `only_if` is not settled yet
+        self._check_since = 0.0
+        self._resume_request: VlmRequest | None = None  # a target asked for before the check
+        self.skipped: list[int] = []  # steps of this run whose `only_if` said no
         self.counters = _Counters()
         self.history: deque[RunRecord] = deque(maxlen=HISTORY_DEPTH)
         self.runs_recorded = 0  # ever, so the Studio can tell a new record from a poll it missed
@@ -214,6 +227,9 @@ class Executor:
         self.run = self.on_none_run = None
         self.interrupt = None
         self._announced_none = False
+        self._checking = False
+        self._resume_request = None
+        self.skipped = []
         self.counters = _Counters()
         self._started_at = self.now()
         self._started_mono = self.clock()
@@ -224,7 +240,7 @@ class Executor:
         self._clear_vlm_request()
         self.snapshot.target = self.snapshot.vlm = None
         self.bus.emit("behavior.started", *texts.behavior_started(pack.name), behavior=pack.id)
-        self._announce_step()
+        self._enter_step()
         self.watchdog.start()
         self._task = asyncio.create_task(self._loop(), name=f"executor-{pack.id}")
 
@@ -304,6 +320,8 @@ class Executor:
             "intents_sent": self.counters.intents_sent,
             "runs_recorded": self.runs_recorded,
             "stuck": self.state == "running" and self.progress.stuck,
+            "skipped": list(self.skipped),
+            "checking": self.state == "running" and self._checking,
         }
 
     async def close(self) -> None:
@@ -356,6 +374,17 @@ class Executor:
                 await self._tick_interrupt()
                 return
             step = self.pack.steps[self.step_index]
+            if self._checking:
+                verdict = self._tick_check(step)
+                if verdict is None:
+                    return  # still waiting for the signal or the answer
+                if not verdict:
+                    self.skipped.append(self.step_index)
+                    await self._advance()
+                    return
+                self._checking = False
+                self.step_started = snap.now  # the step's own clock starts after its check
+                self._announce_step()
             status = await self._tick_step(step)
             if status == Status.SUCCESS:
                 await self._advance()
@@ -382,6 +411,95 @@ class Executor:
             self.bus.emit("progress.moving", *texts.moving_again())
 
     # -- transitions -----------------------------------------------------------------------
+
+    def _enter_step(self) -> None:
+        """The step is next. Without `only_if` it starts now; with one, its check comes first."""
+        assert self.pack is not None
+        check = self.pack.steps[self.step_index].only_if
+        self._checking = check is not None
+        if check is None:
+            self._announce_step()
+            return
+        self._check_since = self.clock()
+        if isinstance(check, AskCheck):
+            self.bus.emit(
+                "step.checking",
+                *texts.step_checking(self.step_index + 1, self._clause(check)),
+                step=self.step_index,
+                behavior=self.pack.id,
+            )
+            self._ask(check)
+
+    @staticmethod
+    def _clause(check: SignalCheck | AskCheck) -> texts.Bilingual:
+        if isinstance(check, AskCheck):
+            return texts.check_clause(ask=check.ask, expect=check.expect)
+        return texts.check_clause(check.signal)
+
+    def _ask(self, check: AskCheck) -> None:
+        """Put the yes/no question to the model the behavior opted into (§7). A target asked
+        for earlier is set aside and comes back once the check is settled, so a
+        `toward_target` walk behind the check still has something to steer by."""
+        assert self.pack is not None
+        if self.pack.vlm is None:  # the schema forbids it; be sure anyway
+            return
+        current = self.snapshot.vlm_request
+        if current is not None and current.kind == "target":
+            self._resume_request = current
+        self.snapshot.vlm_request = VlmRequest(
+            question=check.ask.de,
+            text=check.ask,
+            provider=self.pack.vlm.provider,
+            behavior_id=self.pack.id,
+            kind="check",
+        )
+
+    def _end_ask(self) -> None:
+        self.snapshot.vlm_request, self._resume_request = self._resume_request, None
+
+    def _tick_check(self, step: Any) -> bool | None:
+        """True: run the step. False: skip it (said in the log). None: not settled yet."""
+        snap = self.snapshot
+        check = step.only_if
+        n = self.step_index + 1
+        waited = snap.now - self._check_since
+        clause = self._clause(check)
+        if isinstance(check, SignalCheck):
+            holds = evaluate(check.signal, snap)
+            if holds is None:
+                if waited < CHECK_PATIENCE_S:
+                    return None
+                self.bus.emit(
+                    "step.skipped", *texts.step_skipped_unknown(n, clause), step=self.step_index
+                )
+                return False
+            if not holds:
+                self.bus.emit("step.skipped", *texts.step_skipped(n, clause), step=self.step_index)
+            return holds
+        answer = snap.vlm
+        asked = snap.vlm_request
+        if (
+            answer is not None
+            and asked is not None
+            and asked.kind == "check"
+            and answer.timestamp >= self._check_since
+        ):
+            self._end_ask()
+            self.bus.emit("step.checked", *texts.check_answered(answer.found), step=self.step_index)
+            passed = answer.found == (check.expect == "yes")
+            if not passed:
+                self.bus.emit("step.skipped", *texts.step_skipped(n, clause), step=self.step_index)
+            return passed
+        if waited >= CHECK_ASK_BUDGET_S or asked is None:
+            self._end_ask()
+            self.bus.emit(
+                "step.skipped",
+                *texts.step_skipped_no_answer(n, check.ask),
+                level="warn",
+                step=self.step_index,
+            )
+            return False
+        return None
 
     def _announce_step(self) -> None:
         assert self.pack is not None
@@ -416,7 +534,7 @@ class Executor:
                 "behavior.done", *texts.behavior_done(self.pack.name), behavior=self.pack.id
             )
             return
-        self._announce_step()
+        self._enter_step()
 
     async def _fail(self, reason: texts.Bilingual, *, stop: bool) -> None:
         if self.state != "running":
@@ -583,6 +701,7 @@ class Executor:
         """
         self.snapshot.vlm_request = None
         self.snapshot.target = None
+        self._resume_request = None
 
     def _seen(self, step: PerceiveStep) -> Sighting | None:
         return self.snapshot.target_fresh if step.uses_vlm else self.snapshot.person_fresh

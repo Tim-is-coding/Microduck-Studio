@@ -148,3 +148,56 @@ async def test_the_log_stays_readable_when_the_answer_does_not_change() -> None:
         assert len(answers) == 1  # five identical answers, one line
     finally:
         await svc.close()
+
+
+CHECK = VlmRequest(
+    question="Liegt der Ball auf dem Boden?",
+    text=Text(de="Liegt der Ball auf dem Boden?", en="Is the ball on the floor?"),
+    provider="anthropic",
+    behavior_id="demo",
+    kind="check",
+)
+
+
+async def test_a_check_is_asked_as_yes_or_no_and_leaves_no_target() -> None:
+    """ADR-0012: the same provider answers, `found` carries the yes, and there is nothing to
+    steer at afterwards."""
+    vlm = RecordingVlm()
+    svc, snap, _, _ = await service(vlm)
+    snap.vlm_request = CHECK
+    svc.start()
+    try:
+        assert await settle(lambda: snap.vlm is not None)
+        prompt = vlm.calls[0][1]
+        assert "Liegt der Ball auf dem Boden?" in prompt and "yes" in prompt.lower()
+        assert snap.vlm.found is True
+        assert snap.target is None
+    finally:
+        await svc.close()
+
+
+async def test_an_answer_for_a_withdrawn_question_is_dropped() -> None:
+    """The model was still thinking about the last step's question when the next one came."""
+    vlm = RecordingVlm()
+    svc, snap, _, _ = await service(vlm)
+    started = asyncio.Event()
+    release = asyncio.Event()
+    original = vlm.look
+
+    async def slow_look(frame: bytes, question: str, *, timestamp: float | None = None):
+        started.set()
+        await release.wait()
+        return await original(frame, question, timestamp=timestamp)
+
+    vlm.look = slow_look  # type: ignore[method-assign]
+    snap.vlm_request = REQUEST
+    svc.start()
+    try:
+        await asyncio.wait_for(started.wait(), 2.0)
+        snap.vlm_request = CHECK
+        release.set()
+        await asyncio.sleep(0.1)
+        assert snap.vlm is None or snap.vlm.question != "Wo ist der rote Ball?"
+        assert snap.target is None
+    finally:
+        await svc.close()

@@ -27,6 +27,29 @@
       "title": "AlwaysRule",
       "type": "object"
     },
+    "AskCheck": {
+      "additionalProperties": false,
+      "description": "Run the step only if the model the behavior opted into answers yes (or no) to a\nquestion about the current frame (ADR-0012). Needs the `vlm:` opt-in like any frame that\nleaves the runtime (§7).",
+      "properties": {
+        "ask": {
+          "$ref": "#/$defs/Text"
+        },
+        "expect": {
+          "default": "yes",
+          "enum": [
+            "yes",
+            "no"
+          ],
+          "title": "Expect",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ask"
+      ],
+      "title": "AskCheck",
+      "type": "object"
+    },
     "ElapsedCondition": {
       "additionalProperties": false,
       "properties": {
@@ -106,6 +129,21 @@
           ],
           "default": null
         },
+        "only_if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SignalCheck"
+            },
+            {
+              "$ref": "#/$defs/AskCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Only If"
+        },
         "perceive": {
           "description": "Perception query, e.g. person.nearest",
           "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
@@ -164,6 +202,23 @@
       "title": "Phrases",
       "type": "object"
     },
+    "SignalCheck": {
+      "additionalProperties": false,
+      "description": "Run the step only if a signal holds right now: `person_found`, `tof_distance < 0.5`.",
+      "properties": {
+        "signal": {
+          "description": "A signal name, optionally compared to a number: 'battery > 0.15'.",
+          "pattern": "^[a-z][a-z0-9_.]*(\\s*(<=|>=|==|!=|<|>)\\s*-?\\d+(\\.\\d+)?)?$",
+          "title": "Signal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "signal"
+      ],
+      "title": "SignalCheck",
+      "type": "object"
+    },
     "SignalCondition": {
       "additionalProperties": false,
       "properties": {
@@ -183,6 +238,21 @@
     "SkillStep": {
       "additionalProperties": false,
       "properties": {
+        "only_if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SignalCheck"
+            },
+            {
+              "$ref": "#/$defs/AskCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Only If"
+        },
         "skill": {
           "maxLength": 64,
           "pattern": "^[a-z][a-z0-9_-]*$",
@@ -376,6 +446,21 @@
     "WaitStep": {
       "additionalProperties": false,
       "properties": {
+        "only_if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SignalCheck"
+            },
+            {
+              "$ref": "#/$defs/AskCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Only If"
+        },
         "wait": {
           "description": "Duration such as '5s' or '10m'.",
           "pattern": "^\\d+(\\.\\d+)?(ms|s|m|h)$",

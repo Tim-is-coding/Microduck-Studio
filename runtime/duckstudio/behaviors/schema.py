@@ -1,12 +1,13 @@
 """Behavior pack schema (`duckstudio.behavior/v0`, CLAUDE.md §6.2).
 
-A behavior is a vertical list of steps with side branches (§3.2): `on_none` when a
-perception step finds nothing, `until` to end a skill step, and `always` rules that
-interrupt any step. No free-form graphs.
+A behavior is a vertical list of steps with side branches (§3.2): `only_if` to skip a step
+(ADR-0012), `on_none` when a perception step finds nothing, `until` to end a skill step, and
+`always` rules that interrupt any step. No free-form graphs.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
@@ -22,6 +23,24 @@ RESERVED_ACTIONS = frozenset({"resume", "abort", "stop", "retry", "continue"})
 # frame; `vlm.*` by the model the behavior opted into, 0.5–2 Hz (§4, ADR-0004).
 PERCEIVE_QUERIES = frozenset({"person.nearest", "vlm.target"})
 VLM_QUERY_PREFIX = "vlm."
+# What `only_if: {signal: …}` may look at: what the duck and its sensors say right now
+# (executor/conditions.py, `signal_value`).
+CHECK_SIGNALS = frozenset(
+    {
+        "battery",
+        "motor_hot",
+        "standing",
+        "fallen",
+        "sitting",
+        "moving",
+        "steady",
+        "tof_distance",
+        "person_found",
+        "person_distance",
+        "target_found",
+        "target_distance",
+    }
+)
 
 Scalar = str | float | int | bool
 
@@ -72,6 +91,35 @@ class OnNone(Strict):
     then: Literal["retry", "abort", "continue"] = "retry"
 
 
+class SignalCheck(Strict):
+    """Run the step only if a signal holds right now: `person_found`, `tof_distance < 0.5`."""
+
+    signal: ConditionStr
+
+    @model_validator(mode="after")
+    def _known_signal(self) -> SignalCheck:
+        # An unknown signal is never true, so the step would be skipped every time without a
+        # word. Step-context signals (`timeout`, `elapsed`, `target_reached`) mean nothing
+        # before the step has started.
+        name = re.split(r"\s|[<>=!]", self.signal.strip(), maxsplit=1)[0]
+        if name not in CHECK_SIGNALS:
+            known = ", ".join(sorted(CHECK_SIGNALS))
+            raise ValueError(f"`only_if` cannot check {name!r} (it can: {known})")
+        return self
+
+
+class AskCheck(Strict):
+    """Run the step only if the model the behavior opted into answers yes (or no) to a
+    question about the current frame (ADR-0012). Needs the `vlm:` opt-in like any frame that
+    leaves the runtime (§7)."""
+
+    ask: Text
+    expect: Literal["yes", "no"] = "yes"
+
+
+Check = SignalCheck | AskCheck
+
+
 class PerceiveStep(Strict):
     perceive: str = Field(
         pattern=r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$",
@@ -79,6 +127,7 @@ class PerceiveStep(Strict):
     )
     question: Text | None = None  # what the VLM is asked, in the user's own words
     on_none: OnNone | None = None
+    only_if: Check | None = None
 
     @property
     def uses_vlm(self) -> bool:
@@ -100,13 +149,22 @@ class SkillStep(Strict):
     skill: Identifier
     with_: dict[str, Scalar] = Field(default_factory=dict, alias="with")
     until: Until | None = None
+    only_if: Check | None = None
 
 
 class WaitStep(Strict):
     wait: DurationStr
+    only_if: Check | None = None
 
 
 Step = PerceiveStep | SkillStep | WaitStep
+
+
+def step_uses_vlm(step: Step) -> bool:
+    """Does this step send a frame to a model — to find something, or to ask about it?"""
+    if isinstance(step.only_if, AskCheck):
+        return True
+    return isinstance(step, PerceiveStep) and step.uses_vlm
 
 
 class AlwaysRule(Strict):
@@ -134,7 +192,7 @@ class BehaviorPack(Strict):
     @model_validator(mode="after")
     def _vlm_steps_need_opt_in(self) -> BehaviorPack:
         """§7: a frame only ever leaves the runtime for a behavior that says so, by name."""
-        if self.vlm is None and any(isinstance(s, PerceiveStep) and s.uses_vlm for s in self.steps):
+        if self.vlm is None and any(step_uses_vlm(s) for s in self.steps):
             raise ValueError(
                 "a step asks a VLM, so the behavior needs a `vlm:` opt-in naming the provider"
             )

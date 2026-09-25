@@ -14,7 +14,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 
-from .common import Text
+from .common import Condition, Text
 
 Bilingual = tuple[str, str]
 
@@ -280,6 +280,129 @@ def step_skill(number: int, skill: Text, options: Bilingual = ("", "")) -> Bilin
 
 def step_wait(number: int, duration: str) -> Bilingual:
     return f"Schritt {number}: Warte {duration}.", f"Step {number}: waiting {duration}."
+
+
+# `only_if` (ADR-0012): the check as the clause after „nur wenn“ / "only if".
+_CHECK_FLAGS: dict[str, tuple[Bilingual, Bilingual]] = {  # signal → (holds, does not hold)
+    "person_found": (
+        ("jemand zu sehen ist", "someone is in view"),
+        ("niemand zu sehen ist", "nobody is in view"),
+    ),
+    "target_found": (
+        ("das Ziel zu sehen ist", "the target is in view"),
+        ("das Ziel nicht zu sehen ist", "the target is not in view"),
+    ),
+    "standing": (
+        ("die Ente steht", "the duck is standing"),
+        ("die Ente nicht steht", "the duck is not standing"),
+    ),
+    "steady": (
+        ("die Ente sicher steht", "the duck is steady"),
+        ("die Ente nicht sicher steht", "the duck is not steady"),
+    ),
+    "sitting": (
+        ("die Ente sitzt", "the duck is sitting"),
+        ("die Ente nicht sitzt", "the duck is not sitting"),
+    ),
+    "fallen": (
+        ("die Ente umgefallen ist", "the duck has fallen over"),
+        ("die Ente nicht umgefallen ist", "the duck has not fallen over"),
+    ),
+    "moving": (
+        ("die Ente sich bewegt", "the duck is moving"),
+        ("die Ente still steht", "the duck is still"),
+    ),
+    "motor_hot": (
+        ("ein Motor zu heiß ist", "a motor is too hot"),
+        ("kein Motor zu heiß ist", "no motor is too hot"),
+    ),
+}
+_CHECK_MORE: Bilingual = ("mehr als", "more than")
+_CHECK_LESS: Bilingual = ("weniger als", "less than")
+
+
+def check_clause(
+    signal: str | None = None, *, ask: Text | None = None, expect: str = "yes"
+) -> Bilingual:
+    """„jemand zu sehen ist“, „ein Hindernis näher als 50 cm ist“, „die KI auf „…“ ja sagt“."""
+    if ask is not None:
+        de, en = quoted(ask)
+        word = ("ja", "yes") if expect == "yes" else ("nein", "no")
+        return f"die KI auf {de} {word[0]} sagt", f"the model says {word[1]} to {en}"
+    assert signal is not None
+    cond = Condition.parse(signal)
+    if cond.signal in _CHECK_FLAGS:
+        holds, fails = _CHECK_FLAGS[cond.signal]
+        if cond.op is None:
+            return holds
+        if cond.value is not None and cond.op in ("==", "!=", "<", "<=", ">", ">="):
+            truthy = {"==": cond.value != 0, "!=": cond.value == 0}.get(cond.op)
+            if truthy is not None:
+                return holds if truthy else fails
+    if cond.value is not None and cond.op in ("<", "<=", ">", ">="):
+        more = cond.op in (">", ">=")
+        cm = pct = num(cond.value * 100, 0)  # metres and fractions, as the Studio shows them
+        m = num(cond.value)
+        match cond.signal:
+            case "tof_distance":
+                if more:
+                    return (f"vorne {cm[0]} cm frei sind", f"the way is clear for {cm[1]} cm")
+                return (
+                    f"ein Hindernis näher als {cm[0]} cm ist",
+                    f"an obstacle is closer than {cm[1]} cm",
+                )
+            case "battery":
+                w = _CHECK_MORE if more else _CHECK_LESS
+                return (f"der Akku {w[0]} {pct[0]} % hat", f"the battery has {w[1]} {pct[1]} %")
+            case "person_distance" | "target_distance":
+                who = (
+                    ("die Person", "the person")
+                    if cond.signal == "person_distance"
+                    else ("das Ziel", "the target")
+                )
+                w = _CHECK_MORE if more else _CHECK_LESS
+                return (
+                    f"{who[0]} {w[0]} {m[0]} m entfernt ist",
+                    f"{who[1]} is {w[1]} {m[1]} m away",
+                )
+    return signal, signal
+
+
+def step_checking(number: int, clause: Bilingual) -> Bilingual:
+    return (
+        f"Schritt {number}: Erst prüfen, ob {clause[0]}.",
+        f"Step {number}: checking first whether {clause[1]}.",
+    )
+
+
+def step_skipped(number: int, clause: Bilingual) -> Bilingual:
+    return (
+        f"Schritt {number} übersprungen: nur wenn {clause[0]}.",
+        f"Step {number} skipped: only if {clause[1]}.",
+    )
+
+
+def step_skipped_unknown(number: int, clause: Bilingual) -> Bilingual:
+    return (
+        f"Schritt {number} übersprungen: nicht zu sagen, ob {clause[0]}.",
+        f"Step {number} skipped: no way to tell whether {clause[1]}.",
+    )
+
+
+def step_skipped_no_answer(number: int, question: Text) -> Bilingual:
+    de, en = quoted(question)
+    return (
+        f"Schritt {number} übersprungen: keine Antwort der KI auf {de}.",
+        f"Step {number} skipped: no answer from the model to {en}.",
+    )
+
+
+def check_answered(yes: bool) -> Bilingual:
+    return (
+        ("Die KI sagt ja.", "The model says yes.")
+        if yes
+        else ("Die KI sagt nein.", "The model says no.")
+    )
 
 
 def step_ended(number: int, ok: bool, reason: Bilingual) -> Bilingual:
