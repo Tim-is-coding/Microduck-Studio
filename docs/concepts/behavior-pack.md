@@ -25,6 +25,11 @@ steps:
     with: { direction: toward_person, tempo: easy, distance: 60 }
     until: { any: [speech: { de: ["Stopp"] }, elapsed: 10m] }
   - wait: 2s                                # WaitStep
+  - skill: quack
+    only_if: { signal: person_found }       # any step: skipped unless it holds (ADR-0012)
+  - skill: walk
+    with: { direction: toward_target, distance: 40 }
+    only_if: { ask: { de: "Liegt der Ball auf dem Boden?" }, expect: yes }   # needs `vlm:`
 always:
   - on: fallen
     do: [getup, resume]
@@ -39,6 +44,12 @@ vlm: { provider: anthropic }                # optional opt-in, shown in the Stud
   control's options/range by `validate_against_registry`.
 - `until` has exactly one of `any` / `all`, each a list of `speech`, `elapsed` or `signal`
   conditions.
+- `only_if` (ADR-0012) decides whether a step runs at all: `{signal: …}` with the
+  condition language, limited to what the duck reports right now (`person_found`,
+  `tof_distance`, `battery`, `standing`, …; not `timeout`/`elapsed`/`target_reached`), or
+  `{ask: {de, en}, expect: yes|no}`, a yes/no question to the model, which needs the `vlm:`
+  opt-in like `vlm.target`. No means the step is skipped with a sentence in the log; there
+  is no `else`.
 - `always.do` and `on_none.do` list skill ids or the reserved words `resume`, `abort`,
   `stop`, `retry`, `continue`.
 - `vlm` is the per-behavior opt-in required by `CLAUDE.md` §7; without it no frame leaves

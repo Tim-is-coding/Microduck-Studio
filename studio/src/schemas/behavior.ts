@@ -32,18 +32,35 @@ export const OnNone = z.strictObject({
   then: z.enum(["retry", "abort", "continue"]).default("retry"),
 });
 
+/** What `only_if: {signal}` may look at (runtime/duckstudio/behaviors/schema.py, CHECK_SIGNALS). */
+export const CHECK_SIGNALS = new Set([
+  "battery", "motor_hot", "standing", "fallen", "sitting", "moving", "steady",
+  "tof_distance", "person_found", "person_distance", "target_found", "target_distance",
+]);
+export const SignalCheck = z.strictObject({
+  signal: ConditionStr.refine((c) => CHECK_SIGNALS.has(c.trim().split(/[\s<>=!]/)[0] ?? ""), {
+    message: "`only_if` can only check what the duck and its sensors say right now",
+  }),
+});
+/** A yes/no question to the model the behavior opted into (ADR-0012). */
+export const AskCheck = z.strictObject({ ask: Text, expect: z.enum(["yes", "no"]).default("yes") });
+export const Check = z.union([SignalCheck, AskCheck]);
+export type Check = z.infer<typeof Check>;
+
 export const PerceiveStep = z.strictObject({
   perceive: z.string().regex(/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/),
   /** What a `vlm.*` step asks the model, in the user's own words. */
   question: Text.nullish(),
   on_none: OnNone.nullish(),
+  only_if: Check.nullish(),
 });
 export const SkillStep = z.strictObject({
   skill: Identifier,
   with: z.record(z.string(), Scalar).default({}),
   until: Until.nullish(),
+  only_if: Check.nullish(),
 });
-export const WaitStep = z.strictObject({ wait: DurationStr });
+export const WaitStep = z.strictObject({ wait: DurationStr, only_if: Check.nullish() });
 export const Step = z.union([PerceiveStep, SkillStep, WaitStep]);
 export type Step = z.infer<typeof Step>;
 export type PerceiveStep = z.infer<typeof PerceiveStep>;

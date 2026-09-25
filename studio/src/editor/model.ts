@@ -3,7 +3,7 @@
  * enforces (ids, step shapes, condition forms) can be unit-tested.
  */
 import type { Language, Localized } from "../i18n";
-import type { BehaviorPack, SkillManifest, Step, StopCondition, Trigger } from "../schemas";
+import type { BehaviorPack, Check, SkillManifest, Step, StopCondition, Trigger } from "../schemas";
 
 export const BEHAVIOR_SCHEMA_ID = "duckstudio.behavior/v0";
 export const PERCEIVE_QUERIES = ["person.nearest", "vlm.target"] as const;
@@ -123,7 +123,82 @@ export function setQuestion(step: Step, value: string, lang: Language = "de"): S
 }
 
 export function asksVlm(pack: BehaviorPack): boolean {
-  return pack.steps.some((s) => "perceive" in s && isVlmQuery(s.perceive));
+  return pack.steps.some((s) => ("perceive" in s && isVlmQuery(s.perceive)) || isAsk(s.only_if));
+}
+
+// -- only_if (ADR-0012) ------------------------------------------------------------------
+
+/** The choices the card offers. Each is one plain sentence; `other` keeps a signal written
+ *  by hand in YAML that none of them expresses, instead of quietly rewriting it. */
+export const CHECK_KINDS = ["someone", "nobody", "obstacle", "clear", "battery", "ask_yes", "ask_no"] as const;
+export type CheckKind = (typeof CHECK_KINDS)[number] | "other";
+
+export interface CheckForm {
+  kind: CheckKind;
+  /** cm for obstacle/clear, % for battery */
+  amount?: number;
+  question?: Localized;
+  signal?: string;
+}
+
+const CHECK_DEFAULT_AMOUNT: Partial<Record<CheckKind, number>> = { obstacle: 50, clear: 50, battery: 30 };
+
+export function isAsk(check: Check | null | undefined): check is Extract<Check, { ask: unknown }> {
+  return !!check && "ask" in check;
+}
+
+export function readCheck(check: Check): CheckForm {
+  if (isAsk(check)) return { kind: check.expect === "no" ? "ask_no" : "ask_yes", question: check.ask };
+  const sig = check.signal.replace(/\s+/g, " ").trim();
+  if (sig === "person_found" || sig === "person_found == 1" || sig === "person_found != 0") return { kind: "someone" };
+  if (sig === "person_found == 0" || sig === "person_found != 1") return { kind: "nobody" };
+  const m = /^(tof_distance|battery) (<|>=|>|<=) (-?\d+(?:\.\d+)?)$/.exec(sig);
+  if (m) {
+    const value = Number(m[3]);
+    if (m[1] === "tof_distance" && m[2] === "<") return { kind: "obstacle", amount: Math.round(value * 100) };
+    if (m[1] === "tof_distance" && m[2] === ">=") return { kind: "clear", amount: Math.round(value * 100) };
+    if (m[1] === "battery" && m[2] === ">") return { kind: "battery", amount: Math.round(value * 100) };
+  }
+  return { kind: "other", signal: check.signal };
+}
+
+export function writeCheck(form: CheckForm, lang: Language = "de"): Check {
+  const amount = form.amount ?? CHECK_DEFAULT_AMOUNT[form.kind] ?? 0;
+  switch (form.kind) {
+    case "someone":
+      return { signal: "person_found" };
+    case "nobody":
+      return { signal: "person_found == 0" };
+    case "obstacle":
+      return { signal: `tof_distance < ${amount / 100}` };
+    case "clear":
+      return { signal: `tof_distance >= ${amount / 100}` };
+    case "battery":
+      return { signal: `battery > ${amount / 100}` };
+    case "ask_yes":
+    case "ask_no": {
+      const fallback = lang === "en" ? { de: DEFAULT_CHECK_QUESTION, en: DEFAULT_CHECK_QUESTION_EN } : { de: DEFAULT_CHECK_QUESTION };
+      return { ask: form.question ?? fallback, expect: form.kind === "ask_no" ? "no" : "yes" };
+    }
+    default:
+      return { signal: form.signal ?? "person_found" };
+  }
+}
+
+export const DEFAULT_CHECK_QUESTION = "Liegt ein Ball auf dem Boden?";
+export const DEFAULT_CHECK_QUESTION_EN = "Is there a ball on the floor?";
+
+/** Switch the check on or off; keeps the rest of the step as it was. */
+export function setOnlyIf(step: Step, check: Check | null): Step {
+  const { only_if: _onlyIf, ...rest } = step;
+  return check ? ({ ...rest, only_if: check } as Step) : (rest as Step);
+}
+
+/** Change the check's kind, keeping an amount or a question where it still fits. */
+export function changeCheckKind(check: Check, kind: CheckKind, lang: Language = "de"): Check {
+  const form = readCheck(check);
+  const keepAmount = form.kind === kind || (["obstacle", "clear"].includes(form.kind) && ["obstacle", "clear"].includes(kind));
+  return writeCheck({ kind, amount: keepAmount ? form.amount : undefined, question: form.question }, lang);
 }
 
 /** A step that asks a model implies the opt-in (§7): the Studio shows the red line either
@@ -260,6 +335,12 @@ export function setVlm(pack: BehaviorPack, provider: string | null): BehaviorPac
   return provider ? { ...rest, vlm: { provider } } : rest;
 }
 
+function tidyCheck(check: Check): Check {
+  if (!isAsk(check)) return { signal: check.signal };
+  const ask = check.ask.en ? { de: check.ask.de, en: check.ask.en } : { de: check.ask.de };
+  return check.expect === "no" ? { ask, expect: "no" } : { ask, expect: "yes" };
+}
+
 /** Strip nulls and empty defaults so the saved YAML stays as short as a hand-written one. */
 export function tidy(pack: BehaviorPack): BehaviorPack {
   const out: BehaviorPack = {
@@ -268,10 +349,11 @@ export function tidy(pack: BehaviorPack): BehaviorPack {
     name: pack.name.en ? { de: pack.name.de, en: pack.name.en } : { de: pack.name.de },
     trigger: pack.trigger,
     steps: pack.steps.map((s) => {
+      const onlyIf = s.only_if ? tidyCheck(s.only_if) : undefined;
       if ("skill" in s) {
         const step: Step = { skill: s.skill, with: s.with };
-        if (s.until) return { ...step, until: s.until };
-        return step;
+        if (s.until) Object.assign(step, { until: s.until });
+        return onlyIf ? { ...step, only_if: onlyIf } : step;
       }
       if ("perceive" in s) {
         const step: Step = { perceive: s.perceive };
@@ -280,9 +362,11 @@ export function tidy(pack: BehaviorPack): BehaviorPack {
             question: s.question.en ? { de: s.question.de, en: s.question.en } : { de: s.question.de },
           });
         }
-        return s.on_none ? { ...step, on_none: s.on_none } : step;
+        if (s.on_none) Object.assign(step, { on_none: s.on_none });
+        return onlyIf ? { ...step, only_if: onlyIf } : step;
       }
-      return s;
+      const { only_if: _onlyIf, ...wait } = s;
+      return onlyIf ? { ...wait, only_if: onlyIf } : wait;
     }),
     always: pack.always,
   };

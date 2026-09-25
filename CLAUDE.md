@@ -75,6 +75,8 @@ Community (alles pre-hardware, Sim-only):
    Studio ohne Code erreichbar sein; die Entwickler-Sicht liegt daneben, nie davor.
 2. **Ablauf, kein freier Graph.** Ein Behavior ist eine vertikale Schrittliste mit
    Seitenzweigen (Bedingung, Interrupt). Freie Node-Graphen sind später möglich, jetzt nicht.
+   **Stand 2026-09-25, ADR-0012:** Bedingung = `only_if` an jedem Schritt („Nur wenn jemand zu
+   sehen ist“, „… die KI ja sagt auf …“); nein heißt übersprungen, mit Satz im Log. Kein `else`.
 3. **Simulation ist Normalzustand.** Das Studio startet mit „Simulation (MuJoCo) ·
    Ente nicht verbunden“ und ist damit vollständig benutzbar. Die echte Ente ist ein
    weiteres Backend, kein anderer Modus. **Stand 2026-09-23 (ADR-0007):** gewählt wird im

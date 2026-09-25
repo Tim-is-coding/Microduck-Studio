@@ -1,11 +1,18 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { formatDuration, t, tOr, text, type Language } from "../i18n";
-import { isPerceive, isSkill, isWait, type SkillManifest, type Step } from "../schemas";
+import { isPerceive, isSkill, isWait, type Check, type SkillManifest, type Step } from "../schemas";
 import {
+  CHECK_KINDS,
   PERCEIVE_QUERIES,
   THEN_OPTIONS,
+  changeCheckKind,
+  isAsk,
   isVlmQuery,
+  readCheck,
+  setLocalized,
+  setOnlyIf,
+  writeCheck,
   newStopCondition,
   setOnNone,
   setPerceiveQuery,
@@ -15,7 +22,7 @@ import {
 } from "../editor/model";
 import { Icon } from "../ui/Icon";
 import { ConditionEditor, DurationInput, UiControl } from "./Controls";
-import { controlUnit, describeConditions, optionLabel } from "./describe";
+import { controlUnit, describeCheck, describeConditions, optionLabel } from "./describe";
 
 interface Props {
   index: number;
@@ -26,6 +33,10 @@ interface Props {
   editable: boolean;
   active: boolean;
   done: boolean;
+  /** its `only_if` said no in this run (ADR-0012) */
+  skipped?: boolean;
+  /** active, and its `only_if` is not settled yet */
+  checking?: boolean;
   dragging: boolean;
   onChange: (step: Step) => void;
   onMove: (delta: -1 | 1) => void;
@@ -34,11 +45,12 @@ interface Props {
 }
 
 /** One station on the route: a step, viewed or edited in place. */
-export function StationCard({ index, count, step, skills, lang, editable, active, done, dragging, onChange, onMove, onRemove, onDragStart }: Props) {
-  const cls = ["station", active ? "active" : "", done ? "done" : "", editable ? "editing" : "", dragging ? "dragging" : ""].filter(Boolean).join(" ");
+export function StationCard({ index, count, step, skills, lang, editable, active, done, skipped = false, checking = false, dragging, onChange, onMove, onRemove, onDragStart }: Props) {
+  const cls = ["station", active ? "active" : "", done ? "done" : "", skipped ? "skipped" : "", editable ? "editing" : "", dragging ? "dragging" : ""].filter(Boolean).join(" ");
+  const nodeTitle = skipped ? t("route.step.skipped") : done ? t("route.step.done") : undefined;
   return (
     <div className={cls}>
-      <div className="node" title={done ? t("route.step.done") : undefined}>{done ? <Icon name="check" title={t("route.step.done")} /> : index + 1}</div>
+      <div className="node" title={nodeTitle}>{done && !skipped ? <Icon name="check" title={t("route.step.done")} /> : index + 1}</div>
       <div className="card">
         <div className="head">
           {editable && (
@@ -53,7 +65,8 @@ export function StationCard({ index, count, step, skills, lang, editable, active
             )}
             {isWait(step) && <div className="title">{t("route.wait", { duration: formatDuration(step.wait) })}</div>}
           </div>
-          {active && !editable && <span className="running"><span className="dot" />{t("route.step.running")}</span>}
+          {active && !editable && <span className="running"><span className="dot" />{t(checking ? "route.step.checking" : "route.step.running")}</span>}
+          {skipped && !active && !editable && <span className="skipnote">{t("route.step.skipped")}</span>}
           {editable && (
             <div className="actions">
               <button className="iconbtn" disabled={index === 0} onClick={() => onMove(-1)} title={t("editor.step.up")} type="button">↑</button>
@@ -62,6 +75,11 @@ export function StationCard({ index, count, step, skills, lang, editable, active
             </div>
           )}
         </div>
+        {editable ? (
+          <CheckEditor check={step.only_if ?? null} lang={lang} onChange={(c) => onChange(setOnlyIf(step, c))} />
+        ) : (
+          step.only_if && <CheckNote check={step.only_if} />
+        )}
         {isSkill(step) && <SkillBody editable={editable} onChange={onChange} skill={skills.get(step.skill)} step={step} />}
         {isPerceive(step) && <PerceiveBody editable={editable} lang={lang} onChange={onChange} skills={skills} step={step} />}
         {isWait(step) && editable && (
@@ -205,5 +223,72 @@ function PerceiveBody({ step, skills, lang, editable, onChange }: { step: Percei
         )}
       </div>
     </>
+  );
+}
+
+function CheckNote({ check }: { check: Check }) {
+  return (
+    <>
+      <div className="note check">{t("route.only_if", { clause: describeCheck(check) })}</div>
+      {isAsk(check) && <div className="vlm">{t("editor.perceive.question.hint")}</div>}
+    </>
+  );
+}
+
+const CHECK_LIMITS: Record<string, { min: number; max: number; unit: string }> = {
+  obstacle: { min: 10, max: 300, unit: "route.only_if.cm" },
+  clear: { min: 10, max: 300, unit: "route.only_if.cm" },
+  battery: { min: 5, max: 95, unit: "route.only_if.percent" },
+};
+
+/** „Nur wenn …“: a side branch that decides whether the step runs at all (ADR-0012). */
+function CheckEditor({ check, lang, onChange }: { check: Check | null; lang: Language; onChange: (c: Check | null) => void }) {
+  const form = check ? readCheck(check) : null;
+  const limits = form ? CHECK_LIMITS[form.kind] : undefined;
+  const ask = form?.kind === "ask_yes" || form?.kind === "ask_no";
+  return (
+    <div className="note check">
+      <label className="inline">
+        <input checked={check !== null} onChange={(e) => onChange(e.target.checked ? writeCheck({ kind: "someone" }, lang) : null)} type="checkbox" />
+        <span className="lead">{t("route.only_if.title")}</span>
+      </label>
+      {check && form && (
+        <>
+          <div className="row">
+            <select aria-label={t("route.only_if.title")} onChange={(e) => onChange(changeCheckKind(check, e.target.value as (typeof CHECK_KINDS)[number], lang))} value={form.kind}>
+              {CHECK_KINDS.map((k) => <option key={k} value={k}>{t(`check.kind.${k}`)}</option>)}
+              {form.kind === "other" && <option value="other">{describeCheck(check)}</option>}
+            </select>
+            {limits && (
+              <>
+                <input
+                  aria-label={t(limits.unit)}
+                  max={limits.max}
+                  min={limits.min}
+                  onChange={(e) => {
+                    const amount = Math.min(limits.max, Math.max(limits.min, Math.round(Number(e.target.value) || limits.min)));
+                    onChange(writeCheck({ ...form, amount }, lang));
+                  }}
+                  type="number"
+                  value={form.amount ?? ""}
+                />
+                <span>{t(limits.unit)}</span>
+              </>
+            )}
+          </div>
+          {ask && (
+            <label className="field wide">
+              <span>{t("route.only_if.question")}</span>
+              <input
+                onChange={(e) => onChange(writeCheck({ ...form, question: setLocalized(form.question, e.target.value, lang) ?? { de: e.target.value } }, lang))}
+                value={text(form.question)}
+              />
+            </label>
+          )}
+          <div className="sub">{t("route.only_if.else")}</div>
+          {ask && <div className="vlm">{t("editor.perceive.question.hint")}</div>}
+        </>
+      )}
+    </div>
   );
 }

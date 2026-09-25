@@ -201,6 +201,12 @@ try {
     await nameField().fill("Rauchtest");
     await addStep("Quaken");
     await until("Speichern wird klickbar", () => page.getByRole("button", { name: /^Speichern$/ }).isEnabled());
+    // „Nur wenn …“ (ADR-0012): the practice duck measures 1 m, so this step must be skipped
+    const check = page.locator(".station.editing .note.check").first();
+    await check.locator("input[type=checkbox]").check();
+    await check.locator("select").selectOption("obstacle");
+    await check.locator("input[type=number]").fill("10");
+    ok(/only_if:\s+signal: tof_distance < 0\.1/.test((await page.locator("details.file pre").textContent()) ?? ""), "only_if fehlt in der Datei");
   });
 
   await check("Speichern & Starten: die Runtime führt aus", async () => {
@@ -208,6 +214,9 @@ try {
     await until(`${SMOKE_ID} gespeichert`, async () => (await packs()).includes(SMOKE_ID));
     await until("Lauf beendet", async () => (await page.locator(".route .toolbar .hint").first().innerText()) === "fertig");
     ok((await page.locator(".live .log li").count()) > 1, "kein Protokoll");
+    await until("übersprungen, mit Grund", async () =>
+      (await page.locator(".live .log").innerText()).includes("Schritt 1 übersprungen: nur wenn ein Hindernis näher als 10 cm ist."));
+    ok(/übersprungen/.test(await page.locator(".station.skipped").first().innerText()), "Karte zeigt nicht „übersprungen“");
   });
 
   await check("Letzte Läufe zeigt den gerade beendeten Lauf", async () => {

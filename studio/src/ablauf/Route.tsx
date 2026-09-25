@@ -318,6 +318,7 @@ function RouteView({ pack, saved, draft, editable, connected, executor, runningT
             <StationCard
               active={runningThis && idx === i && !executor?.interrupt}
               count={pack.steps.length}
+              checking={Boolean(runningThis && idx === i && executor?.checking)}
               done={(runningThis && idx > i) || allDone}
               dragging={dragFrom === i}
               editable={editable}
@@ -332,6 +333,7 @@ function RouteView({ pack, saved, draft, editable, connected, executor, runningT
               onMove={(d) => onChange(moveStep(pack, i, d))}
               onRemove={() => onChange(removeStep(pack, i))}
               skills={skillMap}
+              skipped={Boolean((runningThis || allDone) && executor?.behavior === pack.id && executor.skipped.includes(i))}
               step={step}
             />
           </div>

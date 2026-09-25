@@ -310,6 +310,13 @@ button.duckstatus svg { width: 12px; height: 12px; color: var(--muted); }
 .station.trigger { border-top: 0; padding-top: 4px; }
 .station.trigger .node { top: 6px; }
 .station.done .title { color: var(--muted); }
+.station.skipped .title, .station.skipped .facts b { color: var(--muted); }
+.station.skipped .node { color: var(--mark-faint); }
+.skipnote { font-size: var(--t-sm); color: var(--muted); white-space: nowrap; }
+.note.check { margin-top: 8px; color: var(--ink-2); }
+.station.editing .note.check { margin-top: 14px; }
+.note.check .field { margin-top: 12px; }
+.note.check > .sub { margin-top: 8px; }
 .station.active::before { content: ""; position: absolute; left: calc(-1 * var(--num-col) - 40px); top: 20px; bottom: 20px; width: 3px; border-radius: 2px; background: var(--accent); }
 @media (max-width: 700px) { .station.active::before { left: calc(-1 * var(--num-col) - 18px); } }
 .station.active .node { color: var(--ink); font-weight: 600; }

@@ -1,6 +1,7 @@
 /** Turn schema values into the sentences the cards show, in the Studio's language. */
 import { formatDuration, number, phrases as phraseList, quote, quoteJoin, t, tOr, text } from "../i18n";
-import { parseCondition, type SkillManifest, type StopCondition, type Trigger } from "../schemas";
+import { readCheck } from "../editor/model";
+import { parseCondition, type Check, type SkillManifest, type StopCondition, type Trigger } from "../schemas";
 
 export function describeTrigger(trigger: Trigger): string {
   if (trigger.kind === "speech") return t("route.trigger.speech", { phrases: quoteJoin(phraseList(trigger.phrases), ", ") });
@@ -25,6 +26,14 @@ export function describeCondition(c: StopCondition): string {
   if ("speech" in c) return t("cond.speech", { phrases: quoteJoin(phraseList(c.speech), ` ${t("cond.or").trim()} `) });
   if ("elapsed" in c) return t("cond.elapsed", { duration: formatDuration(c.elapsed) });
   return describeSignal(c.signal);
+}
+
+/** `only_if` as the clause after „Nur wenn“ (ADR-0012), the same words the runtime logs. */
+export function describeCheck(check: Check): string {
+  const form = readCheck(check);
+  if (form.kind === "other") return describeSignal(form.signal ?? "");
+  if (form.kind === "ask_yes" || form.kind === "ask_no") return t(`check.clause.${form.kind}`, { question: quote(text(form.question)) });
+  return t(`check.clause.${form.kind}`, { amount: form.amount ?? 0 });
 }
 
 export function describeConditions(conditions: StopCondition[], mode: "any" | "all"): string {

@@ -40,6 +40,11 @@ answers; the service asks. The question stands while a following `direction: tow
 walk needs fresh bearings, and is withdrawn — with the sighting — when the behavior ends,
 is aborted or preempted, or when another perceive step takes over.
 
+A step's `only_if: {ask: …}` (ADR-0012) publishes a question of kind `check` instead: the
+service frames it as yes/no (`check_prompt`, `found` = yes), stores the answer and no
+sighting. An answer that comes back after its question was withdrawn is dropped, so a slow
+model cannot decide the next step with the last one's picture.
+
 The behavior names the vendor (its consent, ADR-0004); the router answers with that vendor
 if a key for it is there, else with the stub (ADR-0009):
 

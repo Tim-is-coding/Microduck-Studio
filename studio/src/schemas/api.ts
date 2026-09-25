@@ -143,6 +143,9 @@ export const ExecutorStatus = z.object({
   /** How many runs the runtime has recorded — a new number means the run list changed. */
   runs_recorded: z.number().default(0),
   stuck: z.boolean().default(false),
+  /** Steps of this run whose `only_if` said no (ADR-0012). */
+  skipped: z.array(z.number()).default([]),
+  checking: z.boolean().default(false),
   camera: z.boolean().nullable(),
   person: PersonDetection.nullable(),
   target: TargetSighting.nullable(),

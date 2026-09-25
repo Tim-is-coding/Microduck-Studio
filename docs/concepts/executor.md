@@ -19,7 +19,12 @@ branches (`CLAUDE.md` §3.2, §6.4). No general behaviour-tree library: the shap
    `getup` ends on `steady` — upright (≤ ~26°) without a break for 2 s — not on the first
    tick the duck is off the floor: the neck uncurls last, and a step resumed before that
    reads the floor as an obstacle (measured in duck-sim, `docs/upstream-notes.md`).
-4. **The active step**:
+4. **`only_if`**, when the step is next (ADR-0012): a signal is evaluated at once (2 s of
+   patience while it is unknown); an `ask` publishes a yes/no question (`VlmRequest.kind =
+   "check"`) and waits up to 12 s for an answer to a frame taken after it was put, then the
+   earlier target question, if any, comes back. No skips the step (`step.skipped`, listed in
+   `status().skipped`); yes starts it, and its own clock starts then.
+5. **The active step**:
    - `perceive: person.nearest` succeeds when a fresh detection (< 1 s) exists;
      `perceive: vlm.target` when a fresh VLM sighting (< 6 s) does — the step publishes its
      question, the perception service asks it (ADR-0004), the tick only reads the answer.
@@ -31,7 +36,7 @@ branches (`CLAUDE.md` §3.2, §6.4). No general behaviour-tree library: the shap
      `target_reached`) — and only then at most one intent or behavior goes out through the
      `IntentGate`, no faster than the manifest's `rate_hz`.
    - `wait:` counts down.
-5. Speech heard this tick is consumed; the watchdog is petted.
+6. Speech heard this tick is consumed; the watchdog is petted.
 
 ## Heartbeat = resending `robot.move`
 
